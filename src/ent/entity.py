@@ -1,0 +1,208 @@
+from abc import abstractmethod, ABC
+from pathlib import Path
+from typing import List
+
+from ent.EntKind import EntKind
+from ref.Ref import Ref
+
+
+class EntLongname:
+    @property
+    def longname(self) -> str:
+        return '.'.join(self._scope)
+
+    @property
+    def name(self) -> str:
+        return self._scope[-1]
+
+    def __init__(self, scope: List[str]):
+        self._scope = scope
+
+    def __eq__(self, other: "EntLongname"):
+        if isinstance(other, EntLongname) and len(other._scope) == len(self._scope):
+            for lhs, rhs in zip(self._scope, other._scope):
+                if lhs != rhs:
+                    return False
+            return True
+        return False
+
+
+class Location:
+    def append(self, name: str) -> "Location":
+        return Location(self._scope + [name])
+
+    def to_longname(self) -> EntLongname:
+        return EntLongname(self._scope)
+
+    def __init__(self, scope=None):
+        if scope is None:
+            scope = []
+        self._scope: List[str] = scope
+
+    def __eq__(self, other: "Location"):
+        if isinstance(other, Location) and len(other._scope) == len(self._scope):
+            for lhs, rhs in zip(self._scope, other._scope):
+                if lhs != rhs:
+                    return False
+            return True
+        return False
+
+    @classmethod
+    def global_name(cls, name: str) -> "Location":
+        return Location([name])
+
+
+# Entity is the abstract domain of the Abstract Interpreter
+class Entity(ABC):
+    @classmethod
+    def get_anonymous_ent(cls) -> "Entity":
+        return _anonymous_ent
+
+    def __init__(self, longname: EntLongname, location: Location):
+        self._refs: List[Ref] = []
+        self.longname = longname
+        self.location = location
+
+    def refs(self) -> List[Ref]:
+        return self._refs
+
+    @abstractmethod
+    def kind(self) -> EntKind:
+        ...
+
+    def add_ref(self, ref: Ref):
+        self._refs.append(ref)
+
+    def __eq__(self, other: "Entity") -> bool:
+        if isinstance(other, self.__class__):
+            return other.longname == self.longname and other.location == self.location
+        return False
+
+
+class Variable(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super().__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Variable
+
+
+class Function(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(Function, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Function
+
+
+class Module(Entity):
+    def __init__(self, file_path: Path):
+        import os
+        self.module_path = file_path
+        path = os.path.normpath(str(file_path)[:-len(".py")])
+        path_list = path.split(os.sep)
+        longname = EntLongname(path_list)
+        location = Location(path_list)
+        super(Module, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Module
+    @property
+    def module_longname(self) -> EntLongname:
+        return self.longname
+
+
+class ModuleAlias(Entity):
+    def __init__(self, file_path: Path, alias_location: Location):
+        self.module_path = file_path
+        self.alias_name = alias_location.to_longname().name
+        super(ModuleAlias, self).__init__(alias_location.to_longname(), alias_location)
+
+    @property
+    def module_longname(self) -> EntLongname:
+        import os
+        module_path = self.module_path
+        path = os.path.normpath(str(module_path))
+        path_list = path.split(os.sep)
+        longname = EntLongname(path_list)
+        return longname
+
+
+class Package(Entity):
+    def __init__(self, file_path: Path):
+        import os
+        path = os.path.normpath(str(file_path))
+        path_list = path.split(os.sep)
+        longname = EntLongname(path_list)
+        location = Location(path_list)
+        super(Package, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Package
+
+
+class Class(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(Class, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Class
+
+
+class UnknownVar(Entity):
+    def __init__(self, name: str, location: Location):
+        super(UnknownVar, self).__init__(EntLongname([name]), location)
+
+    def kind(self) -> EntKind:
+        return EntKind.UnknownVar
+
+
+class UnknownModule(Entity):
+    def __init__(self, name: str, location: Location):
+        super(UnknownModule, self).__init__(EntLongname([name]), location)
+
+    def kind(self) -> EntKind:
+        return EntKind.UnknownModule
+
+
+class Parameter(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(Parameter, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Parameter
+
+
+class Anonymous(Entity):
+    def __init__(self):
+        super(Anonymous, self).__init__(EntLongname([""]), Location([""]))
+
+    def kind(self) -> EntKind:
+        return EntKind.Anonymous
+
+
+class ClassAttribute(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(ClassAttribute, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.ClassAttr
+
+
+class ReferencedAttribute(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(ReferencedAttribute, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.ReferencedAttr
+
+
+class UnresolvedAttribute(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(UnresolvedAttribute, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.UnresolvedAttr
+
+
+_anonymous_ent: Anonymous = Anonymous()
