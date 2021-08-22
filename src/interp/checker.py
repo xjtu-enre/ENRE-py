@@ -6,7 +6,7 @@ from ent.EntKind import RefKind
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
     Entity
 from interp.aval import Avaler, EntType, ClassType, ConstructorType, ModuleType
-from interp.env import EntEnv, ScopeEnv, SubEnv
+from interp.env import EntEnv, ScopeEnv, SubEnv, not_in_class_env
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager
 from ref.Ref import Ref
@@ -65,7 +65,11 @@ class AInterp:
         # add parameters to the scope environment
         process_parameters(def_stmt, body_env, self.dep_db, env.get_class_ctx())
         # todo: add parameters to environment
-        env.get_scope().add_hook(def_stmt.body, body_env)
+        if not_in_class_env(env):
+            env.get_scope().add_hook(def_stmt.body, body_env)
+        else:
+            class_scope: ScopeEnv = env.get_class_scope()
+            class_scope.add_hook(def_stmt.body, body_env)
         # todo: fill until defined Function entity and ScopeEnv
 
     def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
@@ -80,6 +84,7 @@ class AInterp:
                 if isinstance(ent_type, ClassType):
                     self.dep_db.add_ref(class_ent, Ref(RefKind.InheritKind, base_ent))
 
+        # add class to current environment
         env.add(class_ent, ConstructorType(class_ent))
 
         body_env = ScopeEnv(ctx_ent=class_ent, location=new_scope, class_ctx=class_ent)
@@ -91,6 +96,8 @@ class AInterp:
         self.interp_top_stmts(class_stmt.body, env)
         env.pop_scope()
         # env.get_scope().add_hook(class_stmt.body, body_env)
+        # we can't use this solution because after class definition, the stmts after class definition should be able to
+        # known the class's attribute
 
     def interp_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         avaler = Avaler(self.dep_db)

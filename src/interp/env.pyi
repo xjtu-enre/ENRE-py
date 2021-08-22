@@ -49,7 +49,6 @@ class ScopeEnv:
 
     def get_class_ctx(self) -> Optional[Class]: ...
 
-
     def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]: ...
 
 
@@ -75,3 +74,10 @@ class EntEnv:
     def __init__(self, scope_env: ScopeEnv) -> None: ...
 
     def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]: ...
+
+    def get_class_scope(self) -> ScopeEnv:
+        pass
+
+
+def not_in_class_env(env: EntEnv) -> bool:
+    ...

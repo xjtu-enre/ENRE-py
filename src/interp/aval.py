@@ -137,8 +137,8 @@ class Avaler:
             else:
                 ret.append((Entity.get_anonymous_ent(), EntType.get_bot()))
             self._dep_db.add_ref(env.get_ctx(), Ref(RefKind.CallKind, caller))
-
         return ret
+
 
 def process_known_attr(attr_ents, attribute, ret, dep_db) -> None:
     if attr_ents != []:
@@ -161,7 +161,6 @@ class SetAvaler:
         visitor = getattr(self, method, self._avaler.aval)
         return visitor(expr, env)
 
-
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         ent_objs = env[name_expr.id]
         ctx = env.get_ctx()
@@ -174,4 +173,3 @@ class SetAvaler:
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         possible_ents = self.aval(attr_expr.value, env)
-

@@ -110,3 +110,18 @@ class EntEnv:
             if len(ents_in_scope) != 0:
                 return ents_in_scope
         return []
+
+    def get_class_scope(self):
+        from ent.entity import Class
+        for i in reversed(range(0, len(self.scope_envs))):
+            if isinstance(self.scope_envs[i].get_ctx(), Class):
+                return self.scope_envs[i - 1]
+
+        raise RuntimeError("Try to get class scope while not in any of class context!")
+
+
+def not_in_class_env(env):
+    scope = env.get_scope()
+    ctx_ent = scope.get_ctx()
+    from ent.entity import Class
+    return not isinstance(ctx_ent, Class)

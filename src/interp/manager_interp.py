@@ -100,7 +100,7 @@ class InterpManager:
             self.module_stack.pop()
             return module_ent
         else:
-            raise NotImplementedError("")
+            raise NotImplementedError("unknown module not implemented yet")
 
     def from_alias(self, from_path: Path, alias: str) -> Path:
         path_elems = alias.split(".")
