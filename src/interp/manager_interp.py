@@ -3,8 +3,10 @@ import typing as ty
 from pathlib import Path
 
 from dep.DepDB import DepDB
+from ent.EntKind import RefKind
 from ent.entity import Module, UnknownModule, Location
 from interp.env import EntEnv, ScopeEnv
+from ref.Ref import Ref
 
 
 class ModuleStack:
@@ -57,14 +59,17 @@ class InterpManager:
 
         return in_package
 
-    def workflow(self, path: Path = None):
-        if path is None:
-            path = self.project_root
+    def work_flow(self):
+        from passes.entity_pass import EntityPass
+        self.iter_dir(self.project_root)
+        entity_pass = EntityPass(self.dep_db)
+        entity_pass.resolve_referenced_attribute()
 
+    def iter_dir(self, path):
         from .checker import AInterp
         if path.is_dir():
             for sub_file in path.iterdir():
-                self.workflow(sub_file)
+                self.iter_dir(sub_file)
         elif path.name.endswith(".py"):
             if self.module_stack.finished_module(path):
                 return
@@ -80,10 +85,10 @@ class InterpManager:
                                              EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
-    def import_module(self, from_path: Path, module_alias: str) -> Module:
+    def import_module(self, from_module_ent: Module, module_alias: str, lineno: int, col_offset: int) -> Module:
 
         from .checker import AInterp
-        rel_path = self.from_alias(from_path, module_alias)
+        rel_path = self.from_alias(from_module_ent.module_path, module_alias)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
             from ent.entity import Module
             return Module(rel_path)
@@ -100,7 +105,11 @@ class InterpManager:
             self.module_stack.pop()
             return module_ent
         else:
-            raise NotImplementedError("unknown module not implemented yet")
+            unknown_module_name = module_alias.split(".")[-1]
+            unknown_module_ent = UnknownModule(unknown_module_name)
+            self.dep_db.add_ref(from_module_ent, Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
+            return unknown_module_ent
+            # raise NotImplementedError("unknown module not implemented yet")
 
     def from_alias(self, from_path: Path, alias: str) -> Path:
         path_elems = alias.split(".")

@@ -1,5 +1,4 @@
 import typing as ty
-
 from ent.EntKind import RefKind
 from ent.entity import Entity, Class, Module, EntLongname, ModuleAlias
 from ref.Ref import Ref
@@ -37,3 +36,6 @@ class DepDB:
 
     def get_module_attributes(self, ent: ty.Union[Module, ModuleAlias], attribute: str) -> ty.List[Entity]:
         return self._get_define_entities(ent.module_longname, attribute)
+
+    def remove(self, target: Entity):
+        self.ents.remove(target)

@@ -4,9 +4,9 @@ import typing as ty
 from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
-    Entity
-from interp.aval import Avaler, EntType, ClassType, ConstructorType, ModuleType
-from interp.env import EntEnv, ScopeEnv, SubEnv, not_in_class_env
+    Entity, UnresolvedAttribute
+from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
+from interp.env import EntEnv, ScopeEnv, SubEnv
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager
 from ref.Ref import Ref
@@ -18,7 +18,7 @@ class AInterp:
         self.module = ctx
         self.global_env: ty.List
         self.dep_db.add_ent(ctx)
-        self._avaler = Avaler(self.dep_db)
+        self._avaler = UseAvaler(self.dep_db)
 
     @property
     def dep_db(self) -> DepDB:
@@ -46,6 +46,7 @@ class AInterp:
                 self.interp(value, env)
 
     def interp_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
+        in_class_env = isinstance(env.get_ctx(), Class)
 
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(def_stmt.name)
@@ -54,7 +55,7 @@ class AInterp:
         # add function entity to dependency database
         self.dep_db.add_ent(func_ent)
         # add reference of current contest to the function entity
-        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, func_ent))
+        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
         env.add(func_ent, EntType.get_bot())
@@ -65,15 +66,13 @@ class AInterp:
         # add parameters to the scope environment
         process_parameters(def_stmt, body_env, self.dep_db, env.get_class_ctx())
         # todo: add parameters to environment
-        if not_in_class_env(env):
-            env.get_scope().add_hook(def_stmt.body, body_env)
-        else:
-            class_scope: ScopeEnv = env.get_class_scope()
-            class_scope.add_hook(def_stmt.body, body_env)
+        hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
+
+        hook_scope.add_hook(def_stmt.body, body_env)
         # todo: fill until defined Function entity and ScopeEnv
 
     def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
-        avaler = Avaler(self.dep_db)
+        avaler = UseAvaler(self.dep_db)
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(class_stmt.name)
         class_ent = Class(new_scope.to_longname(), new_scope)
@@ -82,7 +81,8 @@ class AInterp:
             avalue = avaler.aval(base_expr, env)
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ClassType):
-                    self.dep_db.add_ref(class_ent, Ref(RefKind.InheritKind, base_ent))
+                    self.dep_db.add_ref(class_ent,
+                                        Ref(RefKind.InheritKind, base_ent, class_stmt.lineno, class_stmt.col_offset))
 
         # add class to current environment
         env.add(class_ent, ConstructorType(class_ent))
@@ -100,7 +100,7 @@ class AInterp:
         # known the class's attribute
 
     def interp_If(self, if_stmt: ast.If, env: EntEnv) -> None:
-        avaler = Avaler(self.dep_db)
+        avaler = UseAvaler(self.dep_db)
         avaler.aval(if_stmt.test, env)
         env.add_sub_env(SubEnv())
         self.interp_stmts(if_stmt.body, env)
@@ -115,19 +115,24 @@ class AInterp:
     def interp_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
         rvalue_expr = assign_stmt.value
-        self.get_class_attr(target_exprs, env)
         self.process_assign_helper(rvalue_expr, target_exprs, env)
 
     def process_assign_helper(self, rvalue_rxpr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
-        avaler = Avaler(self.dep_db)
-        for value, value_type in avaler.aval(rvalue_rxpr, env):
+        set_avaler = SetAvaler(self.dep_db)
+        use_avaler = UseAvaler(self.dep_db)
+        for value, value_type in use_avaler.aval(rvalue_rxpr, env):
             for target_expr in target_exprs:
-                for target, target_type in avaler.aval(target_expr, env):
+                target_lineno = target_expr.lineno
+                target_col_offset = target_expr.col_offset
+                for target, target_type in set_avaler.aval(target_expr, env):
                     # target_ent should be the entity the target_expr could eval to
                     # if target entity is a defined variable or parameter
                     if isinstance(target, Variable) or isinstance(target, Parameter):
                         add_target_var(target, value_type, env, self.dep_db)
-                        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.SetKind, target))
+                        self.dep_db.add_ref(env.get_ctx(),
+                                            Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
+                        self.dep_db.add_ref(env.get_ctx(),
+                                            Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
                         # record the target assign to target entity
                     # if the target is a newly defined variable
                     elif isinstance(target, UnknownVar):
@@ -136,12 +141,24 @@ class AInterp:
                         location = location.append(target.longname.name)
                         new_var = Variable(location.to_longname(), location)
                         env.add(new_var, value_type)
-                        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, new_var))
-                        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.SetKind, new_var))
+                        self.dep_db.add_ref(env.get_ctx(),
+                                            Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
+                        self.dep_db.add_ref(env.get_ctx(),
+                                            Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
                         # record the target assign to target entity
                         # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
+                    elif isinstance(target, UnresolvedAttribute):
+                        if isinstance(target.receiver_type, ClassType):
+                            new_location = target.receiver_type.class_ent.location.append(target.longname.name)
+                            new_attr = ClassAttribute(new_location.to_longname(), new_location)
+                            self.dep_db.add_ref(target.receiver_type.class_ent,
+                                                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
+                            self.dep_db.add_ref(env.get_ctx(),
+                                                Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
+                            self.dep_db.remove(target)
                     else:
-                        self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.SetKind, target))
+                        self.dep_db.add_ref(env.get_ctx(),
+                                            Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
 
     def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
         target_expr = aug_stmt.target
@@ -150,14 +167,15 @@ class AInterp:
 
     def interp_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:
-            module_ent = self.manager.import_module(self.module.module_path, module_alias.name)
+            module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno, import_stmt.col_offset)
             if module_alias.asname is None:
                 env.add(module_ent, ModuleType.get_module_type())
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname)
                 module_alias_ent = ModuleAlias(module_ent.module_path, alias_location)
                 env.add(module_alias_ent, ModuleType.get_module_type())
-            self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.ImportKind, module_ent))
+            self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
+                                                   import_stmt.col_offset))
 
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:
@@ -211,20 +229,19 @@ def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB
     location = location.append(target.longname.name)
     new_var = Variable(location.to_longname(), location)
     scope_env.append_ent(new_var, ent_type)
-    dep_db.add_ref(scope_env.get_ctx(), Ref(RefKind.DefineKind, target))
 
 
 def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, class_ctx=ty.Optional[Class]):
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
 
-    def process_helper(id: str, ent_type=None):
+    def process_helper(a: ast.arg, ent_type=None):
         if ent_type == None:
             ent_type = EntType.get_bot()
-        parameter_loc = location_base.append(id)
+        parameter_loc = location_base.append(a.arg)
         parameter_ent = Parameter(parameter_loc.to_longname(), parameter_loc)
         env.append_ent(parameter_ent, ent_type)
-        dep_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent))
+        dep_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
     args = def_stmt.args
     for arg in args.posonlyargs:
@@ -237,21 +254,21 @@ def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, 
                 class_type = ClassType(class_ctx)
             else:
                 class_type = EntType.get_bot()
-            process_helper(first_arg, class_type)
+            process_helper(args.args[0], class_type)
         elif first_arg == "cls":
             if class_ctx is not None:
                 constructor_type = ConstructorType(class_ctx)
             else:
                 constructor_type = EntType.get_bot()
-            process_helper(first_arg, constructor_type)
+            process_helper(args.args[0], constructor_type)
         else:
-            process_helper(first_arg)
+            process_helper(args.args[0])
 
     for arg in args.args[1:]:
-        process_helper(arg.arg)
+        process_helper(arg)
     if args.vararg is not None:
-        process_helper(args.vararg.arg)
+        process_helper(args.vararg)
     for arg in args.kwonlyargs:
-        process_helper(arg.arg)
+        process_helper(arg)
     if args.kwarg is not None:
-        process_helper(args.kwarg.arg)
+        process_helper(args.kwarg)

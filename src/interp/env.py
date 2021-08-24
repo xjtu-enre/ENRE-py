@@ -77,8 +77,8 @@ class EntEnv:
     def add(self, target_ent: Entity, value):
         self.scope_envs[-1].append_ent(target_ent, value)
 
-    def get_scope(self):
-        return self.scope_envs[-1]
+    def get_scope(self, offset=0):
+        return self.scope_envs[-(offset+1)]
 
     def add_scope(self, scope_env: ScopeEnv):
         self.scope_envs.append(scope_env)
@@ -111,17 +111,3 @@ class EntEnv:
                 return ents_in_scope
         return []
 
-    def get_class_scope(self):
-        from ent.entity import Class
-        for i in reversed(range(0, len(self.scope_envs))):
-            if isinstance(self.scope_envs[i].get_ctx(), Class):
-                return self.scope_envs[i - 1]
-
-        raise RuntimeError("Try to get class scope while not in any of class context!")
-
-
-def not_in_class_env(env):
-    scope = env.get_scope()
-    ctx_ent = scope.get_ctx()
-    from ent.entity import Class
-    return not isinstance(ctx_ent, Class)

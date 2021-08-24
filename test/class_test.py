@@ -39,7 +39,7 @@ class MyException(Exception):
         super().__init__(*args)
 
 
-def print_A_x():
+def print_A_x(b):
     a = A()
     print()
     a.method()
@@ -49,5 +49,5 @@ def print_A_x():
     else:
         a = B()
     a.foo()
-    b = B()
+    b.x = 1
     raise MyException()

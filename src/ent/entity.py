@@ -66,6 +66,9 @@ class Entity(ABC):
     def refs(self) -> List[Ref]:
         return self._refs
 
+    def set_refs(self, refs: List[Ref]):
+        self._refs = refs
+
     @abstractmethod
     def kind(self) -> EntKind:
         ...
@@ -127,6 +130,9 @@ class ModuleAlias(Entity):
         longname = EntLongname(path_list)
         return longname
 
+    def kind(self) -> EntKind:
+        return EntKind.ModuleAlias
+
 
 class Package(Entity):
     def __init__(self, file_path: Path):
@@ -157,9 +163,9 @@ class UnknownVar(Entity):
         return EntKind.UnknownVar
 
 
-class UnknownModule(Entity):
-    def __init__(self, name: str, location: Location):
-        super(UnknownModule, self).__init__(EntLongname([name]), location)
+class UnknownModule(Module):
+    def __init__(self, name: str):
+        super(UnknownModule, self).__init__(Path(name))
 
     def kind(self) -> EntKind:
         return EntKind.UnknownModule
@@ -198,7 +204,8 @@ class ReferencedAttribute(Entity):
 
 
 class UnresolvedAttribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
+    def __init__(self, longname: EntLongname, location: Location, receiver_type):
+        self.receiver_type = receiver_type
         super(UnresolvedAttribute, self).__init__(longname, location)
 
     def kind(self) -> EntKind:

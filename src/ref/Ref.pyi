@@ -9,5 +9,9 @@ class Ref(ABC):
 
     target_ent: Entity
 
-    def __init__(self, ref_kind: RefKind, target_ent: Entity):
+    lineno: int
+
+    col_offset: int
+
+    def __init__(self, ref_kind: RefKind, target_ent: Entity, lineno: int, colno: int):
         ...
