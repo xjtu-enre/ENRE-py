@@ -15,3 +15,6 @@ class Ref(ABC):
 
     def __init__(self, ref_kind: RefKind, target_ent: Entity, lineno: int, colno: int):
         ...
+
+    def __eq__(self, other: object) -> bool:
+        ...

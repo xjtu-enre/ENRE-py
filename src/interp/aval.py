@@ -76,7 +76,7 @@ class UseAvaler:
 
     def generic_aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         """Called if no explicit visitor function exists for a node."""
-        ret = EntType.get_bot()
+        ret: EntType = EntType.get_bot()
         for field, value in ast.iter_fields(expr):
             if isinstance(value, list):
                 for item in value:
@@ -124,7 +124,8 @@ class UseAvaler:
         return ret
 
 
-def process_known_attr(attr_ents, attribute, ret, dep_db, container, receiver_type) -> None:
+def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
+                       container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
         ret.extend([(ent_x, EntType.get_bot()) for ent_x in attr_ents])
     else:
@@ -132,6 +133,7 @@ def process_known_attr(attr_ents, attribute, ret, dep_db, container, receiver_ty
         location = container.location.append(attribute)
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
         dep_db.add_ent(unresolved)
+        dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
         ret.append((unresolved, EntType.get_bot()))
 
 

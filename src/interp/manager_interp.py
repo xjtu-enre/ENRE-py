@@ -86,7 +86,6 @@ class InterpManager:
                 self.module_stack.pop()
 
     def import_module(self, from_module_ent: Module, module_alias: str, lineno: int, col_offset: int) -> Module:
-
         from .checker import AInterp
         rel_path = self.from_alias(from_module_ent.module_path, module_alias)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):

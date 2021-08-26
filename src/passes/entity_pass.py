@@ -24,7 +24,7 @@ class EntityPass:
             ent.set_refs(new_refs)
             return ent
 
-        def get_same_attr(target: Entity) -> List[Entity]:
+        def get_same_attr(target: Entity) -> List[ClassAttribute]:
             ret = []
             for ent in self.dep_db.ents:
                 if isinstance(ent, ClassAttribute):

@@ -195,6 +195,7 @@ class AInterp:
         for stmt in stmts:
             self.interp(stmt, env)
 
+    # unused function
     def get_class_attr(self, target_exprs: ty.List[ast.expr], env: EntEnv):
         class_ctx = env.get_class_ctx()
         if class_ctx is None:
@@ -212,7 +213,8 @@ class AInterp:
                 attr_location = class_ctx.location.append(attr)
                 self.dep_db.add_ref(class_ctx,
                                     Ref(RefKind.DefineKind,
-                                        ClassAttribute(attr_location.to_longname(), attr_location)))
+                                        ClassAttribute(attr_location.to_longname(), attr_location),
+                                        target_expr.lineno, target_expr.col_offset))
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
@@ -245,19 +247,19 @@ def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, 
 
     args = def_stmt.args
     for arg in args.posonlyargs:
-        process_helper(arg.arg)
+        process_helper(arg)
 
     if len(args.args) >= 1:
         first_arg = args.args[0].arg
         if first_arg == "self":
             if class_ctx is not None:
-                class_type = ClassType(class_ctx)
+                class_type: EntType = ClassType(class_ctx)
             else:
                 class_type = EntType.get_bot()
             process_helper(args.args[0], class_type)
         elif first_arg == "cls":
             if class_ctx is not None:
-                constructor_type = ConstructorType(class_ctx)
+                constructor_type: EntType = ConstructorType(class_ctx)
             else:
                 constructor_type = EntType.get_bot()
             process_helper(args.args[0], constructor_type)

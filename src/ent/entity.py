@@ -18,7 +18,7 @@ class EntLongname:
     def __init__(self, scope: List[str]):
         self._scope = scope
 
-    def __eq__(self, other: "EntLongname"):
+    def __eq__(self, other: object):
         if isinstance(other, EntLongname) and len(other._scope) == len(self._scope):
             for lhs, rhs in zip(self._scope, other._scope):
                 if lhs != rhs:
@@ -39,7 +39,7 @@ class Location:
             scope = []
         self._scope: List[str] = scope
 
-    def __eq__(self, other: "Location"):
+    def __eq__(self, other: object):
         if isinstance(other, Location) and len(other._scope) == len(self._scope):
             for lhs, rhs in zip(self._scope, other._scope):
                 if lhs != rhs:
@@ -74,9 +74,12 @@ class Entity(ABC):
         ...
 
     def add_ref(self, ref: Ref):
+        for ref_1 in self._refs:
+            if ref_1 == ref:
+                return
         self._refs.append(ref)
 
-    def __eq__(self, other: "Entity") -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
             return other.longname == self.longname and other.location == self.location
         return False
@@ -165,7 +168,7 @@ class UnknownVar(Entity):
 
 class UnknownModule(Module):
     def __init__(self, name: str):
-        super(UnknownModule, self).__init__(Path(name))
+        super(UnknownModule, self).__init__(Path(f"{name}.py"))
 
     def kind(self) -> EntKind:
         return EntKind.UnknownModule
