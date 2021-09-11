@@ -6,7 +6,7 @@ from ent.EntKind import RefKind
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
     Entity, UnresolvedAttribute
 from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
-from interp.env import EntEnv, ScopeEnv, SubEnv
+from interp.env import EntEnv, ScopeEnv, SubEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager
 from ref.Ref import Ref
@@ -100,22 +100,41 @@ class AInterp:
         # known the class's attribute
 
     def interp_If(self, if_stmt: ast.If, env: EntEnv) -> None:
+        in_len = len(env.get_scope())
         avaler = UseAvaler(self.dep_db)
         avaler.aval(if_stmt.test, env)
         env.add_sub_env(SubEnv())
         self.interp_stmts(if_stmt.body, env)
         body_env = env.pop_sub_env()
-        env.add_sub_env(body_env)
         for stmt in if_stmt.orelse:
             env.add_sub_env(SubEnv())
             self.interp(stmt, env)
             branch_env = env.pop_sub_env()
-            env.add_sub_env(branch_env)
+            body_env = ParallelSubEnv(body_env, branch_env)
+        forward_env = env.pop_sub_env()
+        env.add_sub_env(ContinuousSubEnv(forward_env, body_env))
+        out_len = len(env.get_scope())
+        # print(f"in length: {in_len} out length: {out_len}")
+        assert (in_len == out_len)
+
+
+    def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
+        self._avaler.aval(for_stmt.target, env)
+        self._avaler.aval(for_stmt.iter, env)
+        env.add_sub_env(SubEnv())
+        self.interp_stmts(for_stmt.body, env)
+        sub_env = env.pop_sub_env()
+        optional_sub_env = OptionalSubEnv(sub_env)
+        continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), optional_sub_env)
+        env.add_sub_env(continuous_sub_env)
 
     def interp_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
         rvalue_expr = assign_stmt.value
         self.process_assign_helper(rvalue_expr, target_exprs, env)
+
+    def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
+        self._avaler.aval(expr_stmt.value, env)
 
     def process_assign_helper(self, rvalue_rxpr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.dep_db)
@@ -125,12 +144,12 @@ class AInterp:
                 target_lineno = target_expr.lineno
                 target_col_offset = target_expr.col_offset
                 for target, target_type in set_avaler.aval(target_expr, env):
-                    # target_ent should be the entity the target_expr could eval to
-                    # if target entity is a defined variable or parameter
+                    # target_ent should be the entity which the target_expr could eval to
                     if isinstance(target, Variable) or isinstance(target, Parameter):
-                        add_target_var(target, value_type, env, self.dep_db)
-                        self.dep_db.add_ref(env.get_ctx(),
-                                            Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
+                        # if target entity is a defined variable or parameter, just add the target new type to the environment
+                        env.add(target, value_type)
+                        # add_target_var(target, value_type, env, self.dep_db)
+                        # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
                         self.dep_db.add_ref(env.get_ctx(),
                                             Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
                         # record the target assign to target entity
@@ -176,6 +195,9 @@ class AInterp:
                 env.add(module_alias_ent, ModuleType.get_module_type())
             self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
                                                    import_stmt.col_offset))
+
+    def interp_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
+        pass
 
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:

@@ -133,7 +133,9 @@ def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[
         location = container.location.append(attribute)
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
         dep_db.add_ent(unresolved)
-        dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
+        # dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
+        # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
+        # relation in the class entity, while in a self set context.
         ret.append((unresolved, EntType.get_bot()))
 
 
@@ -171,7 +173,8 @@ class SetAvaler:
         return visitor(expr, env)
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
-        ent_objs = env[name_expr.id]
+        # while in a set context, only entity in the current scope visible
+        ent_objs = env.get_scope()[name_expr.id]
         if ent_objs != []:
             return ent_objs
         else:

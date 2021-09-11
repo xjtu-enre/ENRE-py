@@ -74,6 +74,7 @@ class Entity(ABC):
         ...
 
     def add_ref(self, ref: Ref):
+        # todo: should we remove reference with same representation?
         for ref_1 in self._refs:
             if ref_1 == ref:
                 return

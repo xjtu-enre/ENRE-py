@@ -7,6 +7,7 @@ from interp.aval import EntType as EntType
 
 class SubEnv:
     _pairs: List[Tuple[Entity, EntType]]
+    _optional: bool
 
     def __init__(self, pairs: Optional[List[Tuple[Entity, EntType]]] = ...) -> None: ...
 
@@ -14,7 +15,7 @@ class SubEnv:
 
     def add(self, target_ent: Entity, value: EntType) -> None: ...
 
-    def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]: ...
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
 
 
 class ScopeEnv:
@@ -38,6 +39,8 @@ class ScopeEnv:
 
     def __init__(self, ctx_ent: Entity, location: Location, class_ctx: Class = None) -> None:
         ...
+
+    def __len__(self) -> int: ...
 
     def add_sub_env(self, sub_env: SubEnv) -> None: ...
 

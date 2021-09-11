@@ -35,7 +35,6 @@ class InterpManager:
         self.dep_db = DepDB()
         self.dir_structure_init()
         self.module_stack = ModuleStack()
-        self.dir_structure_init()
 
     def dir_structure_init(self, file_path=None) -> bool:
         in_package = False
@@ -54,7 +53,7 @@ class InterpManager:
         elif file_path.name.endswith(".py"):
             in_package = True
             from ent.entity import Module
-            module_ent = Module(file_path.relative_to(self.project_root))
+            module_ent = Module(file_path.relative_to(self.project_root.parent))
             self.dep_db.add_ent(module_ent)
 
         return in_package
@@ -74,12 +73,12 @@ class InterpManager:
             if self.module_stack.finished_module(path):
                 return
             else:
-                rel_path = path.relative_to(self.project_root)
+                rel_path = path.relative_to(self.project_root.parent)
                 from ent.entity import Module
                 module_ent = Module(rel_path)
                 checker = AInterp(module_ent, self)
                 self.module_stack.push(rel_path)
-                absolute_path = self.project_root.joinpath(rel_path)
+                absolute_path = self.project_root.parent.joinpath(rel_path)
                 with open(absolute_path, "r") as file:
                     checker.interp_top_stmts(ast.parse(file.read()).body,
                                              EntEnv(ScopeEnv(module_ent, module_ent.location)))
@@ -87,7 +86,7 @@ class InterpManager:
 
     def import_module(self, from_module_ent: Module, module_alias: str, lineno: int, col_offset: int) -> Module:
         from .checker import AInterp
-        rel_path = self.from_alias(from_module_ent.module_path, module_alias)
+        rel_path = self.alias2path(from_module_ent.module_path, module_alias)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
             from ent.entity import Module
             return Module(rel_path)
@@ -110,7 +109,7 @@ class InterpManager:
             return unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
 
-    def from_alias(self, from_path: Path, alias: str) -> Path:
+    def alias2path(self, from_path: Path, alias: str) -> Path:
         path_elems = alias.split(".")
         rel_path = Path("/".join(path_elems) + ".py")
         project_path = from_path.parent.joinpath(rel_path)

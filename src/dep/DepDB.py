@@ -38,4 +38,7 @@ class DepDB:
         return self._get_define_entities(ent.module_longname, attribute)
 
     def remove(self, target: Entity):
-        self.ents.remove(target)
+        try:
+            self.ents.remove(target)
+        except ValueError:
+            pass
