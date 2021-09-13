@@ -1,5 +1,3 @@
-import nested_function
-
 
 class A:
     def __init__(self) -> None:
@@ -11,7 +9,6 @@ class A:
 
     def method(self):
         pass
-
 
 class B:
     def __init__(self) -> None:
@@ -27,17 +24,6 @@ class B:
         print_A_x()
         return random.randint(0, 100)
 
-class C:
-
-    def base(self):
-        pass
-        raise NotImplementedError("")
-
-
-class MyException(Exception):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
-
 
 def print_A_x(a):
     a = A()
@@ -48,6 +34,16 @@ def print_A_x(a):
         a.x = 1
     else:
         a = B()
+    a = A()
+    a = A()
+    a = B()
     a.foo()
     b.x = 1
     raise MyException()
+
+
+def loop_fun(l):
+    a = B()
+    for a in l:
+        a = A()
+    a.foo()

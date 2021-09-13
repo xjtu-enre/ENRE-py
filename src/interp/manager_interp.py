@@ -2,7 +2,6 @@ import ast
 import typing as ty
 from pathlib import Path
 
-from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.entity import Module, UnknownModule, Location
 from interp.env import EntEnv, ScopeEnv
@@ -31,6 +30,7 @@ class ModuleStack:
 
 class InterpManager:
     def __init__(self, root_path: Path):
+        from dep.DepDB import DepDB
         self.project_root = root_path
         self.dep_db = DepDB()
         self.dir_structure_init()
@@ -84,9 +84,9 @@ class InterpManager:
                                              EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
-    def import_module(self, from_module_ent: Module, module_alias: str, lineno: int, col_offset: int) -> Module:
+    def import_module(self, from_module_ent: Module, module_identifier: str, lineno: int, col_offset: int) -> Module:
         from .checker import AInterp
-        rel_path = self.alias2path(from_module_ent.module_path, module_alias)
+        rel_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
             from ent.entity import Module
             return Module(rel_path)
@@ -103,7 +103,7 @@ class InterpManager:
             self.module_stack.pop()
             return module_ent
         else:
-            unknown_module_name = module_alias.split(".")[-1]
+            unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
             self.dep_db.add_ref(from_module_ent, Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
             return unknown_module_ent

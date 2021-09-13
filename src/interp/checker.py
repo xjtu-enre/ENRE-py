@@ -197,7 +197,14 @@ class AInterp:
                                                    import_stmt.col_offset))
 
     def interp_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
-        pass
+        # todo: import from statement
+        module_identifier = import_stmt.module
+        module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
+                                                import_stmt.col_offset)
+        for alias in import_stmt.names:
+            ent_name = alias.name
+            as_name = alias.asname
+            
 
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:

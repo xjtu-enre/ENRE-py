@@ -1,9 +1,9 @@
 from abc import abstractmethod, ABC
 from pathlib import Path
 from typing import List
-
 from ent.EntKind import EntKind
 from ref.Ref import Ref
+import interp.enttype
 
 
 class EntLongname:
@@ -85,6 +85,8 @@ class Entity(ABC):
             return other.longname == self.longname and other.location == self.location
         return False
 
+    def direct_type(self):
+        ...
 
 class Variable(Entity):
     def __init__(self, longname: EntLongname, location: Location):

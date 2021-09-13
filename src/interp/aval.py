@@ -6,61 +6,12 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.entity import Entity, Class, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias
+from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv
 # AValue stands for Abstract Value
 from ref.Ref import Ref
 
 
-class EntType(ABC):
-
-    @classmethod
-    def get_bot(cls) -> "AnyType":
-        return _any_type
-
-    @abstractmethod
-    def join(self, rhs: "EntType") -> "EntType":
-        pass
-
-
-class ClassType(EntType):
-    def __init__(self, class_ent: Class):
-        self.class_ent = class_ent
-
-    def join(self, rhs: "EntType") -> "EntType":
-        ...
-
-
-class ConstructorType(EntType):
-    def __init__(self, class_ent: Class):
-        self.class_ent = class_ent
-
-    def to_class_type(self) -> ClassType:
-        return ClassType(self.class_ent)
-
-    def join(self, rhs: "EntType") -> "EntType":
-        if isinstance(rhs, ConstructorType) and rhs.class_ent == self.class_ent:
-            return self
-        else:
-            return EntType.get_bot()
-
-
-# Every Module Entity is Module Type
-class ModuleType(EntType):
-    @classmethod
-    def get_module_type(cls) -> "ModuleType":
-        return _module_type
-
-    def join(self, rhs: "EntType") -> "EntType":
-        return EntType.get_bot()
-
-
-class AnyType(EntType):
-    def join(self, rhs: "EntType") -> "EntType":
-        return _any_type
-
-
-_any_type = AnyType()
-_module_type = ModuleType()
 
 
 class UseAvaler:
@@ -127,6 +78,7 @@ class UseAvaler:
 def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
+        # todo: return the real type of the entity
         ret.extend([(ent_x, EntType.get_bot()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global
@@ -212,3 +164,4 @@ class CallAvaler:
         ret: List[Tuple[Entity, EntType]] = []
         extend_possible_attribute(attribute, possible_receivers, ret, self._dep_db)
         return ret
+
