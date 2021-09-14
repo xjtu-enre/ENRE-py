@@ -2,9 +2,7 @@ from abc import ABC, abstractmethod
 
 from ent.entity import Class
 
-
 class EntType(ABC):
-
     @classmethod
     def get_bot(cls) -> "AnyType":
         return _any_type

@@ -79,7 +79,7 @@ def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
         # todo: return the real type of the entity
-        ret.extend([(ent_x, EntType.get_bot()) for ent_x in attr_ents])
+        ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global
         location = container.location.append(attribute)

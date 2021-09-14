@@ -199,6 +199,8 @@ class AInterp:
     def interp_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
         # todo: import from statement
         module_identifier = import_stmt.module
+        if module_identifier is None:
+            raise RuntimeError("import an not empty module")
         module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                 import_stmt.col_offset)
         for alias in import_stmt.names:

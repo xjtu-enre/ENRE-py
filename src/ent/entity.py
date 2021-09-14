@@ -1,9 +1,8 @@
 from abc import abstractmethod, ABC
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from ent.EntKind import EntKind
 from ref.Ref import Ref
-import interp.enttype
 
 
 class EntLongname:
@@ -34,7 +33,7 @@ class Location:
     def to_longname(self) -> EntLongname:
         return EntLongname(self._scope)
 
-    def __init__(self, scope=None):
+    def __init__(self, scope: Optional[List[str]] = None):
         if scope is None:
             scope = []
         self._scope: List[str] = scope
@@ -85,8 +84,10 @@ class Entity(ABC):
             return other.longname == self.longname and other.location == self.location
         return False
 
-    def direct_type(self):
-        ...
+    def direct_type(self) -> "EntType":
+        from interp.enttype import EntType
+        return EntType.get_bot()
+
 
 class Variable(Entity):
     def __init__(self, longname: EntLongname, location: Location):
@@ -116,9 +117,13 @@ class Module(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.Module
+
     @property
     def module_longname(self) -> EntLongname:
         return self.longname
+
+    def direct_type(self) -> "ModuleType":
+        return ModuleType.get_module_type()
 
 
 class ModuleAlias(Entity):
@@ -159,6 +164,9 @@ class Class(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.Class
+
+    def direct_type(self) -> "EntType":
+        return ConstructorType(self)
 
 
 class UnknownVar(Entity):
@@ -219,3 +227,5 @@ class UnresolvedAttribute(Entity):
 
 
 _anonymous_ent: Anonymous = Anonymous()
+
+from interp.enttype import EntType, ModuleType, ConstructorType

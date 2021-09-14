@@ -26,13 +26,13 @@ class SubEnv:
 
 
 class ParallelSubEnv(SubEnv):
-    def __init__(self, b1: SubEnv, b2: SubEnv):
-        super(ParallelSubEnv, self).__init__()
+    def __init__(self, b1, b2):
+        super().__init__()
         self.branch1_sub_env = b1
         self.branch2_sub_env = b2
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super(ParallelSubEnv, self).__getitem__(name)
+        new_introduced_ents = super().__getitem__(name)
         if None in new_introduced_ents:
             ents_b1 = self.branch1_sub_env[name]
             ents_b2 = self.branch2_sub_env[name]
@@ -43,12 +43,12 @@ class ParallelSubEnv(SubEnv):
 
 class ContinuousSubEnv(SubEnv):
     def __init__(self, forward: SubEnv, backward: SubEnv):
-        super(ContinuousSubEnv, self).__init__()
+        super().__init__()
         self.forward = forward
         self.backward = backward
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super(ContinuousSubEnv, self).__getitem__(name)
+        new_introduced_ents = super().__getitem__(name)
         if None not in new_introduced_ents:
             return new_introduced_ents
         backward_res = self.backward[name]
@@ -60,16 +60,17 @@ class ContinuousSubEnv(SubEnv):
 
 class OptionalSubEnv(SubEnv):
     def __init__(self, sub_env: SubEnv):
-        super(OptionalSubEnv, self).__init__()
+        super().__init__()
         self.optional = sub_env
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super(OptionalSubEnv, self).__getitem__(name)
+        new_introduced_ents = super().__getitem__(name)
         if None not in new_introduced_ents:
             return new_introduced_ents + [None]
         else:
             optional_ents = self.optional[name]
             return new_introduced_ents + optional_ents + [None]
+
 
 class Hook:
     def __init__(self, stmts: List[ast.stmt], scope_env: "ScopeEnv"):

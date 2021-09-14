@@ -18,6 +18,37 @@ class SubEnv:
     def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
 
 
+class ParallelSubEnv(SubEnv):
+    branch1_sub_env: SubEnv
+    branch2_sub_env: SubEnv
+
+    def __init__(self, b1: SubEnv, b2: SubEnv):
+        super(ParallelSubEnv,self).__init__()
+        ...
+
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
+
+
+class ContinuousSubEnv(SubEnv):
+    forward: SubEnv
+    backward: SubEnv
+
+    def __init__(self, forward: SubEnv, backward: SubEnv):
+        super(ContinuousSubEnv, self).__init__()
+
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
+
+
+class OptionalSubEnv(SubEnv):
+    optional: SubEnv
+
+    def __init__(self, sub_env: SubEnv):
+        super().__init__()
+        ...
+
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
+
+
 class ScopeEnv:
     class Hook:
         stmts: List[ast.stmt]
