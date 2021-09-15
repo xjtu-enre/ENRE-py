@@ -34,11 +34,9 @@ def print_A_x(a):
         a.x = 1
     else:
         a = B()
-    a = A()
-    a = A()
-    a = B()
     a.foo()
-    b.x = 1
+    b = a
+    b.foo()
     raise MyException()
 
 

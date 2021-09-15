@@ -4,7 +4,7 @@ from interp.manager_interp import InterpManager
 
 
 def entry():
-    root_path = Path("../test/nested_function.py")
+    root_path = Path("../test/branch_def.py")
     manager = InterpManager(root_path)
     manager.work_flow()
     dep_db = manager.dep_db

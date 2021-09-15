@@ -145,6 +145,15 @@ class ModuleAlias(Entity):
         return EntKind.ModuleAlias
 
 
+class Alias(Entity):
+    def __init__(self, longname: EntLongname, location: Location, ent: Entity):
+        super(Alias, self).__init__(longname, location)
+        self.target_ent = ent
+
+    def kind(self) -> EntKind:
+        return EntKind.Alias
+
+
 class Package(Entity):
     def __init__(self, file_path: Path):
         import os

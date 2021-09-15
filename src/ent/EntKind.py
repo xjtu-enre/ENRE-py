@@ -14,6 +14,7 @@ class EntKind(Enum):
     Package = "Package"
     Module = "Module"
     ModuleAlias = "Module Alias"
+    Alias = "Alias"
     Function = "Function"
     Variable = "Variable"
     Class = "Class"

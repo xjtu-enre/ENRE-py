@@ -4,9 +4,9 @@ import typing as ty
 from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
-    Entity, UnresolvedAttribute
+    Entity, UnresolvedAttribute, Alias
 from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
-from interp.env import EntEnv, ScopeEnv, SubEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv
+from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager
 from ref.Ref import Ref
@@ -58,14 +58,13 @@ class AInterp:
         self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
-        env.add(func_ent, EntType.get_bot())
+        env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
         # add function entity to the scope environment corresponding to the function
-        body_env.append_ent(func_ent, EntType.get_bot())
+        body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
         process_parameters(def_stmt, body_env, self.dep_db, env.get_class_ctx())
-        # todo: add parameters to environment
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
 
         hook_scope.add_hook(def_stmt.body, body_env)
@@ -85,12 +84,11 @@ class AInterp:
                                         Ref(RefKind.InheritKind, base_ent, class_stmt.lineno, class_stmt.col_offset))
 
         # add class to current environment
-        env.add(class_ent, ConstructorType(class_ent))
+        env.get_scope().add_continuous([(class_ent, ConstructorType(class_ent))])
 
         body_env = ScopeEnv(ctx_ent=class_ent, location=new_scope, class_ctx=class_ent)
 
-        body_env.append_ent(class_ent, ConstructorType(class_ent))
-
+        body_env.add_continuous([(class_ent, ConstructorType(class_ent))])
         # todo: bugfix, the environment should be same as the environment of class
         env.add_scope(body_env)
         self.interp_top_stmts(class_stmt.body, env)
@@ -103,11 +101,11 @@ class AInterp:
         in_len = len(env.get_scope())
         avaler = UseAvaler(self.dep_db)
         avaler.aval(if_stmt.test, env)
-        env.add_sub_env(SubEnv())
+        env.add_sub_env(BasicSubEnv())
         self.interp_stmts(if_stmt.body, env)
         body_env = env.pop_sub_env()
         for stmt in if_stmt.orelse:
-            env.add_sub_env(SubEnv())
+            env.add_sub_env(BasicSubEnv())
             self.interp(stmt, env)
             branch_env = env.pop_sub_env()
             body_env = ParallelSubEnv(body_env, branch_env)
@@ -117,11 +115,10 @@ class AInterp:
         # print(f"in length: {in_len} out length: {out_len}")
         assert (in_len == out_len)
 
-
     def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
         self._avaler.aval(for_stmt.target, env)
         self._avaler.aval(for_stmt.iter, env)
-        env.add_sub_env(SubEnv())
+        env.add_sub_env(BasicSubEnv())
         self.interp_stmts(for_stmt.body, env)
         sub_env = env.pop_sub_env()
         optional_sub_env = OptionalSubEnv(sub_env)
@@ -143,11 +140,14 @@ class AInterp:
             for target_expr in target_exprs:
                 target_lineno = target_expr.lineno
                 target_col_offset = target_expr.col_offset
+                # todo: problematic
+                frame_entities = []
                 for target, target_type in set_avaler.aval(target_expr, env):
                     # target_ent should be the entity which the target_expr could eval to
                     if isinstance(target, Variable) or isinstance(target, Parameter):
                         # if target entity is a defined variable or parameter, just add the target new type to the environment
-                        env.add(target, value_type)
+                        # env.add(target, value_type)
+                        frame_entities.append((target, target_type))
                         # add_target_var(target, value_type, env, self.dep_db)
                         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
                         self.dep_db.add_ref(env.get_ctx(),
@@ -159,7 +159,7 @@ class AInterp:
                         location = env.get_scope().get_location()
                         location = location.append(target.longname.name)
                         new_var = Variable(location.to_longname(), location)
-                        env.add(new_var, value_type)
+                        frame_entities.append((new_var, value_type))
                         self.dep_db.add_ref(env.get_ctx(),
                                             Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
                         self.dep_db.add_ref(env.get_ctx(),
@@ -179,6 +179,8 @@ class AInterp:
                         self.dep_db.add_ref(env.get_ctx(),
                                             Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
 
+                env.get_scope().add_continuous(frame_entities)
+
     def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
         target_expr = aug_stmt.target
         rvalue_expr = aug_stmt.value
@@ -186,13 +188,14 @@ class AInterp:
 
     def interp_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:
-            module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno, import_stmt.col_offset)
+            module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
+                                                    import_stmt.col_offset)
             if module_alias.asname is None:
-                env.add(module_ent, ModuleType.get_module_type())
+                env.get_scope().add_continuous([(module_ent, ModuleType.get_module_type())])
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname)
                 module_alias_ent = ModuleAlias(module_ent.module_path, alias_location)
-                env.add(module_alias_ent, ModuleType.get_module_type())
+                env.get_scope().add_continuous([(module_alias_ent, ModuleType.get_module_type())])
             self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
                                                    import_stmt.col_offset))
 
@@ -203,10 +206,22 @@ class AInterp:
             raise RuntimeError("import an not empty module")
         module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                 import_stmt.col_offset)
+        self.dep_db.add_ref(env.get_ctx(),
+                            Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
+
         for alias in import_stmt.names:
-            ent_name = alias.name
+            name = alias.name
             as_name = alias.asname
-            
+            imported_ents = self.dep_db.get_module_attributes(module_ent, name)
+            frame_entities = []
+            for ent in imported_ents:
+                if as_name is not None:
+                    location = env.get_scope().get_location().append(as_name)
+                    alias = Alias(location.to_longname(), location, ent)
+                    frame_entities.append((alias, ent.direct_type()))
+                else:
+                    frame_entities.append((ent, ent.direct_type()))
+            env.get_scope().add_continuous(frame_entities)
 
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:
@@ -273,7 +288,7 @@ def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, 
             ent_type = EntType.get_bot()
         parameter_loc = location_base.append(a.arg)
         parameter_ent = Parameter(parameter_loc.to_longname(), parameter_loc)
-        env.append_ent(parameter_ent, ent_type)
+        env.add_continuous([(parameter_ent, ent_type)])
         dep_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
     args = def_stmt.args

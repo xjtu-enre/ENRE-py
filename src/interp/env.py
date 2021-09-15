@@ -1,28 +1,33 @@
 import ast
+from abc import ABC
 from typing import List
 
 from ent.entity import Entity, Location
 
 
 # todo: the abstraction of sub-environment is wrong
-class SubEnv:
-
-    def __init__(self, pairs=None):
-        if pairs is None:
-            pairs = []
-        self._pairs = pairs
+class SubEnv(ABC):
 
     def join(self, sub_env: "SubEnv"):
         return ParallelSubEnv(self, sub_env)
 
-    def add(self, target_ent: Entity, value):
-        self._pairs.append((target_ent, value))
+    def __getitem__(self, name: str):
+        return [None]
+
+
+class BasicSubEnv(SubEnv):
+    def __init__(self, pairs=None):
+        super().__init__()
+        if pairs is None:
+            pairs = []
+        self._pairs = pairs
 
     def __getitem__(self, name: str):
+        ret = []
         for ent, ent_type in reversed(self._pairs):
             if ent.longname.name == name:
-                return [(ent, ent_type)]
-        return [None]
+                ret.append((ent, ent_type))
+        return [None] if ret == [] else ret
 
 
 class ParallelSubEnv(SubEnv):
@@ -124,10 +129,14 @@ class ScopeEnv:
 
         return [x for x in ret if x is not None]
 
+    def add_continuous(self, pairs):
+        top_sub_env = self.pop_sub_env()
+        new_sub_env = BasicSubEnv(pairs)
+        continuous_env = ContinuousSubEnv(top_sub_env, new_sub_env)
+        self.add_sub_env(continuous_env)
+
 
 class EntEnv:
-    def add(self, target_ent: Entity, value):
-        self.scope_envs[-1].append_ent(target_ent, value)
 
     def get_scope(self, offset=0):
         return self.scope_envs[-(offset + 1)]

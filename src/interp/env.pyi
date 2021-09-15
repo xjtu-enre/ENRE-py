@@ -6,16 +6,26 @@ from interp.aval import EntType as EntType
 
 
 class SubEnv:
-    _pairs: List[Tuple[Entity, EntType]]
-    _optional: bool
-
-    def __init__(self, pairs: Optional[List[Tuple[Entity, EntType]]] = ...) -> None: ...
 
     def join(self, sub_env: SubEnv) -> SubEnv: ...
 
     def add(self, target_ent: Entity, value: EntType) -> None: ...
 
-    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
+    def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]:
+        ...
+
+
+class BasicSubEnv(SubEnv):
+    _pairs: List[Tuple[Entity, EntType]]
+
+    def __init__(self, pairs: List[Tuple[Entity, EntType]] = None):
+        ...
+
+    def add(self, target_ent: Entity, value: EntType):
+        ...
+
+    def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]:
+        ...
 
 
 class ParallelSubEnv(SubEnv):
@@ -23,7 +33,7 @@ class ParallelSubEnv(SubEnv):
     branch2_sub_env: SubEnv
 
     def __init__(self, b1: SubEnv, b2: SubEnv):
-        super(ParallelSubEnv,self).__init__()
+        super(ParallelSubEnv, self).__init__()
         ...
 
     def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]: ...
@@ -85,9 +95,10 @@ class ScopeEnv:
 
     def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]: ...
 
+    def add_continuous(self, pairs: List[Tuple[Entity, EntType]]): ...
+
 
 class EntEnv:
-    def add(self, target_ent: Entity, value: EntType) -> None: ...
 
     def get_scope(self, offset=-1) -> ScopeEnv: ...
 
