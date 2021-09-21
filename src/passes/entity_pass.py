@@ -7,10 +7,14 @@ from ref.Ref import Ref
 
 class EntityPass:
     def __init__(self, dep_db: DepDB):
+        self.progress = 0
         self.dep_db = dep_db
 
     def resolve_referenced_attribute(self):
         def resolve(ent: Entity):
+            print(f"progress: {self.progress}")
+            self.progress += 1
+            print(ent)
             if isinstance(ent, ReferencedAttribute):
                 return ent
             new_refs: List[Ref] = []
@@ -38,4 +42,6 @@ class EntityPass:
 
             return ret
 
+        print("now resolve all possible referenced attribute")
+        print(f"entities: {len(self.dep_db.ents)}")
         self.dep_db.ents = [resolve(ent) for ent in self.dep_db.ents]

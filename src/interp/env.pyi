@@ -7,6 +7,8 @@ from interp.aval import EntType as EntType
 
 class SubEnv:
 
+    depth: int
+
     def join(self, sub_env: SubEnv) -> SubEnv: ...
 
     def add(self, target_ent: Entity, value: EntType) -> None: ...
@@ -29,8 +31,8 @@ class BasicSubEnv(SubEnv):
 
 
 class ParallelSubEnv(SubEnv):
-    branch1_sub_env: SubEnv
-    branch2_sub_env: SubEnv
+    _branch1_sub_env: SubEnv
+    _branch2_sub_env: SubEnv
 
     def __init__(self, b1: SubEnv, b2: SubEnv):
         super(ParallelSubEnv, self).__init__()
@@ -40,8 +42,8 @@ class ParallelSubEnv(SubEnv):
 
 
 class ContinuousSubEnv(SubEnv):
-    forward: SubEnv
-    backward: SubEnv
+    _forward: SubEnv
+    _backward: SubEnv
 
     def __init__(self, forward: SubEnv, backward: SubEnv):
         super(ContinuousSubEnv, self).__init__()
@@ -50,7 +52,7 @@ class ContinuousSubEnv(SubEnv):
 
 
 class OptionalSubEnv(SubEnv):
-    optional: SubEnv
+    _optional: SubEnv
 
     def __init__(self, sub_env: SubEnv):
         super().__init__()

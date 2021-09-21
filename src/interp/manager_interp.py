@@ -66,11 +66,13 @@ class InterpManager:
 
     def iter_dir(self, path):
         from .checker import AInterp
+        print(path)
         if path.is_dir():
             for sub_file in path.iterdir():
                 self.iter_dir(sub_file)
         elif path.name.endswith(".py"):
             if self.module_stack.finished_module(path):
+                print(f"the module {path} already imported by some analyzed module")
                 return
             else:
                 rel_path = path.relative_to(self.project_root.parent)
@@ -79,7 +81,7 @@ class InterpManager:
                 checker = AInterp(module_ent, self)
                 self.module_stack.push(rel_path)
                 absolute_path = self.project_root.parent.joinpath(rel_path)
-                with open(absolute_path, "r") as file:
+                with open(absolute_path, "r", encoding="utf-8") as file:
                     checker.interp_top_stmts(ast.parse(file.read()).body,
                                              EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()

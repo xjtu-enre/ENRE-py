@@ -25,6 +25,9 @@ class EntLongname:
             return True
         return False
 
+    def __hash__(self):
+        return hash(tuple(self._scope))
+
 
 class Location:
     def append(self, name: str) -> "Location":
@@ -45,6 +48,9 @@ class Location:
                     return False
             return True
         return False
+
+    def __hash__(self):
+        return hash(tuple(self._scope))
 
     @classmethod
     def global_name(cls, name: str) -> "Location":

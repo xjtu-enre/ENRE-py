@@ -78,7 +78,8 @@ class UseAvaler:
 def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
-        # todo: return the real type of the entity
+        # when get attribute of another entity, presume
+
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global

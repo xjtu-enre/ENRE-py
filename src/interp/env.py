@@ -5,26 +5,28 @@ from typing import List
 from ent.entity import Entity, Location
 
 
-# todo: the abstraction of sub-environment is wrong
 class SubEnv(ABC):
+
+    def __init__(self, depth = 0):
+        self.depth = depth
 
     def join(self, sub_env: "SubEnv"):
         return ParallelSubEnv(self, sub_env)
 
     def __getitem__(self, name: str):
-        return [None]
+        raise NotImplementedError
 
 
 class BasicSubEnv(SubEnv):
     def __init__(self, pairs=None):
-        super().__init__()
+        super().__init__(1)
         if pairs is None:
             pairs = []
         self._pairs = pairs
 
     def __getitem__(self, name: str):
         ret = []
-        for ent, ent_type in reversed(self._pairs):
+        for ent, ent_type in self._pairs:
             if ent.longname.name == name:
                 ret.append((ent, ent_type))
         return [None] if ret == [] else ret
@@ -32,49 +34,41 @@ class BasicSubEnv(SubEnv):
 
 class ParallelSubEnv(SubEnv):
     def __init__(self, b1, b2):
-        super().__init__()
-        self.branch1_sub_env = b1
-        self.branch2_sub_env = b2
+        super().__init__(max(b1.depth, b2.depth) + 1)
+        self._branch1_sub_env = b1
+        self._branch2_sub_env = b2
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super().__getitem__(name)
-        if None in new_introduced_ents:
-            ents_b1 = self.branch1_sub_env[name]
-            ents_b2 = self.branch2_sub_env[name]
-            return new_introduced_ents + ents_b1 + ents_b2
-        else:
-            return new_introduced_ents
+        ents_b1 = self._branch1_sub_env[name]
+        ents_b2 = self._branch2_sub_env[name]
+        return ents_b1 + ents_b2
 
 
 class ContinuousSubEnv(SubEnv):
     def __init__(self, forward: SubEnv, backward: SubEnv):
-        super().__init__()
-        self.forward = forward
-        self.backward = backward
+        super().__init__(1 + max(forward.depth, backward.depth))
+        # print(f"ContinuousSubEnv constructed, depth: {self.depth}")
+        self._forward = forward
+        self._backward = backward
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super().__getitem__(name)
-        if None not in new_introduced_ents:
-            return new_introduced_ents
-        backward_res = self.backward[name]
+        backward_res = self._backward[name]
+        # print(f"finding name {name} in env {self}")
         if None not in backward_res:
-            return new_introduced_ents + backward_res
+            return backward_res
         else:
-            return new_introduced_ents + backward_res + self.forward[name]
+            # print(f"name {name} not found continue find at {self._forward}")
+            return backward_res + self._forward[name]
 
 
 class OptionalSubEnv(SubEnv):
     def __init__(self, sub_env: SubEnv):
-        super().__init__()
-        self.optional = sub_env
+        super().__init__(sub_env.depth + 1)
+        self._optional = sub_env
 
     def __getitem__(self, name: str):
-        new_introduced_ents = super().__getitem__(name)
-        if None not in new_introduced_ents:
-            return new_introduced_ents + [None]
-        else:
-            optional_ents = self.optional[name]
-            return new_introduced_ents + optional_ents + [None]
+        optional_ents = self._optional[name]
+        return optional_ents + [None]
 
 
 class Hook:
@@ -99,7 +93,7 @@ class ScopeEnv:
         self._location = location
         self._class_ctx = class_ctx
         self._hooks = []
-        self._sub_envs: List[SubEnv] = [SubEnv()]
+        self._sub_envs: List[BasicSubEnv] = [BasicSubEnv()]
 
     def add_sub_env(self, sub_env: SubEnv):
         self._sub_envs.append(sub_env)
@@ -130,10 +124,17 @@ class ScopeEnv:
         return [x for x in ret if x is not None]
 
     def add_continuous(self, pairs):
+        before = len(self)
         top_sub_env = self.pop_sub_env()
-        new_sub_env = BasicSubEnv(pairs)
+        non_duplicate = []
+        for p in pairs:
+            if p not in non_duplicate:
+                non_duplicate.append(p)
+        new_sub_env = BasicSubEnv(non_duplicate)
         continuous_env = ContinuousSubEnv(top_sub_env, new_sub_env)
         self.add_sub_env(continuous_env)
+        after = len(self)
+        assert before == after
 
 
 class EntEnv:

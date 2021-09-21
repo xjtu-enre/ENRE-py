@@ -101,9 +101,12 @@ class AInterp:
         in_len = len(env.get_scope())
         avaler = UseAvaler(self.dep_db)
         avaler.aval(if_stmt.test, env)
+        before = len(env.get_scope())
         env.add_sub_env(BasicSubEnv())
         self.interp_stmts(if_stmt.body, env)
         body_env = env.pop_sub_env()
+        after = len(env.get_scope())
+        assert before == after
         for stmt in if_stmt.orelse:
             env.add_sub_env(BasicSubEnv())
             self.interp(stmt, env)
@@ -124,6 +127,7 @@ class AInterp:
         optional_sub_env = OptionalSubEnv(sub_env)
         continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), optional_sub_env)
         env.add_sub_env(continuous_sub_env)
+        # todo: loop the for statement until stabilized
 
     def interp_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
@@ -133,10 +137,11 @@ class AInterp:
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
-    def process_assign_helper(self, rvalue_rxpr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
+    def process_assign_helper(self, rvalue_expr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.dep_db)
         use_avaler = UseAvaler(self.dep_db)
-        for value, value_type in use_avaler.aval(rvalue_rxpr, env):
+        rvalue = use_avaler.aval(rvalue_expr, env)
+        for _, value_type in rvalue:
             for target_expr in target_exprs:
                 target_lineno = target_expr.lineno
                 target_col_offset = target_expr.col_offset
@@ -203,7 +208,8 @@ class AInterp:
         # todo: import from statement
         module_identifier = import_stmt.module
         if module_identifier is None:
-            raise RuntimeError("import an not empty module")
+            print("implicit import not implemented yet")
+            return
         module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                 import_stmt.col_offset)
         self.dep_db.add_ref(env.get_ctx(),
@@ -233,9 +239,12 @@ class AInterp:
 
         for hook in env.get_scope().get_hooks():
             stmts, scope_env = hook.stmts, hook.scope_env
+            before = len(env.get_scope())
             env.add_scope(scope_env)
             self.interp_top_stmts(stmts, env)
             env.pop_scope()
+            after = len(env.get_scope())
+            assert (before == after)
 
     def interp_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
         for stmt in stmts:

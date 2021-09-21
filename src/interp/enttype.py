@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-from ent.entity import Class
 
 class EntType(ABC):
     @classmethod
@@ -13,7 +12,7 @@ class EntType(ABC):
 
 
 class ClassType(EntType):
-    def __init__(self, class_ent: Class):
+    def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
 
     def join(self, rhs: "EntType") -> "EntType":
@@ -21,7 +20,7 @@ class ClassType(EntType):
 
 
 class ConstructorType(EntType):
-    def __init__(self, class_ent: Class):
+    def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
 
     def to_class_type(self) -> ClassType:
@@ -51,3 +50,4 @@ class AnyType(EntType):
 
 _any_type = AnyType()
 _module_type = ModuleType()
+from ent.entity import Class
