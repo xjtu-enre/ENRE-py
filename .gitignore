@@ -1,6 +1,6 @@
 venv/
+out/
 **/__pycache__
 .idea/
-venv/
-testdata
-test_entry
+testdata/
+test_entry/

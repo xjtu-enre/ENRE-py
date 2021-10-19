@@ -4,6 +4,7 @@ from typing import List, Optional
 from ent.EntKind import EntKind
 from ref.Ref import Ref
 
+_EntityID = 0
 
 class EntLongname:
     @property
@@ -64,6 +65,10 @@ class Entity(ABC):
         return _anonymous_ent
 
     def __init__(self, longname: EntLongname, location: Location):
+        global _EntityID
+        self._id = _EntityID
+        # make sure the id is unique
+        _EntityID += 1
         self._refs: List[Ref] = []
         self.longname = longname
         self.location = location
@@ -73,6 +78,10 @@ class Entity(ABC):
 
     def set_refs(self, refs: List[Ref]):
         self._refs = refs
+
+    @property
+    def id(self) -> int:
+        return self._id
 
     @abstractmethod
     def kind(self) -> EntKind:
@@ -93,6 +102,9 @@ class Entity(ABC):
     def direct_type(self) -> "EntType":
         from interp.enttype import EntType
         return EntType.get_bot()
+
+    def __hash__(self):
+        return hash((self.longname, self.location))
 
 
 class Variable(Entity):
