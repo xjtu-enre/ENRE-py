@@ -13,7 +13,7 @@ class SubEnv:
 
     def add(self, target_ent: Entity, value: EntType) -> None: ...
 
-    def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]:
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]:
         ...
 
 
@@ -26,7 +26,7 @@ class BasicSubEnv(SubEnv):
     def add(self, target_ent: Entity, value: EntType):
         ...
 
-    def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]:
+    def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]:
         ...
 
 

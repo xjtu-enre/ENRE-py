@@ -1,23 +1,25 @@
 import ast
 from abc import ABC, abstractmethod
+from typing import Sequence
 from typing import Tuple, List
 
 from dep.DepDB import DepDB
 from ent.EntKind import RefKind
+from ent.ent_finder import get_class_attr, get_module_level_ent
 from ent.entity import Entity, Class, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv
 # AValue stands for Abstract Value
+from interp.manager_interp import PackageDB
 from ref.Ref import Ref
-
-
 
 
 class UseAvaler:
 
-    def __init__(self, dep_db: DepDB):
-        self._dep_db = dep_db
+    def __init__(self, package_db: PackageDB, current_db: DepDB):
+        self._package_db = package_db
+        self._current_db = current_db
 
     def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         """Visit a node."""
@@ -46,7 +48,7 @@ class UseAvaler:
         ent_objs = env[name_expr.id]
         ctx = env.get_ctx()
         for ent, ent_type in ent_objs:
-            self._dep_db.add_ref(ctx, Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
+            self._current_db.add_ref(ctx, Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
         if ent_objs != []:
             return ent_objs
         else:
@@ -57,13 +59,13 @@ class UseAvaler:
         possible_ents = self.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: List[Tuple[Entity, EntType]] = []
-        extend_possible_attribute(attribute, possible_ents, ret, self._dep_db)
+        extend_possible_attribute(attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
-            self._dep_db.add_ref(env.get_ctx(), Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
+            self._current_db.add_ref(env.get_ctx(), Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
         return ret
 
     def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> List[Tuple[Entity, EntType]]:
-        call_avaler = CallAvaler(self._dep_db)
+        call_avaler = CallAvaler(self._package_db, self._current_db)
         possible_callers = call_avaler.aval(call_expr.func, env)
         ret: List[Tuple[Entity, EntType]] = []
         for caller, func_type in possible_callers:
@@ -71,11 +73,42 @@ class UseAvaler:
                 ret.append((Entity.get_anonymous_ent(), func_type.to_class_type()))
             else:
                 ret.append((Entity.get_anonymous_ent(), EntType.get_bot()))
-            self._dep_db.add_ref(env.get_ctx(), Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
+            self._current_db.add_ref(env.get_ctx(),
+                                     Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
         return ret
 
 
-def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
+def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret, package_db: PackageDB,
+                              current_db: DepDB):
+    for ent, ent_type in possible_ents:
+        if isinstance(ent_type, ClassType):
+            class_ent = ent_type.class_ent
+            class_attrs = get_class_attr(class_ent, attribute)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+        elif isinstance(ent_type, ConstructorType):
+            class_ent = ent_type.class_ent
+            class_attrs = get_class_attr(class_ent, attribute)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+        elif isinstance(ent_type, ModuleType) and isinstance(ent, Module):
+            module_level_ents = get_module_level_ent(ent, attribute)
+            process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+        elif isinstance(ent_type, ModuleType) and isinstance(ent, ModuleAlias):
+            module_path = ent.module_path
+            if module_path not in package_db.tree:
+                continue
+            module_ent = package_db[module_path].module_ent
+            module_level_ents = get_module_level_ent(module_ent, attribute)
+            process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+        elif isinstance(ent_type, AnyType):
+            location = Location.global_name(attribute)
+            referenced_attr = ReferencedAttribute(location.to_longname(), location)
+            current_db.add_ent(referenced_attr)
+            ret.append((referenced_attr, EntType.get_bot()))
+        else:
+            raise NotImplementedError("attribute receiver entity matching not implemented")
+
+
+def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
         # when get attribute of another entity, presume
@@ -92,32 +125,11 @@ def process_known_attr(attr_ents: List[Entity], attribute: str, ret: List[Tuple[
         ret.append((unresolved, EntType.get_bot()))
 
 
-def extend_possible_attribute(attribute, possible_ents, ret, dep_db):
-    for ent, ent_type in possible_ents:
-        if isinstance(ent_type, ClassType):
-            class_ent = ent_type.class_ent
-            attr_ents = dep_db.get_class_attributes(class_ent, attribute)
-            process_known_attr(attr_ents, attribute, ret, dep_db, ent_type.class_ent, ent_type)
-        elif isinstance(ent_type, ConstructorType):
-            class_ent = ent_type.class_ent
-            attr_ents = dep_db.get_class_attributes(class_ent, attribute)
-            process_known_attr(attr_ents, attribute, ret, dep_db, ent_type.class_ent, ent_type)
-        elif isinstance(ent_type, ModuleType) and (isinstance(ent, Module) or isinstance(ent, ModuleAlias)):
-            attr_ents = dep_db.get_module_attributes(ent, attribute)
-            process_known_attr(attr_ents, attribute, ret, dep_db, ent, ent_type)
-        elif isinstance(ent_type, AnyType):
-            location = Location.global_name(attribute)
-            referenced_attr = ReferencedAttribute(location.to_longname(), location)
-            dep_db.add_ent(referenced_attr)
-            ret.append((referenced_attr, EntType.get_bot()))
-        else:
-            raise NotImplementedError("attribute receiver entity matching not implemented")
-
-
 class SetAvaler:
-    def __init__(self, dep_db: DepDB):
-        self._dep_db = dep_db
-        self._avaler = UseAvaler(dep_db)
+    def __init__(self, package_db: PackageDB, current_db: DepDB):
+        self._package_db = package_db
+        self._current_db = current_db
+        self._avaler = UseAvaler(package_db, current_db)
 
     def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         """Visit a node."""
@@ -137,14 +149,15 @@ class SetAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: List[Tuple[Entity, EntType]] = []
-        extend_possible_attribute(attribute, possible_receivers, ret, self._dep_db)
+        extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret
 
 
 class CallAvaler:
-    def __init__(self, dep_db: DepDB):
-        self._dep_db = dep_db
-        self._avaler = UseAvaler(dep_db)
+    def __init__(self, package_db: PackageDB, current_db: DepDB):
+        self._package_db = package_db
+        self._current_db = current_db
+        self._avaler = UseAvaler(package_db, current_db)
 
     def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         """Visit a node."""
@@ -154,7 +167,7 @@ class CallAvaler:
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         ent_objs = env[name_expr.id]
-        if ent_objs != []:
+        if ent_objs:
             return ent_objs
         else:
             return [(UnknownVar(name_expr.id, env.get_scope().get_location()), EntType.get_bot())]
@@ -163,6 +176,5 @@ class CallAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: List[Tuple[Entity, EntType]] = []
-        extend_possible_attribute(attribute, possible_receivers, ret, self._dep_db)
+        extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret
-
