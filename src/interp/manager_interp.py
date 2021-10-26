@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from ent.EntKind import RefKind
-from ent.entity import Module, UnknownModule, Location
+from ent.entity import Module, UnknownModule
 from interp.env import EntEnv, ScopeEnv
 from ref.Ref import Ref
 
@@ -28,15 +28,16 @@ class ModuleStack:
         return path in self.checking_stack
 
 
+
 class ModuleDB:
-    def __init__(self, module_path: Path):
+    def __init__(self, module_ent: Module):
         from dep.DepDB import DepDB
-        self.module_path = module_path
-        self.module_ent = Module(module_path)
+        self.module_path = module_ent.module_path
+        self.module_ent = module_ent
         self.dep_db = DepDB()
         self.dep_db.add_ent(self.module_ent)
 
-    def add_ent(self, ent: "Entity"):
+    def add_ent(self, ent):
         self.dep_db.add_ent(ent)
 
 
@@ -47,11 +48,13 @@ class PackageDB:
         self.global_db = DepDB()
         self.tree: ty.Dict[Path, ModuleDB] = dict()
         self.initialize_tree(root_path)
+        self.global_db.add_ent(Entity.get_anonymous_ent())
 
     def initialize_tree(self, path: Path):
         if path.is_file() and path.name.endswith(".py"):
             from dep.DepDB import DepDB
-            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(path.relative_to(self.root_dir.parent))
+            module_ent = Module(path.relative_to(self.root_dir.parent))
+            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(module_ent)
 
         if path.is_dir():
             for file in path.iterdir():
@@ -73,7 +76,6 @@ def merge_db(package_db) -> "DepDB":
 
 class InterpManager:
     def __init__(self, root_path: Path):
-        from dep.DepDB import DepDB
         self.project_root = root_path
         self.package_db = PackageDB(root_path)
         self.dir_structure_init()
@@ -148,6 +150,7 @@ class InterpManager:
             unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
             module_db = self.package_db[from_module_ent.module_path]
+            module_db.add_ent(unknown_module_ent)
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
             return unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
@@ -165,3 +168,16 @@ class InterpManager:
 
 from ent.entity import Entity
 from dep.DepDB import DepDB
+import ent.entity as entity
+
+E = ty.TypeVar('E',
+               entity.Entity,
+               entity.Anonymous,
+               entity.Variable,
+               entity.Module,
+               entity.UnknownModule,
+               entity.UnknownVar,
+               entity.UnresolvedAttribute,
+               entity.Function,
+               entity.Class,
+               entity.ClassAttribute)  # Must be str or bytes

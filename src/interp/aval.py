@@ -51,7 +51,9 @@ class UseAvaler:
         if ent_objs != []:
             return ent_objs
         else:
-            return [(UnknownVar(name_expr.id, env.get_scope().get_location()), EntType.get_bot())]
+            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            self._current_db.add_ent(unknown_var)
+            return [(unknown_var, EntType.get_bot())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
 
@@ -141,8 +143,9 @@ class SetAvaler:
         if ent_objs != []:
             return ent_objs
         else:
-            return [(UnknownVar(name_expr.id, env.get_scope().get_location()), EntType.get_bot())]
-
+            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            self._current_db.add_ent(unknown_var)
+            return [(unknown_var, EntType.get_bot())]
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
@@ -168,8 +171,9 @@ class CallAvaler:
         if ent_objs:
             return ent_objs
         else:
-            return [(UnknownVar(name_expr.id, env.get_scope().get_location()), EntType.get_bot())]
-
+            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            self._current_db.add_ent(unknown_var)
+            return [(unknown_var, EntType.get_bot())]
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr

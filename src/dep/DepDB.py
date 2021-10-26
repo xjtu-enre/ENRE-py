@@ -9,14 +9,8 @@ class DepDB:
         self.ents: ty.List[Entity] = []
 
     def add_ent(self, ent: Entity):
-        if ent not in self.ents:
-            self.ents.append(ent)
+        self.ents.append(ent)
 
-    def add_ref(self, ent: Entity, ref: Ref):
-        for ent_1 in self.ents:
-            if ent_1.longname == ent.longname:
-                ent_1.add_ref(ref)
-                return
 
     def _get_define_entities(self, ent_longname: EntLongname, ent_name: str) -> ty.List[Entity]:
         ret: ty.List[Entity] = []
