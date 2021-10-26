@@ -1,8 +1,11 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from ent.entity import Entity
 from interp.manager_interp import PackageDB
+
+NodeTy = Dict[str, Union[str, int]]
+EdgeTy = Dict[str, Union[str, int]]
 
 
 @dataclass
@@ -33,7 +36,7 @@ class DepRepr:
         self._edge_list.append(e)
 
     def to_json(self) -> Dict:
-        ret = dict()
+        ret: Dict[str, List[Union[NodeTy, EdgeTy]]] = dict()
         ret["Entities"] = []
         ret["Dependencies"] = []
         for n in self._node_list:
@@ -66,16 +69,18 @@ class DepRepr:
         dep_repr = DepRepr()
         for ent in und_db.ents():
             dep_repr.add_node(Node(id=ent.id(),
-                                   longname=ent.longname,
+                                   longname=ent.longname(),
                                    ent_type=ent.kindname()))
 
             for ref in ent.refs():
+                if not ref.isforward():
+                    continue
                 tar_ent = ref.ent()
                 lineno = ref.line()
                 col_offset = ref.column()
                 dep_repr.add_edge(Edge(src=ent.id(),
                                        dest=tar_ent.id(),
-                                       kind=ref.kind(),
+                                       kind=ref.kind().name(),
                                        lineno=lineno,
                                        col_offset=col_offset))
         return dep_repr
