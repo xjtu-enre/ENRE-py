@@ -37,7 +37,7 @@ class ModuleDB:
         self.dep_db = DepDB()
         self.dep_db.add_ent(self.module_ent)
 
-    def add_ent(self, ent):
+    def add_ent(self, ent: "Entity"):
         self.dep_db.add_ent(ent)
 
 

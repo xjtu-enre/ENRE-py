@@ -137,13 +137,27 @@ class AInterp:
         rvalue_expr = assign_stmt.value
         self.process_assign_helper(rvalue_expr, target_exprs, env)
 
+    def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
+        target_expr = aug_stmt.target
+        rvalue_expr = aug_stmt.value
+        self.process_assign_helper(rvalue_expr, [target_expr], env)
+
+    def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv):
+        target_expr = ann_stmt.target
+        rvalue_expr = ann_stmt.value
+        self.process_assign_helper(rvalue_expr, [target_expr], env)
+
+
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
     def process_assign_helper(self, rvalue_expr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
-        rvalue = use_avaler.aval(rvalue_expr, env)
+        if rvalue_expr is None:
+            rvalue = []
+        else:
+            rvalue = use_avaler.aval(rvalue_expr, env)
         frame_entities: ty.List[ty.Tuple[Entity, EntType]]
         for _, value_type in rvalue:
             for target_expr in target_exprs:
@@ -186,10 +200,6 @@ class AInterp:
 
                 env.get_scope().add_continuous(frame_entities)
 
-    def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
-        target_expr = aug_stmt.target
-        rvalue_expr = aug_stmt.value
-        self.process_assign_helper(rvalue_expr, [target_expr], env)
 
     def interp_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:

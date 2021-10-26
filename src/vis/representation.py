@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Literal
 
 from ent.entity import Entity
 from interp.manager_interp import PackageDB
 
-NodeTy = Dict[str, Union[str, int]]
+NodeTy = Dict[Union[str, Literal["id"]], Union[str, int]]
 EdgeTy = Dict[str, Union[str, int]]
 
 

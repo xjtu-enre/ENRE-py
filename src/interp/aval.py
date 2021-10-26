@@ -6,7 +6,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_class_attr, get_module_level_ent
 from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias
+    ModuleAlias, UnknownModule
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv
 # AValue stands for Abstract Value
