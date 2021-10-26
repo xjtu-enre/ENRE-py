@@ -1,23 +1,22 @@
 import ast
-from abc import ABC, abstractmethod
 from typing import Sequence
 from typing import Tuple, List
 
 from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_class_attr, get_module_level_ent
-from ent.entity import Entity, Class, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
+from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv
 # AValue stands for Abstract Value
-from interp.manager_interp import PackageDB
+from interp.manager_interp import PackageDB, ModuleDB
 from ref.Ref import Ref
 
 
 class UseAvaler:
 
-    def __init__(self, package_db: PackageDB, current_db: DepDB):
+    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
 
@@ -48,7 +47,7 @@ class UseAvaler:
         ent_objs = env[name_expr.id]
         ctx = env.get_ctx()
         for ent, ent_type in ent_objs:
-            self._current_db.add_ref(ctx, Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
+            ctx.add_ref(Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
         if ent_objs != []:
             return ent_objs
         else:
@@ -61,7 +60,7 @@ class UseAvaler:
         ret: List[Tuple[Entity, EntType]] = []
         extend_possible_attribute(attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
-            self._current_db.add_ref(env.get_ctx(), Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
         return ret
 
     def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> List[Tuple[Entity, EntType]]:
@@ -73,13 +72,12 @@ class UseAvaler:
                 ret.append((Entity.get_anonymous_ent(), func_type.to_class_type()))
             else:
                 ret.append((Entity.get_anonymous_ent(), EntType.get_bot()))
-            self._current_db.add_ref(env.get_ctx(),
-                                     Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
         return ret
 
 
 def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret, package_db: PackageDB,
-                              current_db: DepDB):
+                              current_db: ModuleDB):
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, ClassType):
             class_ent = ent_type.class_ent
@@ -108,7 +106,7 @@ def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, 
             raise NotImplementedError("attribute receiver entity matching not implemented")
 
 
-def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: DepDB,
+def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: ModuleDB,
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
         # when get attribute of another entity, presume
@@ -126,7 +124,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tu
 
 
 class SetAvaler:
-    def __init__(self, package_db: PackageDB, current_db: DepDB):
+    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)
@@ -154,7 +152,7 @@ class SetAvaler:
 
 
 class CallAvaler:
-    def __init__(self, package_db: PackageDB, current_db: DepDB):
+    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)

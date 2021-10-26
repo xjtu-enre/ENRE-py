@@ -39,9 +39,6 @@ class ModuleDB:
     def add_ent(self, ent: "Entity"):
         self.dep_db.add_ent(ent)
 
-    def add_ref(self, ent: "Entity", ref: "Ref"):
-        self.dep_db.add_ref(ent, ref)
-
 
 class PackageDB:
     def __init__(self, root_path: Path):
@@ -66,14 +63,8 @@ class PackageDB:
     def add_ent_global(self, ent: "Entity"):
         self.global_db.add_ent(ent)
 
-    def add_dep_global(self, ent: "Entity", ref: "Ref"):
-        self.global_db.add_ref(ent, ref)
-
     def add_ent_local(self, file_path: Path, ent: "Entity"):
         self.tree[file_path].add_ent(ent)
-
-    def add_dep_local(self, file_path: Path, ent: "Entity", ref: "Ref"):
-        self.tree[file_path].add_ref(ent, ref)
 
 
 def merge_db(package_db) -> "DepDB":
@@ -157,7 +148,7 @@ class InterpManager:
             unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
             module_db = self.package_db[from_module_ent.module_path]
-            module_db.add_ref(from_module_ent, Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
+            from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
             return unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
 

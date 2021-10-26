@@ -10,7 +10,7 @@ from ent.entity import Variable, Function, Module, Location, UnknownVar, Paramet
 from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
 from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
-from interp.manager_interp import InterpManager, PackageDB
+from interp.manager_interp import InterpManager, PackageDB, ModuleDB
 from ref.Ref import Ref
 
 
@@ -21,7 +21,7 @@ class AInterp:
         self.module = module_ent
         self.global_env: ty.List
         self.package_db: "PackageDB" = manager.package_db
-        self.current_db = manager.package_db[rel_path]
+        self.current_db: "ModuleDB" = manager.package_db[rel_path]
         self._avaler = UseAvaler(self.package_db, self.current_db)
 
     def interp(self, stmt: ast.AST, env: EntEnv) -> None:
@@ -55,7 +55,7 @@ class AInterp:
         # add function entity to dependency database
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
-        self.current_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
         env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
@@ -80,9 +80,8 @@ class AInterp:
             avalue = avaler.aval(base_expr, env)
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ClassType):
-                    self.current_db.add_ref(class_ent,
-                                            Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                                class_stmt.col_offset))
+                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
+                                          class_stmt.col_offset))
                 else:
                     # todo: handle unknown class
                     pass
@@ -160,8 +159,7 @@ class AInterp:
                         frame_entities.append((target, target_type))
                         # add_target_var(target, value_type, env, self.dep_db)
                         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
-                        self.current_db.add_ref(env.get_ctx(),
-                                                Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
+                        env.get_ctx().add_ref(Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
                         # record the target assign to target entity
                     # if the target is a newly defined variable
                     elif isinstance(target, UnknownVar):
@@ -171,10 +169,8 @@ class AInterp:
                         new_var = Variable(location.to_longname(), location)
                         frame_entities.append((new_var, value_type))
                         self.current_db.add_ent(new_var)
-                        self.current_db.add_ref(env.get_ctx(),
-                                                Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
-                        self.current_db.add_ref(env.get_ctx(),
-                                                Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
+                        env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
+                        env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
                         # record the target assign to target entity
                         # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
                     elif isinstance(target, UnresolvedAttribute):
@@ -184,11 +180,9 @@ class AInterp:
                             self.current_db.add_ent(new_attr)
                             target.receiver_type.class_ent.add_ref(
                                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
-                            self.current_db.add_ref(env.get_ctx(),
-                                                    Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
+                            env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
                     else:
-                        self.current_db.add_ref(env.get_ctx(),
-                                                Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
+                        env.get_ctx().add_ref(Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
 
                 env.get_scope().add_continuous(frame_entities)
 
@@ -207,8 +201,8 @@ class AInterp:
                 alias_location = env.get_ctx().location.append(module_alias.asname)
                 module_alias_ent = ModuleAlias(module_ent.module_path, alias_location)
                 env.get_scope().add_continuous([(module_alias_ent, ModuleType.get_module_type())])
-            self.current_db.add_ref(env.get_ctx(), Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
-                                                       import_stmt.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
+                                      import_stmt.col_offset))
 
     def interp_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
         # todo: import from statement
@@ -220,8 +214,7 @@ class AInterp:
                                                 import_stmt.col_offset)
 
         if not isinstance(module_ent, UnknownModule):
-            self.current_db.add_ref(env.get_ctx(),
-                                    Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
             frame_entities: ty.List[ty.Tuple[Entity, EntType]]
             for alias in import_stmt.names:
                 name = alias.name
@@ -276,10 +269,9 @@ class AInterp:
             attr = get_self_accessing(target_expr)
             if attr is not None:
                 attr_location = class_ctx.location.append(attr)
-                self.current_db.add_ref(class_ctx,
-                                        Ref(RefKind.DefineKind,
-                                            ClassAttribute(attr_location.to_longname(), attr_location),
-                                            target_expr.lineno, target_expr.col_offset))
+                class_ctx.add_ref(Ref(RefKind.DefineKind,
+                                      ClassAttribute(attr_location.to_longname(), attr_location),
+                                      target_expr.lineno, target_expr.col_offset))
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
@@ -298,7 +290,7 @@ def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB
     scope_env.append_ent(new_var, ent_type)
 
 
-def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, current_db: DepDB, class_ctx=ty.Optional[Class]):
+def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, current_db: ModuleDB, class_ctx=ty.Optional[Class]):
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
 
@@ -309,7 +301,7 @@ def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, current_db: Dep
         parameter_ent = Parameter(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         env.add_continuous([(parameter_ent, ent_type)])
-        current_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
+        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
     args = def_stmt.args
     for arg in args.posonlyargs:
