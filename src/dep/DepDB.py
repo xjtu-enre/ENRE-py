@@ -13,8 +13,6 @@ class DepDB:
             self.ents.append(ent)
 
     def add_ref(self, ent: Entity, ref: Ref):
-        self.add_ent(ent)
-        self.add_ent(ref.target_ent)
         for ent_1 in self.ents:
             if ent_1.longname == ent.longname:
                 ent_1.add_ref(ref)

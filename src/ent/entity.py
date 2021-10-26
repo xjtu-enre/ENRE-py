@@ -125,6 +125,7 @@ class Function(Entity):
 
 class Module(Entity):
     def __init__(self, file_path: Path):
+        # file_path: relative path to root directory's parent
         import os
         self.module_path = file_path
         path = os.path.normpath(str(file_path)[:-len(".py")])
