@@ -75,7 +75,7 @@ class AInterp:
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(class_stmt.name)
         class_ent = Class(new_scope.to_longname(), new_scope)
-
+        self.current_db.add_ent(class_ent)
         for base_expr in class_stmt.bases:
             avalue = avaler.aval(base_expr, env)
             for base_ent, ent_type in avalue:
@@ -298,7 +298,7 @@ def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB
     scope_env.append_ent(new_var, ent_type)
 
 
-def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, class_ctx=ty.Optional[Class]):
+def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, current_db: DepDB, class_ctx=ty.Optional[Class]):
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
 
@@ -307,8 +307,9 @@ def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, dep_db: DepDB, 
             ent_type = EntType.get_bot()
         parameter_loc = location_base.append(a.arg)
         parameter_ent = Parameter(parameter_loc.to_longname(), parameter_loc)
+        current_db.add_ent(parameter_ent)
         env.add_continuous([(parameter_ent, ent_type)])
-        dep_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
+        current_db.add_ref(ctx_fun, Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
     args = def_stmt.args
     for arg in args.posonlyargs:

@@ -23,6 +23,8 @@ class EntityPass:
                     if isinstance(ref.target_ent, ReferencedAttribute):
                         new_refs.extend([Ref(ref.ref_kind, e, ref.lineno, ref.col_offset) for e in
                                          self.attribute_dict[ref.target_ent.longname.name]])
+                    else:
+                        new_refs.append(ref)
                 ent.set_refs(new_refs)
 
     def build_attribute_dict(self):

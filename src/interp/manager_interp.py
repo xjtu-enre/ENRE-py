@@ -47,7 +47,7 @@ class PackageDB:
     def __init__(self, root_path: Path):
         from dep.DepDB import DepDB
         self.root_dir = root_path
-        self._global_db = DepDB()
+        self.global_db = DepDB()
         self.tree: ty.Dict[Path, ModuleDB] = dict()
         self.initialize_tree(root_path)
 
@@ -64,10 +64,10 @@ class PackageDB:
         return self.tree[item]
 
     def add_ent_global(self, ent: "Entity"):
-        self._global_db.add_ent(ent)
+        self.global_db.add_ent(ent)
 
     def add_dep_global(self, ent: "Entity", ref: "Ref"):
-        self._global_db.add_ref(ent, ref)
+        self.global_db.add_ref(ent, ref)
 
     def add_ent_local(self, file_path: Path, ent: "Entity"):
         self.tree[file_path].add_ent(ent)
