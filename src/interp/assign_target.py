@@ -2,10 +2,13 @@ import ast
 from _ast import AST
 from abc import ABC
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple, TypeAlias, Callable
 
+from ent.entity import Entity
+from interp.aval import UseAvaler
+from interp.enttype import EntType
 from interp.env import EntEnv
-from interp.manager_interp import ModuleDB
+from interp.manager_interp import ModuleDB, PackageDB
 
 
 class PatternBuilder:
@@ -37,6 +40,11 @@ class PatternBuilder:
         return StarTar(self.visit(node.value))
 
 
+AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
+
+MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
+
+
 class Target(ABC):
     ...
 
@@ -66,7 +74,12 @@ def build_target(tar_expr: ast.expr) -> Target:
     return PatternBuilder().visit(tar_expr)
 
 
-def assign2target(target: Target, rvalue_expr: ast.expr, env: EntEnv, current_db: ModuleDB) -> None:
+def dummy_unpack(rvalue: AbstractValue) -> MemberDistiller:
+    ...
+
+
+def unpack_semantic(target: Target, rvalue: AbstractValue, env: EntEnv, package_db: PackageDB,
+                    current_db: ModuleDB) -> None:
     match target:
         case LvalueTar(lvalue_expr):
             ...
@@ -76,6 +89,13 @@ def assign2target(target: Target, rvalue_expr: ast.expr, env: EntEnv, current_db
             ...
         case StarTar(tar):
             ...
+
+
+def assign2target(target: Target, rvalue_expr: ast.expr, env: EntEnv, package_db: PackageDB,
+                  current_db: ModuleDB) -> None:
+    avaler = UseAvaler(package_db, current_db)
+    assigned_value = avaler.aval(rvalue_expr, env)
+    unpack_semantic(target, assigned_value, env, package_db, current_db)
 
 
 if __name__ == '__main__':
