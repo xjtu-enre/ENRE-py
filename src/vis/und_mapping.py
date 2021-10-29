@@ -18,7 +18,8 @@ ENTMAPPING = {
     "Function": ["Function"],
     "Variable": ["Variable", "Module Alias"],
     "Parameter": ["Parameter"],
-    "Abstract Class": ["Class"]
+    "Abstract Class": ["Class"],
+    "Property": ["Function"]
 }
 
 DEPMAPPING = {

@@ -114,7 +114,7 @@ class InterpManager:
         if path.is_dir():
             for sub_file in path.iterdir():
                 self.iter_dir(sub_file)
-        elif path.name.endswith(".py"):
+        elif path.lvalueexpr.endswith(".py"):
             if self.module_stack.finished_module(path):
                 print(f"the module {path} already imported by some analyzed module")
                 return

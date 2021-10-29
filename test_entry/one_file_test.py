@@ -1,22 +1,19 @@
+import json
 from pathlib import Path
 
 from interp.manager_interp import InterpManager
+from vis.representation import DepRepr
 
 
 def entry():
-    root_path = Path("../test/constraints.py")
+    root_path = Path("../test/test.py")
     manager = InterpManager(root_path)
     manager.work_flow()
-    dep_db = manager.dep_db
-    out_path = Path("report.txt")
+    package_db = manager.package_db
+    out_path = Path("test-report.json")
     with open(out_path, "w") as file:
-        for ent in dep_db.ents:
-            file.write(f"{ent.longname.longname} [{ent.kind().value}]" + "\n")
-            for ref in ent.refs():
-                file.write(
-                    f"    {ref.ref_kind.value} {ref.lineno, ref.col_offset} -> "
-                    f"{ref.target_ent.longname.longname} [{ref.target_ent.kind().value}]\n")
-
+        representation = DepRepr.from_package_db(package_db).to_json()
+        json.dump(representation, file, indent=4)
     print()
 
 

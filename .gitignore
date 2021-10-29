@@ -4,3 +4,4 @@ out/
 .idea/
 testdata/
 test_entry/
+venv10/

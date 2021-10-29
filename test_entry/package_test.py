@@ -1,7 +1,9 @@
+import json
 import time
 from pathlib import Path
 
 from interp.manager_interp import InterpManager
+from vis.representation import DepRepr
 
 
 def entry():
@@ -10,15 +12,12 @@ def entry():
 
     manager = InterpManager(root_path)
     manager.work_flow()
-    dep_db = manager.dep_db
-    out_path = Path("report.txt")
+    out_path = Path("mypy-report.json")
     with open(out_path, "w") as file:
-        for ent in dep_db.ents:
-            file.write(f"{ent.longname.longname} [{ent.kind().value}]" + "\n")
-            for ref in ent.refs():
-                file.write(f"    {ref.ref_kind.value} {ref.lineno, ref.col_offset} -> {ref.target_ent.longname.longname}\n")
+        repr = DepRepr.from_package_db(manager.package_db).to_json()
+        json.dump(repr, file, indent=4)
     end = time.time()
-    print(f"analysing time: {end - start}")
+    print(f"analysing time: {end - start}s")
     print()
 
 
