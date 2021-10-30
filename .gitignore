@@ -3,5 +3,6 @@ out/
 **/__pycache__
 .idea/
 testdata/
-test_entry/
 venv10/
+**/*.json
+
