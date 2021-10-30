@@ -7,6 +7,7 @@ from vis.representation import NodeTy, EdgeTy
 
 ENTMAPPING = {
     "Module File": ["Module"],
+    "File": ["Module"],
     "Class": ["Class"],
     "Attribute": ["Class Attribute"],
     "Unresolved Attribute": ["Unresolved Attribute"],
@@ -56,7 +57,7 @@ class UndMapping(Mapping):
 
         if base_node_kind not in ENTMAPPING[und_node_kind]:
             return False
-        if und_node_kind != "Module File":
+        if und_node_kind not in  ["Module File", "File"]:
             return und_node["longname"] == base_node["longname"]
         else:
             rel_path = Path(und_node["longname"]).relative_to(self._root_dir.parent.resolve())

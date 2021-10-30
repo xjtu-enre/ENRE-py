@@ -80,7 +80,7 @@ class DepRepr:
                 col_offset = ref.column()
                 dep_repr.add_edge(Edge(src=ent.id(),
                                        dest=tar_ent.id(),
-                                       kind=ref.kind().lvalueexpr(),
+                                       kind=ref.kind().name(),
                                        lineno=lineno,
                                        col_offset=col_offset))
         return dep_repr

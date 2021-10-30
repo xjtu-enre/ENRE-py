@@ -131,6 +131,15 @@ class AInterp:
         assert (in_len == out_len)
 
     def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
+        from interp.assign_target import build_target, unpack_semantic, dummy_iter
+        iter_value = dummy_iter(self._avaler.aval(for_stmt.iter, env))
+        target_expr = for_stmt.target
+        target_lineno = target_expr.lineno
+        target_col_offset = target_expr.col_offset
+        target = build_target(target_expr)
+        unpack_semantic(target, iter_value,
+                        InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
+
         self._avaler.aval(for_stmt.target, env)
         self._avaler.aval(for_stmt.iter, env)
         env.add_sub_env(BasicSubEnv())

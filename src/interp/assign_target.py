@@ -79,7 +79,12 @@ def build_target(tar_expr: ast.expr) -> Target:
 def dummy_unpack(_: AbstractValue) -> MemberDistiller:
     def wrapper(_: int) -> AbstractValue:
         return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+
     return wrapper
+
+
+def dummy_iter(_: AbstractValue) -> AbstractValue:
+    return [(Entity.get_anonymous_ent(), EntType.get_bot())]
 
 
 def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[Tuple[Entity, EntType]],
@@ -154,6 +159,7 @@ def assign2target(target: Target, rvalue_expr: ast.expr, ctx: "InterpContext") -
     else:
         rvalue = avaler.aval(rvalue_expr, ctx.env)
     unpack_semantic(target, rvalue, ctx)
+
 
 from interp.checker import InterpContext
 
