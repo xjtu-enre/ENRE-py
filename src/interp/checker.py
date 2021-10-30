@@ -1,5 +1,6 @@
 import ast
 import typing as ty
+from dataclasses import dataclass
 from pathlib import Path
 
 from dep.DepDB import DepDB
@@ -12,6 +13,14 @@ from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, Optio
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager, PackageDB, ModuleDB
 from ref.Ref import Ref
+
+
+@dataclass
+class InterpContext:
+    env: EntEnv
+    package_db: PackageDB
+    current_db: ModuleDB
+    coordinate: ty.Tuple[int, int]
 
 
 class AInterp:
@@ -147,59 +156,21 @@ class AInterp:
         rvalue_expr = ann_stmt.value
         self.process_assign_helper(rvalue_expr, [target_expr], env)
 
-
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
     def process_assign_helper(self, rvalue_expr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
-        if rvalue_expr is None:
-            rvalue = []
-        else:
-            rvalue = use_avaler.aval(rvalue_expr, env)
+        from interp.assign_target import build_target, assign2target
+
         frame_entities: ty.List[ty.Tuple[Entity, EntType]]
-        for _, value_type in rvalue:
-            for target_expr in target_exprs:
-                target_lineno = target_expr.lineno
-                target_col_offset = target_expr.col_offset
-                # todo: problematic
-                frame_entities = []
-                for target, target_type in set_avaler.aval(target_expr, env):
-                    # target should be the entity which the target_expr could possiblelly eval to
-                    if isinstance(target, Variable) or isinstance(target, Parameter):
-                        # if target entity is a defined variable or parameter, just add the target new type to the environment
-                        # env.add(target, value_type)
-                        frame_entities.append((target, target_type))
-                        # add_target_var(target, value_type, env, self.dep_db)
-                        # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
-                        env.get_ctx().add_ref(Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
-                        # record the target assign to target entity
-                    # if the target is a newly defined variable
-                    elif isinstance(target, UnknownVar):
-                        # newly defined variable
-                        location = env.get_scope().get_location()
-                        location = location.append(target.longname.name)
-                        new_var = Variable(location.to_longname(), location)
-                        frame_entities.append((new_var, value_type))
-                        self.current_db.add_ent(new_var)
-                        env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
-                        env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
-                        # record the target assign to target entity
-                        # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
-                    elif isinstance(target, UnresolvedAttribute):
-                        if isinstance(target.receiver_type, ClassType):
-                            new_location = target.receiver_type.class_ent.location.append(target.longname.name)
-                            new_attr = ClassAttribute(new_location.to_longname(), new_location)
-                            self.current_db.add_ent(new_attr)
-                            target.receiver_type.class_ent.add_ref(
-                                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
-                            env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
-                    else:
-                        env.get_ctx().add_ref(Ref(RefKind.SetKind, target, target_lineno, target_col_offset))
-
-                env.get_scope().add_continuous(frame_entities)
-
+        for target_expr in target_exprs:
+            target_lineno = target_expr.lineno
+            target_col_offset = target_expr.col_offset
+            target = build_target(target_expr)
+            assign2target(target, rvalue_expr,
+                          InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
 
     def interp_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:

@@ -39,4 +39,4 @@ class EntityPass:
             for ent in module_db.dep_db.ents:
                 for ref in ent.refs():
                     if ref.ref_kind == RefKind.DefineKind:
-                        self.attribute_dict[ref.target_ent.longname.lvalueexpr].append(ref.target_ent)
+                        self.attribute_dict[ref.target_ent.longname.name].append(ref.target_ent)

@@ -108,13 +108,13 @@ class InterpManager:
         entity_pass = EntityPass(self.package_db)
         entity_pass.resolve_referenced_attribute()
 
-    def iter_dir(self, path):
+    def iter_dir(self, path: Path):
         from .checker import AInterp
         print(path)
         if path.is_dir():
             for sub_file in path.iterdir():
                 self.iter_dir(sub_file)
-        elif path.lvalueexpr.endswith(".py"):
+        elif path.name.endswith(".py"):
             if self.module_stack.finished_module(path):
                 print(f"the module {path} already imported by some analyzed module")
                 return
