@@ -7,7 +7,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_module_level_ent
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
-    Entity, UnresolvedAttribute, Alias, UnknownModule
+    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter
 from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
 from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
@@ -73,7 +73,7 @@ class AInterp:
         # add function entity to the scope environment corresponding to the function
         body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
-        process_parameters(def_stmt, body_env, self.current_db, env.get_class_ctx())
+        process_parameters(def_stmt.args, body_env, self.current_db, env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
 
         hook_scope.add_hook(def_stmt.body, body_env)
@@ -281,20 +281,20 @@ def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB
     scope_env.append_ent(new_var, ent_type)
 
 
-def process_parameters(def_stmt: ast.FunctionDef, env: ScopeEnv, current_db: ModuleDB, class_ctx=ty.Optional[Class]):
+def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB, class_ctx=ty.Optional[Class]):
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
+    para_constructor = LambdaParameter if isinstance(env.get_ctx(), LambdaFunction) else Parameter
 
     def process_helper(a: ast.arg, ent_type=None):
         if ent_type == None:
             ent_type = EntType.get_bot()
         parameter_loc = location_base.append(a.arg)
-        parameter_ent = Parameter(parameter_loc.to_longname(), parameter_loc)
+        parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         env.add_continuous([(parameter_ent, ent_type)])
         ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
-    args = def_stmt.args
     for arg in args.posonlyargs:
         process_helper(arg)
 

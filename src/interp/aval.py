@@ -1,14 +1,14 @@
 import ast
-from typing import Sequence
+from typing import Sequence, Optional
 from typing import Tuple, List
 
 from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_class_attr, get_module_level_ent
 from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, UnknownModule
+    ModuleAlias, UnknownModule, Function, Class, LambdaFunction
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
-from interp.env import EntEnv
+from interp.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from interp.manager_interp import PackageDB, ModuleDB
 from ref.Ref import Ref
@@ -75,7 +75,38 @@ class UseAvaler:
             else:
                 ret.append((Entity.get_anonymous_ent(), EntType.get_bot()))
             env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
+        for arg in call_expr.args:
+            self.aval(arg, env)
+        for key_word_arg in call_expr.keywords:
+            self.aval(key_word_arg.value, env)
         return ret
+
+    def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv):
+        from interp.checker import process_parameters
+        in_class_env = isinstance(env.get_ctx(), Class)
+
+        now_scope = env.get_scope().get_location()
+        new_scope = now_scope.append(f"({lam_expr.lineno})")
+        func_ent = LambdaFunction(new_scope.to_longname(), new_scope)
+
+        # add function entity to dependency database
+        self._current_db.add_ent(func_ent)
+        # add reference of current contest to the function entity
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, lam_expr.lineno, lam_expr.col_offset))
+
+        # add function entity to the current environment
+        env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
+        # create the scope environment corresponding to the function
+        body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
+        # add function entity to the scope environment corresponding to the function
+        body_env.add_continuous([(func_ent, EntType.get_bot())])
+        # add parameters to the scope environment
+        process_parameters(lam_expr.args, body_env, self._current_db, env.get_class_ctx())
+        hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
+        # type error due to member in ast node is, but due to any member in our structure is only readable,
+        # this type error is safety
+        hook_scope.add_hook([lam_expr.body], body_env)
+        return [(func_ent, EntType.get_bot())]
 
 
 def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret, package_db: PackageDB,
@@ -146,6 +177,7 @@ class SetAvaler:
             unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
+
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
@@ -174,6 +206,7 @@ class CallAvaler:
             unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
+
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr

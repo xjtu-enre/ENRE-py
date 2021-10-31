@@ -6,6 +6,7 @@ from ref.Ref import Ref
 
 _EntityID = 0
 
+
 class EntLongname:
     @property
     def longname(self) -> str:
@@ -123,6 +124,14 @@ class Function(Entity):
         return EntKind.Function
 
 
+class LambdaFunction(Function):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(LambdaFunction, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.AnonymousFunction
+
+
 class Module(Entity):
     def __init__(self, file_path: Path):
         # file_path: relative path to root directory's parent
@@ -219,6 +228,14 @@ class Parameter(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.Parameter
+
+
+class LambdaParameter(Parameter):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(LambdaParameter, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.LambdaParameter
 
 
 class Anonymous(Entity):

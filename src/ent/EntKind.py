@@ -16,6 +16,8 @@ class EntKind(Enum):
     ModuleAlias = "Module Alias"
     Alias = "Alias"
     Function = "Function"
+    AnonymousFunction = "AnonymousFunction"
+    LambdaParameter = "LambdaParameter"
     Variable = "Variable"
     Class = "Class"
     Parameter = "Parameter"
