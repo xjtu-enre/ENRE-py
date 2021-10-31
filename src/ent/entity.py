@@ -155,8 +155,9 @@ class Module(Entity):
 
 
 class ModuleAlias(Entity):
-    def __init__(self, file_path: Path, alias_location: Location):
-        self.module_path = file_path
+    def __init__(self, module_ent: Module, alias_location: Location):
+        self.module_ent = module_ent
+        self.module_path = module_ent.module_path
         self.alias_name = alias_location.to_longname().name
         super(ModuleAlias, self).__init__(alias_location.to_longname(), alias_location)
 

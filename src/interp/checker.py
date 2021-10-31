@@ -189,7 +189,7 @@ class AInterp:
                 env.get_scope().add_continuous([(module_ent, ModuleType.get_module_type())])
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname)
-                module_alias_ent = ModuleAlias(module_ent.module_path, alias_location)
+                module_alias_ent = ModuleAlias(module_ent, alias_location)
                 self.current_db.add_ent(module_alias_ent)
                 env.get_scope().add_continuous([(module_alias_ent, ModuleType.get_module_type())])
             env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,

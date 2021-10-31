@@ -149,7 +149,7 @@ class UseAvaler:
                             InterpContext(env, self._package_db, self._current_db, (target_lineno, target_col_offset)))
 
 
-def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret, package_db: PackageDB,
+def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret: AbstractValue, package_db: PackageDB,
                               current_db: ModuleDB):
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, ClassType):
@@ -165,11 +165,20 @@ def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, 
             process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, ModuleType) and isinstance(ent, ModuleAlias):
             module_path = ent.module_path
-            if module_path not in package_db.tree:
-                continue
-            module_ent = package_db[module_path].module_ent
-            module_level_ents = get_module_level_ent(module_ent, attribute)
-            process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+            if module_path in package_db.tree:
+                module_ent = package_db[module_path].module_ent
+                module_level_ents = get_module_level_ent(module_ent, attribute)
+                process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+            else:
+                # unknown module
+                module_ent = ent.module_ent
+                location = module_ent.location.append(attribute)
+                unknown_attr = UnresolvedAttribute(location.to_longname(), location, EntType.get_bot())
+                package_db.add_ent_global(unknown_attr)
+                module_ent.add_ref(Ref(RefKind.DefineKind, unknown_attr, 0, 0))
+                ret.append((unknown_attr, EntType.get_bot()))
+                # todo: add define reference to unknown variable
+
         elif isinstance(ent_type, AnyType):
             location = Location.global_name(attribute)
             referenced_attr = ReferencedAttribute(location.to_longname(), location)
