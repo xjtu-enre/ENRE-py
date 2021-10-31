@@ -6,7 +6,7 @@ from typing import List, Tuple, TypeAlias, Callable
 
 from ent.EntKind import RefKind
 from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute
-from interp.aval import UseAvaler, SetAvaler
+from interp.aval import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
 from interp.enttype import EntType, ClassType
 from interp.env import EntEnv
 from interp.manager_interp import ModuleDB, PackageDB
@@ -41,10 +41,6 @@ class PatternBuilder:
     def visit_Starred(self, node: ast.Starred) -> "StarTar":
         return StarTar(self.visit(node.value))
 
-
-AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
-
-MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
 
 
 class Target(ABC):

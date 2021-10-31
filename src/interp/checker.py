@@ -8,7 +8,7 @@ from ent.EntKind import RefKind
 from ent.ent_finder import get_module_level_ent
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
     Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter
-from interp.aval import UseAvaler, EntType, ClassType, ConstructorType, ModuleType, SetAvaler
+from interp.enttype import EntType
 from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
 from interp.manager_interp import InterpManager, PackageDB, ModuleDB
@@ -323,3 +323,6 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         process_helper(arg)
     if args.kwarg is not None:
         process_helper(args.kwarg)
+
+from interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
+

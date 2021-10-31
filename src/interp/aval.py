@@ -1,5 +1,5 @@
 import ast
-from typing import Sequence, Optional
+from typing import Sequence, Optional, TypeAlias, Callable
 from typing import Tuple, List
 
 from dep.DepDB import DepDB
@@ -12,6 +12,10 @@ from interp.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from interp.manager_interp import PackageDB, ModuleDB
 from ref.Ref import Ref
+
+AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
+
+MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
 
 
 class UseAvaler:
@@ -107,6 +111,42 @@ class UseAvaler:
         # this type error is safety
         hook_scope.add_hook([lam_expr.body], body_env)
         return [(func_ent, EntType.get_bot())]
+
+    def aval_ListComp(self, list_comp: ast.ListComp, env: EntEnv) -> "AbstractValue":
+        generators = list_comp.generators
+        self.dummy_generator_exp(env, generators)
+        self.aval(list_comp.elt, env)
+        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+
+    def aval_SetComp(self, set_comp: ast.SetComp, env: EntEnv) -> "AbstractValue":
+        generators = set_comp.generators
+        self.dummy_generator_exp(env, generators)
+        self.aval(set_comp.elt, env)
+        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+
+    def aval_DictComp(self, dict_comp: ast.DictComp, env) -> "AbstractValue":
+        generators = dict_comp.generators
+        self.dummy_generator_exp(env, generators)
+        self.aval(dict_comp.key, env)
+        self.aval(dict_comp.value, env)
+        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+
+    def aval_GeneratorExp(self, gen_exp: ast.GeneratorExp, env: EntEnv) -> "AbstractValue":
+        generators = gen_exp.generators
+        self.dummy_generator_exp(env, generators)
+        self.aval(gen_exp.elt, env)
+        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+
+    def dummy_generator_exp(self, env, generators: List[ast.comprehension]) -> None:
+        from interp.assign_target import build_target, dummy_iter, unpack_semantic
+        from interp.checker import InterpContext
+        for comp in generators:
+            target_lineno = comp.target.lineno
+            target_col_offset = comp.target.col_offset
+            iter_value = dummy_iter(self.aval(comp.iter, env))
+            tar = build_target(comp.target)
+            unpack_semantic(tar, iter_value,
+                            InterpContext(env, self._package_db, self._current_db, (target_lineno, target_col_offset)))
 
 
 def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret, package_db: PackageDB,

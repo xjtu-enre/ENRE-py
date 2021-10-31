@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import List, Dict
 
@@ -18,6 +19,7 @@ ENTMAPPING = {
     "Package": ["Package"],
     "Function": ["Function"],
     "Variable": ["Variable", "Module Alias"],
+    "LambdaParameter": ["LambdaParameter"],
     "Parameter": ["Parameter"],
     "Abstract Class": ["Class"],
     "Property": ["Function"]
@@ -57,12 +59,19 @@ class UndMapping(Mapping):
 
         if base_node_kind not in ENTMAPPING[und_node_kind]:
             return False
-        if und_node_kind not in  ["Module File", "File"]:
-            return und_node["longname"] == base_node["longname"]
-        else:
+        if und_node_kind in ["Module File", "File"]:
             rel_path = Path(und_node["longname"]).relative_to(self._root_dir.parent.resolve())
             new_longname = ".".join((str(rel_path).replace(".py", "")).split(os.sep))
             return new_longname == base_node["longname"]
+        elif und_node_kind in ["LambdaParameter"]:
+            base_new_longname = base_node["longname"]
+            und_name = und_node["longname"]
+            if "\\" in und_name:
+                rel_path = Path(und_name).relative_to(self._root_dir.parent.resolve())
+                und_name = ".".join((str(rel_path).replace(".py", "")).split(os.sep))
+            return und_name == re.sub(r".\(\d+\)", "", base_new_longname)
+        else:
+            return und_node["longname"] == base_node["longname"]
 
     def is_same_edge(self, base_edge: EdgeTy, und_edge: EdgeTy) -> bool:
         base_edge_kind = base_edge["kind"]
@@ -78,7 +87,7 @@ class UndMapping(Mapping):
         und_src_node = get_node_by_id(und_edge["src"], self._und_node_dict)
         und_dest_node = get_node_by_id(und_edge["dest"], self._und_node_dict)
         return self.is_same_node(base_src_node, und_src_node) and \
-               self.is_same_node(base_dest_node,und_dest_node)
+               self.is_same_node(base_dest_node, und_dest_node)
 
     def initialize_node_dict(self):
         for node in self._node_list:
@@ -86,4 +95,3 @@ class UndMapping(Mapping):
 
         for node in self._und_node_list:
             self._und_node_dict[node["id"]] = node
-
