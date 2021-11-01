@@ -18,7 +18,7 @@ ENTMAPPING = {
     "Unknown Variable": ["Unknown Variable"],
     "Package": ["Package"],
     "Function": ["Function"],
-    "Variable": ["Variable", "Module Alias"],
+    "Variable": ["Variable", "Module Alias", "Alias"],
     "LambdaParameter": ["LambdaParameter"],
     "Parameter": ["Parameter"],
     "Abstract Class": ["Class"],
