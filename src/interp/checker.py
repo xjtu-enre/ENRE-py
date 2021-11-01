@@ -203,9 +203,8 @@ class AInterp:
             return
         module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                 import_stmt.col_offset)
-
+        env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
         if not isinstance(module_ent, UnknownModule):
-            env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
             frame_entities: ty.List[ty.Tuple[Entity, EntType]]
             for alias in import_stmt.names:
                 name = alias.name
@@ -216,12 +215,27 @@ class AInterp:
                     if as_name is not None:
                         location = env.get_scope().get_location().append(as_name)
                         alias_ent = Alias(location.to_longname(), location, ent)
+                        self.current_db.add_ent(alias_ent)
                         frame_entities.append((alias_ent, ent.direct_type()))
                     else:
                         frame_entities.append((ent, ent.direct_type()))
                 env.get_scope().add_continuous(frame_entities)
         else:
             self.package_db.add_ent_global(module_ent)
+            frame_entities = []
+            for alias in import_stmt.names:
+                location = module_ent.location.append(alias.name)
+                unknown_var = UnknownVar(location.to_longname().name, location)
+                self.package_db.add_ent_global(unknown_var)
+                module_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
+                if alias.asname is not None:
+                    as_location = env.get_scope().get_location().append(alias.asname)
+                    alias_ent = Alias(as_location.to_longname(), location, unknown_var)
+                    self.current_db.add_ent(alias_ent)
+                    frame_entities.append((alias_ent, EntType.get_bot()))
+                else:
+                    frame_entities.append((unknown_var, EntType.get_bot()))
+            env.get_scope().add_continuous(frame_entities)
 
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:
@@ -324,5 +338,5 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     if args.kwarg is not None:
         process_helper(args.kwarg)
 
-from interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
 
+from interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
