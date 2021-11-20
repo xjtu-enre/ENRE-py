@@ -109,7 +109,7 @@ class UseAvaler:
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
         # type error due to member in ast node is, but due to any member in our structure is only readable,
         # this type error is safety
-        hook_scope.add_hook([lam_expr.body], body_env)
+        hook_scope.add_hook([ast.Expr(lam_expr.body)], body_env)
         return [(func_ent, EntType.get_bot())]
 
     def aval_ListComp(self, list_comp: ast.ListComp, env: EntEnv) -> "AbstractValue":
@@ -147,6 +147,8 @@ class UseAvaler:
             tar = build_target(comp.target)
             unpack_semantic(tar, iter_value,
                             InterpContext(env, self._package_db, self._current_db, (target_lineno, target_col_offset)))
+            for cond_expr in comp.ifs:
+                self.aval(cond_expr, env)
 
 
 def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret: AbstractValue, package_db: PackageDB,

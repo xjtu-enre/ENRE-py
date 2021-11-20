@@ -4,7 +4,6 @@ from typing import List, Iterable, TypeVar
 
 from vis.mapping import Mapping
 from vis.representation import NodeTy, EdgeTy
-import tqdm
 A = TypeVar("A")
 
 

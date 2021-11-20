@@ -140,8 +140,9 @@ class AInterp:
         unpack_semantic(target, iter_value,
                         InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
 
-        self._avaler.aval(for_stmt.target, env)
-        self._avaler.aval(for_stmt.iter, env)
+        # self._avaler.aval(for_stmt.target, env)
+        # self._avaler.aval(for_stmt.iter, env)
+        # todo: verify it's two re evaluation
         env.add_sub_env(BasicSubEnv())
         self.interp_stmts(for_stmt.body, env)
         sub_env = env.pop_sub_env()
@@ -158,7 +159,10 @@ class AInterp:
     def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
         target_expr = aug_stmt.target
         rvalue_expr = aug_stmt.value
-        self.process_assign_helper(rvalue_expr, [target_expr], env)
+        if rvalue_expr is not None:
+            self.process_assign_helper(rvalue_expr, [target_expr], env)
+        else:
+            self.declare_semantic(target_expr, env)
 
     def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv):
         target_expr = ann_stmt.target
@@ -237,6 +241,53 @@ class AInterp:
                     frame_entities.append((unknown_var, EntType.get_bot()))
             env.get_scope().add_continuous(frame_entities)
 
+    def interp_With(self, with_stmt: ast.With, env: EntEnv) -> None:
+        from interp.assign_target import build_target, unpack_semantic
+        for with_item in with_stmt.items:
+            context_expr = with_item.context_expr
+            optional_var = with_item.optional_vars
+            with_value = self._avaler.aval(context_expr, env)
+            if optional_var is not None:
+                target = build_target(optional_var)
+                target_lineno = optional_var.lineno
+                target_col_offset = optional_var.col_offset
+                unpack_semantic(target, with_value,
+                                InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
+        self.interp_stmts(with_stmt.body, env)
+
+    def interp_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
+        from interp.error_handler import handler_semantic
+        env.add_sub_env(BasicSubEnv())
+        self.interp_stmts(try_stmt.body, env)
+        try_body_env = env.pop_sub_env()
+
+        for handler in try_stmt.handlers:
+            env.add_sub_env(BasicSubEnv())
+            err_constructor = handler.type
+
+            if err_constructor is not None:
+                target_lineno = handler.lineno
+                target_col_offset = handler.col_offset
+                handler_semantic(handler.name, ast.Expr(err_constructor),
+                                 InterpContext(env, self.package_db, self.current_db,
+                                               (target_lineno, target_col_offset)))
+            self.interp_stmts(handler.body, env)
+            handler_env = env.pop_sub_env()
+            try_body_env = ParallelSubEnv(try_body_env, handler_env)
+
+
+        env.add_sub_env(BasicSubEnv())
+        self.interp_stmts(try_stmt.orelse, env)
+        orelse_body_env = env.pop_sub_env()
+
+        env.add_sub_env(BasicSubEnv())
+        self.interp_stmts(try_stmt.finalbody, env)
+        finally_body_env = env.pop_sub_env()
+
+        try_env = ParallelSubEnv(try_body_env, ParallelSubEnv(orelse_body_env, finally_body_env))
+        forward_env = env.pop_sub_env()
+        env.add_sub_env(ContinuousSubEnv(forward_env, try_env))
+
     # entry of analysis of a module
     def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:
         if env is None:
@@ -277,6 +328,9 @@ class AInterp:
                 class_ctx.add_ref(Ref(RefKind.DefineKind,
                                       ClassAttribute(attr_location.to_longname(), attr_location),
                                       target_expr.lineno, target_expr.col_offset))
+
+    def declare_semantic(self, target_expr: ast.expr, env: EntEnv):
+        pass
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
