@@ -2,10 +2,10 @@ import ast
 from _ast import AST
 from abc import ABC
 from dataclasses import dataclass
-from typing import List, Tuple, TypeAlias, Callable
+from typing import List, Tuple, TypeAlias, Callable, Optional
 
 from ent.EntKind import RefKind
-from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute
+from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class
 from interp.aval import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
 from interp.enttype import EntType, ClassType
 from interp.env import EntEnv
@@ -85,6 +85,8 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
 
 def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[Tuple[Entity, EntType]],
                     ctx: "InterpContext"):
+    # depends on which kind of the context entity is, define/set/use variable entity of the environment or
+    # the current
     target_lineno, target_col_offset = ctx.coordinate
     # target should be the entity which the target_expr could possiblelly eval to
     if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
@@ -97,16 +99,24 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[T
         # record the target assign to target entity
     # if the target is a newly defined variable
     elif isinstance(tar_ent, UnknownVar):
-        # newly defined variable
+        ctx_ent = ctx.env.get_ctx()
         location = ctx.env.get_scope().get_location()
         location = location.append(tar_ent.longname.name)
-        new_var = Variable(location.to_longname(), location)
-        frame_entities.append((new_var, value_type))
-        ctx.current_db.add_ent(new_var)
-        ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
-        # record the target assign to target entity
-        # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
+        if isinstance(ctx_ent, Class):
+            new_attr = ClassAttribute(location.to_longname(), location)
+            frame_entities.append((new_attr, value_type))
+            ctx.current_db.add_ent(new_attr)
+            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
+            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
+        else:
+            # newly defined variable
+            new_var = Variable(location.to_longname(), location)
+            frame_entities.append((new_var, value_type))
+            ctx.current_db.add_ent(new_var)
+            ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset))
+            # record the target assign to target entity
+            # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
         if isinstance(tar_ent.receiver_type, ClassType):
             new_location = tar_ent.receiver_type.class_ent.location.append(tar_ent.longname.name)
@@ -148,10 +158,10 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "InterpContext")
             unpack_list([tar], distiller, ctx)
 
 
-def assign2target(target: Target, rvalue_expr: ast.expr, ctx: "InterpContext") -> None:
+def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpContext") -> None:
     avaler = UseAvaler(ctx.package_db, ctx.current_db)
     if rvalue_expr is None:
-        rvalue = []
+        rvalue = [(Entity.get_anonymous_ent(), EntType.get_bot())]
     else:
         rvalue = avaler.aval(rvalue_expr, ctx.env)
     unpack_semantic(target, rvalue, ctx)

@@ -64,14 +64,16 @@ class AInterp:
         # add function entity to dependency database
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
+        current_ctx = env.get_ctx()
+        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
         env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
-        # add function entity to the scope environment corresponding to the function
-        body_env.add_continuous([(func_ent, EntType.get_bot())])
+        # add function entity to the scope environment corresponding to the function while it's not a class method
+        if not isinstance(current_ctx, Class):
+            body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
         process_parameters(def_stmt.args, body_env, self.current_db, env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
@@ -172,7 +174,7 @@ class AInterp:
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
-    def process_assign_helper(self, rvalue_expr: ast.expr, target_exprs: ty.List[ast.expr], env: EntEnv):
+    def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
         from interp.assign_target import build_target, assign2target
@@ -207,7 +209,8 @@ class AInterp:
             return
         module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                 import_stmt.col_offset)
-        env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
+        current_ctx = env.get_ctx()
+        current_ctx.add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
         if not isinstance(module_ent, UnknownModule):
             frame_entities: ty.List[ty.Tuple[Entity, EntType]]
             for alias in import_stmt.names:
@@ -219,6 +222,7 @@ class AInterp:
                     if as_name is not None:
                         location = env.get_scope().get_location().append(as_name)
                         alias_ent = Alias(location.to_longname(), location, ent)
+                        current_ctx.add_ref(Ref(RefKind.DefineKind, alias_ent, alias.lineno, alias.col_offset))
                         self.current_db.add_ent(alias_ent)
                         frame_entities.append((alias_ent, ent.direct_type()))
                     else:
@@ -252,7 +256,8 @@ class AInterp:
                 target_lineno = optional_var.lineno
                 target_col_offset = optional_var.col_offset
                 unpack_semantic(target, with_value,
-                                InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
+                                InterpContext(env, self.package_db, self.current_db,
+                                              (target_lineno, target_col_offset)))
         self.interp_stmts(with_stmt.body, env)
 
     def interp_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
@@ -274,7 +279,6 @@ class AInterp:
             self.interp_stmts(handler.body, env)
             handler_env = env.pop_sub_env()
             try_body_env = ParallelSubEnv(try_body_env, handler_env)
-
 
         env.add_sub_env(BasicSubEnv())
         self.interp_stmts(try_stmt.orelse, env)

@@ -18,7 +18,9 @@ class Node:
 @dataclass
 class Edge:
     src: int
+    src_name: str
     dest: int
+    dest_name: str
     kind: str
     lineno: int
     col_offset: int
@@ -50,7 +52,9 @@ class DepRepr:
         dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value))
         for ref in ent.refs():
             dep_repr._edge_list.append(Edge(src=ent.id,
+                                            src_name=ent.longname.longname,
                                             dest=ref.target_ent.id,
+                                            dest_name=ref.target_ent.longname.longname,
                                             kind=ref.ref_kind.value,
                                             lineno=ref.lineno,
                                             col_offset=ref.col_offset))
@@ -79,7 +83,9 @@ class DepRepr:
                 lineno = ref.line()
                 col_offset = ref.column()
                 dep_repr.add_edge(Edge(src=ent.id(),
+                                       src_name=ent.longname(),
                                        dest=tar_ent.id(),
+                                       dest_name=tar_ent.longname(),
                                        kind=ref.kind().name(),
                                        lineno=lineno,
                                        col_offset=col_offset))

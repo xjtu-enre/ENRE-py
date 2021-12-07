@@ -28,7 +28,9 @@ ENTMAPPING = {
 DEPMAPPING = {
     "Import From": ["Import"],
     "Import": ["Import"],
-    "Use": ["Use"]
+    "Use": ["Use"],
+    "Set": ["Set"]
+
 }
 
 
