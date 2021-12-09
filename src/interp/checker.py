@@ -87,6 +87,7 @@ class AInterp:
         new_scope = now_scope.append(class_stmt.name)
         class_ent = Class(new_scope.to_longname(), new_scope)
         self.current_db.add_ent(class_ent)
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset))
         for base_expr in class_stmt.bases:
             avalue = avaler.aval(base_expr, env)
             for base_ent, ent_type in avalue:
@@ -212,6 +213,7 @@ class AInterp:
         current_ctx = env.get_ctx()
         current_ctx.add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
         if not isinstance(module_ent, UnknownModule):
+            # if the imported module can't found in package
             frame_entities: ty.List[ty.Tuple[Entity, EntType]]
             for alias in import_stmt.names:
                 name = alias.name
