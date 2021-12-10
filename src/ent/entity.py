@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set, Dict
 from ent.EntKind import EntKind
 from ref.Ref import Ref
 
@@ -208,11 +208,23 @@ class Class(Entity):
 
 
 class UnknownVar(Entity):
-    def __init__(self, name: str, location: Location):
-        super(UnknownVar, self).__init__(EntLongname([name]), location)
+
+    _unknown_pool: Dict[str, "UnknownVar"] = dict()
+
+    def __init__(self, name: str):
+        super(UnknownVar, self).__init__(EntLongname([name]), Location())
 
     def kind(self) -> EntKind:
         return EntKind.UnknownVar
+
+    @classmethod
+    def get_unknown_var(cls, name: str) -> "UnknownVar":
+        if name in cls._unknown_pool.keys():
+            return cls._unknown_pool[name]
+        else:
+            unknown_var = UnknownVar(name)
+            cls._unknown_pool[name] = unknown_var
+            return unknown_var
 
 
 class UnknownModule(Module):

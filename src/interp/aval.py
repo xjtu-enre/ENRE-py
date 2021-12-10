@@ -55,7 +55,7 @@ class UseAvaler:
         if ent_objs != []:
             return ent_objs
         else:
-            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
 
@@ -225,7 +225,7 @@ class SetAvaler:
         if ent_objs != []:
             return ent_objs
         else:
-            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
 
@@ -254,7 +254,7 @@ class CallAvaler:
         if ent_objs:
             return ent_objs
         else:
-            unknown_var = UnknownVar(name_expr.id, env.get_scope().get_location())
+            unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
 

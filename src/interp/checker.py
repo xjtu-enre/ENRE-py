@@ -235,7 +235,7 @@ class AInterp:
             frame_entities = []
             for alias in import_stmt.names:
                 location = module_ent.location.append(alias.name)
-                unknown_var = UnknownVar(location.to_longname().name, location)
+                unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
                 module_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
                 if alias.asname is not None:

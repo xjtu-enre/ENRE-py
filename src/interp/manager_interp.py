@@ -28,7 +28,6 @@ class ModuleStack:
         return path in self.checking_stack
 
 
-
 class ModuleDB:
     def __init__(self, module_ent: Module):
         from dep.DepDB import DepDB
@@ -36,9 +35,12 @@ class ModuleDB:
         self.module_ent = module_ent
         self.dep_db = DepDB()
         self.dep_db.add_ent(self.module_ent)
+        self.ent_id_set: ty.Set[int] = set()
 
     def add_ent(self, ent: "Entity"):
-        self.dep_db.add_ent(ent)
+        if ent.id not in self.ent_id_set:
+            self.ent_id_set.add(ent.id)
+            self.dep_db.add_ent(ent)
 
 
 class PackageDB:
@@ -135,13 +137,12 @@ class InterpManager:
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
 
             return self.package_db[rel_path].module_ent
-        elif self.project_root.joinpath(rel_path).exists():
-            # new module
+        elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
+            # new module entity
             module_ent = self.package_db[rel_path].module_ent
             checker = AInterp(rel_path, self)
             self.module_stack.push(rel_path)
-            absolute_path = self.project_root.joinpath(rel_path)
-            with open(absolute_path, "r") as file:
+            with open(p, "r") as file:
                 checker.interp_top_stmts(ast.parse(file.read()).body,
                                          EntEnv(ScopeEnv(module_ent, module_ent.location)))
             self.module_stack.pop()
@@ -164,6 +165,16 @@ class InterpManager:
                 return from_path.joinpath(rel_path)
             from_path = from_path.parent
         return rel_path
+
+
+def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> ty.Optional[Path]:
+    parent_dir = project_root.parent.joinpath(from_module.module_path.parent)
+    while not parent_dir.samefile(project_root.parent.parent):
+        target_module_path = parent_dir.joinpath(rel_path)
+        if target_module_path.exists():
+            return target_module_path
+        parent_dir = parent_dir.parent
+    return None
 
 
 from ent.entity import Entity
