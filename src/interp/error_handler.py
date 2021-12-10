@@ -9,7 +9,7 @@ from interp.enttype import ConstructorType, EntType
 
 
 def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpContext") -> None:
-    frame_entities = []
+    frame_entities: AbstractValue = []
     new_var_ent = UnknownVar.get_unknown_var(name)
     for ent, ent_type in err_constructor:
         if isinstance(ent_type, ConstructorType):
