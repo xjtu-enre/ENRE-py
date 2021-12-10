@@ -201,6 +201,7 @@ class Class(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Class, self).__init__(longname, location)
         self._names: Dict[str, List[Entity]] = defaultdict(list)
+        self._inherits: List["Class"] = []
 
     def kind(self) -> EntKind:
         return EntKind.Class
@@ -209,6 +210,21 @@ class Class(Entity):
     def names(self) -> Dict[str, List[Entity]]:
         # class scope, name to possible bound entities
         return self._names
+
+    @property
+    def inherits(self) -> List["Class"]:
+        return self._inherits
+
+    def get_attribute(self, attr: str) -> List[Entity]:
+        current_class_attrs = self.names[attr]
+        if current_class_attrs:
+            return current_class_attrs
+        for cls_ent in self.inherits:
+            inherited_attrs = cls_ent.names[attr]
+            if inherited_attrs:
+                return inherited_attrs
+        return []
+
 
     def add_ref(self, ref: Ref):
         if ref.ref_kind == RefKind.DefineKind:

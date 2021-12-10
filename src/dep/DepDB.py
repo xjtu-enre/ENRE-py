@@ -24,7 +24,7 @@ class DepDB:
         return ret
 
     def get_class_attributes(self, ent: Class, attribute: str) -> ty.List[Entity]:
-        defined_attributes = ent.names[attribute]
+        defined_attributes = ent.get_attribute(attribute)
         return defined_attributes
         # return self._get_define_entities(ent.longname, attribute)
 
