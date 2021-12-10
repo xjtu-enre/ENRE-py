@@ -120,11 +120,11 @@ class InterpManager:
             for sub_file in path.iterdir():
                 self.iter_dir(sub_file)
         elif path.name.endswith(".py"):
-            if self.module_stack.finished_module(path):
-                print(f"the module {path} already imported by some analyzed module")
+            rel_path = path.relative_to(self.project_root.parent)
+            if self.module_stack.finished_module(rel_path):
+                print(f"the module {rel_path} already imported by some analyzed module")
                 return
             else:
-                rel_path = path.relative_to(self.project_root.parent)
                 module_ent = self.package_db[rel_path].module_ent
                 checker = AInterp(rel_path, self)
                 self.module_stack.push(rel_path)

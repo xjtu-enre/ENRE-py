@@ -91,7 +91,7 @@ class AInterp:
         for base_expr in class_stmt.bases:
             avalue = avaler.aval(base_expr, env)
             for base_ent, ent_type in avalue:
-                if isinstance(ent_type, ClassType):
+                if isinstance(ent_type, ConstructorType):
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
                                           class_stmt.col_offset))
                 else:
