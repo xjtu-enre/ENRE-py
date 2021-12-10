@@ -146,16 +146,27 @@ def unpack_list(tar_list: List[Target], distiller: MemberDistiller, ctx: "Interp
 def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "InterpContext") -> None:
     set_avaler = SetAvaler(ctx.package_db, ctx.current_db)
     distiller = dummy_unpack(rvalue)
-    match target:
-        case LvalueTar(lvalue_expr):
-            lvalue: AbstractValue = set_avaler.aval(lvalue_expr, ctx.env)
-            abstract_assign(lvalue, rvalue, ctx)
-        case TupleTar(tar_list):
-            unpack_list(tar_list, distiller, ctx)
-        case ListTar(tar_list):
-            unpack_list(tar_list, distiller, ctx)
-        case StarTar(tar):
-            unpack_list([tar], distiller, ctx)
+    # replace pattern match to use mypy
+    # match target:
+    #     case LvalueTar(lvalue_expr):
+    #         lvalue: AbstractValue = set_avaler.aval(lvalue_expr, ctx.env)
+    #         abstract_assign(lvalue, rvalue, ctx)
+    #     case TupleTar(tar_list):
+    #         unpack_list(tar_list, distiller, ctx)
+    #     case ListTar(tar_list):
+    #         unpack_list(tar_list, distiller, ctx)
+    #     case StarTar(tar):
+    #         unpack_list([tar], distiller, ctx)
+
+    if isinstance(target, LvalueTar):
+        lvalue: AbstractValue = set_avaler.aval(target.lvalue_expr, ctx.env)
+        abstract_assign(lvalue, rvalue, ctx)
+    elif isinstance(target, TupleTar):
+        unpack_list(target.tar_list, distiller, ctx)
+    elif isinstance(target, ListTar):
+        unpack_list(target.tar_list, distiller, ctx)
+    elif isinstance(target, StarTar):
+        unpack_list([target.target], distiller, ctx)
 
 
 def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpContext") -> None:
