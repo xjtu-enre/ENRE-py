@@ -79,7 +79,7 @@ class AInterp:
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
 
         hook_scope.add_hook(def_stmt.body, body_env)
-        # todo: fill until defined Function entity and ScopeEnv
+        self.process_annotations(def_stmt.args, env)
 
     def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = UseAvaler(self.package_db, self.current_db)
@@ -337,6 +337,11 @@ class AInterp:
 
     def declare_semantic(self, target_expr: ast.expr, env: EntEnv):
         pass
+
+    def process_annotations(self, args: ast.arguments, env: EntEnv):
+        for arg in args.args:
+            if arg.annotation is not None:
+                self._avaler.aval(arg.annotation, env)
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
