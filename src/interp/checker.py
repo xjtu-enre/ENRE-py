@@ -40,7 +40,7 @@ class AInterp:
             self._avaler.aval(stmt, env)
             return
         visitor = getattr(self, method, self.generic_interp)
-        return visitor(stmt, env)
+        visitor(stmt, env)
 
     def generic_interp(self, stmt: ast.AST, env: EntEnv) -> None:
         """Called if no explicit visitor function exists for a node."""

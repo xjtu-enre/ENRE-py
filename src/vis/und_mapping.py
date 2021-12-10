@@ -11,8 +11,8 @@ ENTMAPPING = {
     "File": ["Module"],
     "Class": ["Class"],
     "Attribute": ["Class Attribute"],
-    "Unresolved Attribute": ["Unresolved Attribute"],
-    "Ambiguous Attribute": [],
+    "Unresolved Attribute": ["Unresolved Attribute", "Referenced Attribute"],
+    "Ambiguous Attribute": ["Referenced Attribute"],
     "Unknown Module": ["Unknown Module"],
     "Unknown Class": ["Unknown Variable"],
     "Unknown Variable": ["Unknown Variable"],
@@ -82,8 +82,8 @@ class UndMapping(Mapping):
         und_edge_lineno = und_edge["lineno"]
         if und_edge_kind not in DEPMAPPING or base_edge_kind not in DEPMAPPING[und_edge_kind]:
             return False
-        if base_edge_lineno != und_edge_lineno:
-            return False
+        # if base_edge_lineno != und_edge_lineno:
+        #     return False
         base_src_node = get_node_by_id(base_edge["src"], self._node_dict)
         base_dest_node = get_node_by_id(base_edge["dest"], self._node_dict)
         und_src_node = get_node_by_id(und_edge["src"], self._und_node_dict)

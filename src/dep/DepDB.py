@@ -24,7 +24,9 @@ class DepDB:
         return ret
 
     def get_class_attributes(self, ent: Class, attribute: str) -> ty.List[Entity]:
-        return self._get_define_entities(ent.longname, attribute)
+        defined_attributes = ent.names[attribute]
+        return defined_attributes
+        # return self._get_define_entities(ent.longname, attribute)
 
     def get_module_attributes(self, ent: ty.Union[Module, ModuleAlias], attribute: str) -> ty.List[Entity]:
         return self._get_define_entities(ent.module_longname, attribute)

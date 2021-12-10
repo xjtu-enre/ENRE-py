@@ -17,13 +17,13 @@ class PatternBuilder:
 
     def visit(self, node: ast.expr) -> "Target":
         method = 'visit_' + node.__class__.__name__
-        visitor = getattr(self, method, self.visit_Lvalue)
+        visitor: Callable[[ast.expr], "Target"] = getattr(self, method, self.visit_Lvalue)
         return visitor(node)
 
-    def visit_Attribute(self, node: ast.Attribute) -> "Target":
+    def visit_Attribute(self, node: ast.Attribute) -> "LvalueTar":
         return LvalueTar(node)
 
-    def visit_Lvalue(self, node: ast.Name) -> "Target":
+    def visit_Lvalue(self, node: ast.expr) -> "LvalueTar":
         return LvalueTar(node)
 
     def visit_List(self, node: ast.List) -> "ListTar":
@@ -131,7 +131,7 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[T
 
 def abstract_assign(lvalue: AbstractValue, rvalue: AbstractValue, ctx: "InterpContext") -> None:
     for _, value_type in rvalue:
-        frame_entities = []
+        frame_entities: List[Tuple[Entity, EntType]] = []
         for target, _ in lvalue:
             assign_semantic(target, value_type, frame_entities, ctx)
         ctx.env.get_scope().add_continuous(frame_entities)
@@ -171,6 +171,7 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "InterpContext")
 
 def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpContext") -> None:
     avaler = UseAvaler(ctx.package_db, ctx.current_db)
+    rvalue: AbstractValue
     if rvalue_expr is None:
         rvalue = [(Entity.get_anonymous_ent(), EntType.get_bot())]
     else:
@@ -182,5 +183,5 @@ from interp.checker import InterpContext
 
 if __name__ == '__main__':
     tree = ast.parse("*[(x, y), y]")
-    tar = build_target(tree.body[0].value)
+    tar = build_target(tree.body[0].value) # type: ignore
     print(tar)

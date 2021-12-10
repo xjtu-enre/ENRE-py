@@ -1,7 +1,8 @@
 from abc import abstractmethod, ABC
+from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Set, Dict
-from ent.EntKind import EntKind
+from ent.EntKind import EntKind, RefKind
 from ref.Ref import Ref
 
 _EntityID = 0
@@ -199,16 +200,26 @@ class Package(Entity):
 class Class(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Class, self).__init__(longname, location)
+        self._names: Dict[str, List[Entity]] = defaultdict(list)
 
     def kind(self) -> EntKind:
         return EntKind.Class
+
+    @property
+    def names(self) -> Dict[str, List[Entity]]:
+        # class scope, name to possible bound entities
+        return self._names
+
+    def add_ref(self, ref: Ref):
+        if ref.ref_kind == RefKind.DefineKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        super(Class, self).add_ref(ref)
 
     def direct_type(self) -> "EntType":
         return ConstructorType(self)
 
 
 class UnknownVar(Entity):
-
     _unknown_pool: Dict[str, "UnknownVar"] = dict()
 
     def __init__(self, name: str):
