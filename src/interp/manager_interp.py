@@ -108,7 +108,7 @@ class InterpManager:
         from passes.entity_pass import EntityPass
         self.iter_dir(self.project_root)
         entity_pass = EntityPass(self.package_db)
-        entity_pass.resolve_referenced_attribute()
+        # entity_pass.execute_pass()
 
     def iter_dir(self, path: Path):
         from .checker import AInterp

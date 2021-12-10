@@ -6,15 +6,35 @@ from ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
 from interp.enttype import EntType
 from interp.manager_interp import PackageDB
 from ref.Ref import Ref
+import abc
 
 
-class EntityPass:
+class DepDBPass:
+    @property
+    @abc.abstractmethod
+    def package_db(self) -> PackageDB:
+        ...
+
+    @abc.abstractmethod
+    def execute_pass(self):
+        ...
+
+
+class EntityPass(DepDBPass):
+
     def __init__(self, package_db: PackageDB):
         self.progress = 0
-        self.package_db: PackageDB = package_db
+        self._package_db: PackageDB = package_db
         self.attribute_dict: Dict[str, List[Entity]] = defaultdict(list)
 
-    def resolve_referenced_attribute(self):
+    @property
+    def package_db(self) -> PackageDB:
+        return self._package_db
+
+    def execute_pass(self):
+        self._resolve_referenced_attribute()
+
+    def _resolve_referenced_attribute(self):
         self.build_attribute_dict()
         for _, module_db in self.package_db.tree.items():
             for ent in module_db.dep_db.ents:
