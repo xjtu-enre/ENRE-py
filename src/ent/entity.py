@@ -225,7 +225,6 @@ class Class(Entity):
                 return inherited_attrs
         return []
 
-
     def add_ref(self, ref: Ref):
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
@@ -300,6 +299,14 @@ class ReferencedAttribute(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.ReferencedAttr
+
+
+class AmbiguousAttribute(Entity):
+    def __init__(self, name: str):
+        super(AmbiguousAttribute, self).__init__(EntLongname([name]), Location())
+
+    def kind(self) -> EntKind:
+        return EntKind.AmbiguousAttr
 
 
 class UnresolvedAttribute(Entity):

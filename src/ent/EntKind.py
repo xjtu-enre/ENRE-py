@@ -8,6 +8,7 @@ class RefKind(Enum):
     DefineKind = "Define"
     InheritKind = "Inherit"
     ImportKind = "Import"
+    HasambiguousKind = "Hasambiguous"
 
 
 class EntKind(Enum):
@@ -26,7 +27,7 @@ class EntKind(Enum):
     ClassAttr = "Class Attribute"
     UnresolvedAttr = "Unresolved Attribute"
     ReferencedAttr = "Referenced Attribute"
-
+    AmbiguousAttr = "Ambiguous Attribute"
     Anonymous = "Anonymous"
 
 # KindSet is a kind for `Set` relation

@@ -106,8 +106,11 @@ class InterpManager:
 
     def work_flow(self):
         from passes.entity_pass import EntityPass
+        from passes.build_ambiguous import BuildAmbiguous
         self.iter_dir(self.project_root)
         entity_pass = EntityPass(self.package_db)
+        build_ambiguous_pass = BuildAmbiguous(self.package_db)
+        build_ambiguous_pass.execute_pass()
         # entity_pass.execute_pass()
 
     def iter_dir(self, path: Path):
