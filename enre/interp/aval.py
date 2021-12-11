@@ -57,6 +57,7 @@ class UseAvaler:
         else:
             unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
+            ctx.add_ref(Ref(RefKind.UseKind, unknown_var, name_expr.lineno, name_expr.col_offset))
             return [(unknown_var, EntType.get_bot())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:

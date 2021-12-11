@@ -95,8 +95,9 @@ class AInterp:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
                                           class_stmt.col_offset))
                 else:
+                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
+                                          class_stmt.col_offset))
                     # todo: handle unknown class
-                    pass
 
         # add class to current environment
         env.get_scope().add_continuous([(class_ent, ConstructorType(class_ent))])
@@ -170,6 +171,7 @@ class AInterp:
     def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv):
         target_expr = ann_stmt.target
         rvalue_expr = ann_stmt.value
+        self._avaler.aval(ann_stmt.annotation, env)
         self.process_assign_helper(rvalue_expr, [target_expr], env)
 
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
