@@ -80,7 +80,8 @@ class UndMapping(Mapping):
         und_edge_kind = und_edge["kind"]
         base_edge_lineno = base_edge["lineno"]
         und_edge_lineno = und_edge["lineno"]
-        if und_edge_kind not in DEPMAPPING or base_edge_kind not in DEPMAPPING[und_edge_kind]:
+        in_dep_map = und_edge_kind in DEPMAPPING and base_edge_kind in DEPMAPPING[und_edge_kind]
+        if not in_dep_map and base_edge_kind != und_edge_kind:
             return False
         # if base_edge_lineno != und_edge_lineno:
         #     return False
