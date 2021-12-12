@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, TypeAlias, Callable, Optional
 
 from ent.EntKind import RefKind
-from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class
+from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
 from interp.aval import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
 from interp.enttype import EntType, ClassType
 from interp.env import EntEnv
@@ -101,7 +101,7 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[T
     elif isinstance(tar_ent, UnknownVar):
         ctx_ent = ctx.env.get_ctx()
         location = ctx.env.get_scope().get_location()
-        location = location.append(tar_ent.longname.name)
+        location = location.append(tar_ent.longname.name, Span.get_nil())
         if isinstance(ctx_ent, Class):
             new_attr = ClassAttribute(location.to_longname(), location)
             frame_entities.append((new_attr, value_type))
@@ -119,7 +119,7 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[T
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
         if isinstance(tar_ent.receiver_type, ClassType):
-            new_location = tar_ent.receiver_type.class_ent.location.append(tar_ent.longname.name)
+            new_location = tar_ent.receiver_type.class_ent.location.append(tar_ent.longname.name, Span.get_nil())
             new_attr = ClassAttribute(new_location.to_longname(), new_location)
             ctx.current_db.add_ent(new_attr)
             tar_ent.receiver_type.class_ent.add_ref(

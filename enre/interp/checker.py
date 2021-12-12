@@ -7,7 +7,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_module_level_ent
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
-    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter
+    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span
 from interp.enttype import EntType
 from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
@@ -56,9 +56,9 @@ class AInterp:
 
     def interp_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
         in_class_env = isinstance(env.get_ctx(), Class)
-
+        fun_code_span = Span(def_stmt.lineno, def_stmt.end_lineno, def_stmt.col_offset, def_stmt.end_col_offset)
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(def_stmt.name)
+        new_scope = now_scope.append(def_stmt.name, fun_code_span)
         func_ent = Function(new_scope.to_longname(), new_scope)
 
         # add function entity to dependency database
@@ -84,7 +84,9 @@ class AInterp:
     def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = UseAvaler(self.package_db, self.current_db)
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(class_stmt.name)
+        class_code_span = Span(class_stmt.lineno, class_stmt.end_lineno,
+                               class_stmt.col_offset, class_stmt.end_col_offset)
+        new_scope = now_scope.append(class_stmt.name, class_code_span)
         class_ent = Class(new_scope.to_longname(), new_scope)
         self.current_db.add_ent(class_ent)
         env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset))
@@ -197,7 +199,7 @@ class AInterp:
             if module_alias.asname is None:
                 env.get_scope().add_continuous([(module_ent, ModuleType.get_module_type())])
             else:
-                alias_location = env.get_ctx().location.append(module_alias.asname)
+                alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil())
                 module_alias_ent = ModuleAlias(module_ent, alias_location)
                 self.current_db.add_ent(module_alias_ent)
                 env.get_scope().add_continuous([(module_alias_ent, ModuleType.get_module_type())])
@@ -224,7 +226,7 @@ class AInterp:
                 frame_entities = []
                 for ent in imported_ents:
                     if as_name is not None:
-                        location = env.get_scope().get_location().append(as_name)
+                        location = env.get_scope().get_location().append(as_name, Span.get_nil())
                         alias_ent = Alias(location.to_longname(), location, ent)
                         current_ctx.add_ref(Ref(RefKind.DefineKind, alias_ent, alias.lineno, alias.col_offset))
                         self.current_db.add_ent(alias_ent)
@@ -236,12 +238,13 @@ class AInterp:
             self.package_db.add_ent_global(module_ent)
             frame_entities = []
             for alias in import_stmt.names:
-                location = module_ent.location.append(alias.name)
+                alias_code_span = Span(alias.lineno, alias.end_lineno, alias.col_offset, alias.end_col_offset)
+                location = module_ent.location.append(alias.name, alias_code_span)
                 unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
                 module_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
                 if alias.asname is not None:
-                    as_location = env.get_scope().get_location().append(alias.asname)
+                    as_location = env.get_scope().get_location().append(alias.asname, alias_code_span)
                     alias_ent = Alias(as_location.to_longname(), location, unknown_var)
                     self.current_db.add_ent(alias_ent)
                     frame_entities.append((alias_ent, EntType.get_bot()))
@@ -370,7 +373,8 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     def process_helper(a: ast.arg, ent_type=None):
         if ent_type == None:
             ent_type = EntType.get_bot()
-        parameter_loc = location_base.append(a.arg)
+        para_code_span = Span(a.lineno, a.end_lineno, a.col_offset, a.end_col_offset)
+        parameter_loc = location_base.append(a.arg, para_code_span)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         env.add_continuous([(parameter_ent, ent_type)])

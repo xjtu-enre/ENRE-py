@@ -6,7 +6,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_class_attr, get_module_level_ent
 from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, UnknownModule, Function, Class, LambdaFunction
+    ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
@@ -89,9 +89,9 @@ class UseAvaler:
     def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv):
         from interp.checker import process_parameters
         in_class_env = isinstance(env.get_ctx(), Class)
-
+        lam_span = Span(lam_expr.lineno, lam_expr.end_lineno, lam_expr.col_offset, lam_expr.end_col_offset)
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(f"({lam_expr.lineno})")
+        new_scope = now_scope.append(f"({lam_expr.lineno})", lam_span)
         func_ent = LambdaFunction(new_scope.to_longname(), new_scope)
 
         # add function entity to dependency database
@@ -110,7 +110,8 @@ class UseAvaler:
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
         # type error due to member in ast node is, but due to any member in our structure is only readable,
         # this type error is safety
-        hook_scope.add_hook([ast.Expr(lam_expr.body)], body_env)
+        lam_body: List[ast.stmt] = [ast.Expr(lam_expr.body)]
+        hook_scope.add_hook(lam_body, body_env)
         return [(func_ent, EntType.get_bot())]
 
     def aval_ListComp(self, list_comp: ast.ListComp, env: EntEnv) -> "AbstractValue":
@@ -175,7 +176,7 @@ def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, 
             else:
                 # unknown module
                 module_ent = ent.module_ent
-                location = module_ent.location.append(attribute)
+                location = module_ent.location.append(attribute, Span.get_nil())
                 unknown_attr = UnresolvedAttribute(location.to_longname(), location, EntType.get_bot())
                 package_db.add_ent_global(unknown_attr)
                 module_ent.add_ref(Ref(RefKind.DefineKind, unknown_attr, 0, 0))
@@ -199,7 +200,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tu
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global
-        location = container.location.append(attribute)
+        location = container.location.append(attribute, Span.get_nil())
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
         dep_db.add_ent(unresolved)
         # dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))

@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Set, Dict
 from ent.EntKind import EntKind, RefKind
@@ -32,17 +33,39 @@ class EntLongname:
         return hash(tuple(self._scope))
 
 
+@dataclass
+class Span:
+    @classmethod
+    def get_nil(cls) -> "Span":
+        return _Nil_Span
+    start_line: int
+    end_line: int
+    start_col: int
+    end_col: int
+
+
+_Nil_Span = Span(-1, -1, -1, -1)
+
+
 class Location:
-    def append(self, name: str) -> "Location":
-        return Location(self._scope + [name])
+    def append(self, name: str, new_span: Span, new_path: Path = None) -> "Location":
+        if new_path == None:
+            new_path = self._file_path
+        return Location(new_path, new_span, self._scope + [name])
 
     def to_longname(self) -> EntLongname:
         return EntLongname(self._scope)
 
-    def __init__(self, scope: Optional[List[str]] = None):
+    def __init__(self, file_path: Path = None, code_span: Span = None, scope: Optional[List[str]] = None):
         if scope is None:
             scope = []
+        if file_path == None:
+            file_path = Path()
+        if code_span == None:
+            code_span = _Nil_Span
         self._scope: List[str] = scope
+        self._span = code_span
+        self._file_path = file_path
 
     def __eq__(self, other: object):
         if isinstance(other, Location) and len(other._scope) == len(self._scope):
@@ -57,7 +80,7 @@ class Location:
 
     @classmethod
     def global_name(cls, name: str) -> "Location":
-        return Location([name])
+        return Location(Path(), _Nil_Span, [name])
 
 
 # Entity is the abstract domain of the Abstract Interpreter
