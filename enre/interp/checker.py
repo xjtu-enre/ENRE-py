@@ -7,7 +7,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_module_level_ent
 from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
-    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span
+    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
 from interp.enttype import EntType
 from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
@@ -56,7 +56,7 @@ class AInterp:
 
     def interp_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
         in_class_env = isinstance(env.get_ctx(), Class)
-        fun_code_span = Span(def_stmt.lineno, def_stmt.end_lineno, def_stmt.col_offset, def_stmt.end_col_offset)
+        fun_code_span = get_syntactic_span(def_stmt)
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(def_stmt.name, fun_code_span)
         func_ent = Function(new_scope.to_longname(), new_scope)
@@ -84,8 +84,7 @@ class AInterp:
     def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = UseAvaler(self.package_db, self.current_db)
         now_scope = env.get_scope().get_location()
-        class_code_span = Span(class_stmt.lineno, class_stmt.end_lineno,
-                               class_stmt.col_offset, class_stmt.end_col_offset)
+        class_code_span = get_syntactic_span(class_stmt)
         new_scope = now_scope.append(class_stmt.name, class_code_span)
         class_ent = Class(new_scope.to_longname(), new_scope)
         self.current_db.add_ent(class_ent)
@@ -238,7 +237,7 @@ class AInterp:
             self.package_db.add_ent_global(module_ent)
             frame_entities = []
             for alias in import_stmt.names:
-                alias_code_span = Span(alias.lineno, alias.end_lineno, alias.col_offset, alias.end_col_offset)
+                alias_code_span = get_syntactic_span(alias)
                 location = module_ent.location.append(alias.name, alias_code_span)
                 unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
@@ -321,6 +320,7 @@ class AInterp:
             self.interp(stmt, env)
 
     # unused function
+    @ty.no_type_check
     def get_class_attr(self, target_exprs: ty.List[ast.expr], env: EntEnv):
         class_ctx = env.get_class_ctx()
         if class_ctx is None:
@@ -350,7 +350,10 @@ class AInterp:
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
+# deprecated function
+@ty.no_type_check
 def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB) -> None:
+    raise ValueError("calling deprecated function")
     scope_env = env.get_scope()
     matched_ents = scope_env[target.longname.name]
     for ent, ent_type1 in matched_ents:
@@ -373,7 +376,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     def process_helper(a: ast.arg, ent_type=None):
         if ent_type == None:
             ent_type = EntType.get_bot()
-        para_code_span = Span(a.lineno, a.end_lineno, a.col_offset, a.end_col_offset)
+        para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)

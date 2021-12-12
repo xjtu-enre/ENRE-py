@@ -1,3 +1,4 @@
+import ast
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
@@ -38,10 +39,20 @@ class Span:
     @classmethod
     def get_nil(cls) -> "Span":
         return _Nil_Span
+
     start_line: int
     end_line: int
     start_col: int
     end_col: int
+
+
+def get_syntactic_span(tree: ast.AST) -> Span:
+    start_line = tree.lineno
+    end_line = tree.end_lineno if tree.end_lineno else -1
+    # todo: fill correct location for compatibility before 3.8
+    start_col = tree.col_offset
+    end_col = tree.end_col_offset if tree.end_col_offset else -1
+    return Span(start_line, end_line, start_col, end_col)
 
 
 _Nil_Span = Span(-1, -1, -1, -1)
@@ -164,7 +175,7 @@ class Module(Entity):
         path = os.path.normpath(str(file_path)[:-len(".py")])
         path_list = path.split(os.sep)
         longname = EntLongname(path_list)
-        location = Location(path_list)
+        location = Location(file_path, Span.get_nil(), path_list)
         super(Module, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
@@ -213,7 +224,7 @@ class Package(Entity):
         path = os.path.normpath(str(file_path))
         path_list = path.split(os.sep)
         longname = EntLongname(path_list)
-        location = Location(path_list)
+        location = Location(file_path, Span.get_nil(), path_list)
         super(Package, self).__init__(longname, location)
 
     def kind(self) -> EntKind:

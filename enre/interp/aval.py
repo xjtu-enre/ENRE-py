@@ -6,7 +6,7 @@ from dep.DepDB import DepDB
 from ent.EntKind import RefKind
 from ent.ent_finder import get_class_attr, get_module_level_ent
 from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span
+    ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span, get_syntactic_span
 from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from interp.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
@@ -89,7 +89,7 @@ class UseAvaler:
     def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv):
         from interp.checker import process_parameters
         in_class_env = isinstance(env.get_ctx(), Class)
-        lam_span = Span(lam_expr.lineno, lam_expr.end_lineno, lam_expr.col_offset, lam_expr.end_col_offset)
+        lam_span = get_syntactic_span(lam_expr)
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(f"({lam_expr.lineno})", lam_span)
         func_ent = LambdaFunction(new_scope.to_longname(), new_scope)
