@@ -29,18 +29,28 @@ class ModuleStack:
 
 
 class ModuleDB:
-    def __init__(self, module_ent: Module):
+    def __init__(self, project_root: Path, module_ent: Module):
         from dep.DepDB import DepDB
+        self.project_root = project_root
         self.module_path = module_ent.module_path
         self.module_ent = module_ent
         self.dep_db = DepDB()
         self.dep_db.add_ent(self.module_ent)
         self.ent_id_set: ty.Set[int] = set()
+        self._tree = self.parse_a_module(self.module_path)
 
     def add_ent(self, ent: "Entity"):
         if ent.id not in self.ent_id_set:
             self.ent_id_set.add(ent.id)
             self.dep_db.add_ent(ent)
+
+    @property
+    def tree(self) -> ast.Module:
+        return self._tree
+
+    def parse_a_module(self, module_path: Path) -> ty.Optional[ast.Module]:
+        absolute_path = self.project_root.parent.joinpath(module_path)
+        return ast.parse(absolute_path.read_text(encoding="utf-8"),module_path.name)
 
 
 class PackageDB:
@@ -56,7 +66,7 @@ class PackageDB:
         if path.is_file() and path.name.endswith(".py"):
             from dep.DepDB import DepDB
             module_ent = Module(path.relative_to(self.root_dir.parent))
-            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(module_ent)
+            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(self.root_dir, module_ent)
 
         if path.is_dir():
             for file in path.iterdir():
@@ -128,10 +138,8 @@ class InterpManager:
                 module_ent = self.package_db[rel_path].module_ent
                 checker = AInterp(rel_path, self)
                 self.module_stack.push(rel_path)
-                absolute_path = self.project_root.parent.joinpath(rel_path)
-                with open(absolute_path, "r", encoding="utf-8") as file:
-                    checker.interp_top_stmts(ast.parse(file.read()).body,
-                                             EntEnv(ScopeEnv(module_ent, module_ent.location)))
+                checker.interp_top_stmts(checker.current_db.tree.body,
+                                         EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
     def import_module(self, from_module_ent: Module, module_identifier: str, lineno: int, col_offset: int) -> Module:
