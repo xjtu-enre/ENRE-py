@@ -7,7 +7,7 @@ from enre.interp.manager_interp import InterpManager
 from enre.vis.representation import DepRepr
 
 
-def main():
+def main() -> None:
     root_path = Path(sys.argv[1])
     start = time.time()
     enre_wrapper(root_path)
@@ -15,7 +15,7 @@ def main():
     print(f"analysing time: {end - start}s")
 
 
-def enre_wrapper(root_path):
+def enre_wrapper(root_path: Path) -> None:
     project_name = root_path.name
     manager = InterpManager(root_path)
     manager.work_flow()

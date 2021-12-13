@@ -20,10 +20,10 @@ class SubEnv:
 class BasicSubEnv(SubEnv):
     _pairs: List[Tuple[Entity, EntType]]
 
-    def __init__(self, pairs: List[Tuple[Entity, EntType]] = None):
+    def __init__(self, pairs: Optional[List[Tuple[Entity, EntType]]] = None):
         ...
 
-    def add(self, target_ent: Entity, value: EntType):
+    def add(self, target_ent: Entity, value: EntType) -> None:
         ...
 
     def __getitem__(self, name: str) -> List[Optional[Tuple[Entity, EntType]]]:
@@ -80,7 +80,7 @@ class ScopeEnv:
 
     def get_hooks(self) -> List[Hook]: ...
 
-    def __init__(self, ctx_ent: Entity, location: Location, class_ctx: Class = None) -> None:
+    def __init__(self, ctx_ent: Entity, location: Location, class_ctx: Optional[Class] = None) -> None:
         ...
 
     def __len__(self) -> int: ...
@@ -97,12 +97,12 @@ class ScopeEnv:
 
     def __getitem__(self, name: str) -> List[Tuple[Entity, EntType]]: ...
 
-    def add_continuous(self, pairs: List[Tuple[Entity, EntType]]): ...
+    def add_continuous(self, pairs: List[Tuple[Entity, EntType]]) -> None: ...
 
 
 class EntEnv:
 
-    def get_scope(self, offset=-1) -> ScopeEnv: ...
+    def get_scope(self, offset: int = -1) -> ScopeEnv: ...
 
     def add_scope(self, scope_env: ScopeEnv) -> None: ...
 

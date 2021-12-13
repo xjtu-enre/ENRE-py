@@ -82,7 +82,7 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
 
 
 def assign_semantic(tar_ent: Entity, value_type: EntType, frame_entities: List[Tuple[Entity, EntType]],
-                    ctx: "InterpContext"):
+                    ctx: "InterpContext") -> None:
     # depends on which kind of the context entity is, define/set/use variable entity of the environment or
     # the current
     target_lineno, target_col_offset = ctx.coordinate

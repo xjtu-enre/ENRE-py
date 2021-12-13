@@ -9,7 +9,7 @@ from enre.ref.Ref import Ref
 
 
 class ModuleStack:
-    def __init__(self):
+    def __init__(self) -> None:
         self.finished_module_set: ty.Set[Path] = set()
         self.checking_stack: ty.List[Path] = []
 
@@ -18,7 +18,7 @@ class ModuleStack:
         self.finished_module_set.add(finished)
         return finished
 
-    def push(self, path: Path):
+    def push(self, path: Path) -> None:
         self.checking_stack.append(path)
 
     def finished_module(self, path: Path) -> bool:
@@ -39,7 +39,7 @@ class ModuleDB:
         self.ent_id_set: ty.Set[int] = set()
         self._tree = self.parse_a_module(self.module_path)
 
-    def add_ent(self, ent: "Entity"):
+    def add_ent(self, ent: "Entity") -> None:
         if ent.id not in self.ent_id_set:
             self.ent_id_set.add(ent.id)
             self.dep_db.add_ent(ent)
@@ -50,7 +50,7 @@ class ModuleDB:
 
     def parse_a_module(self, module_path: Path) -> ast.Module:
         absolute_path = self.project_root.parent.joinpath(module_path)
-        return ast.parse(absolute_path.read_text(encoding="utf-8"),module_path.name)
+        return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
 
 
 class PackageDB:
@@ -62,7 +62,7 @@ class PackageDB:
         self.initialize_tree(root_path)
         self.global_db.add_ent(Entity.get_anonymous_ent())
 
-    def initialize_tree(self, path: Path):
+    def initialize_tree(self, path: Path) -> None:
         if path.is_file() and path.name.endswith(".py"):
             from enre.dep.DepDB import DepDB
             module_ent = Module(path.relative_to(self.root_dir.parent))
@@ -72,18 +72,18 @@ class PackageDB:
             for file in path.iterdir():
                 self.initialize_tree(file)
 
-    def __getitem__(self, item: Path):
+    def __getitem__(self, item: Path) -> ModuleDB:
         return self.tree[item]
 
-    def add_ent_global(self, ent: "Entity"):
+    def add_ent_global(self, ent: "Entity") -> None:
         self.global_db.add_ent(ent)
 
-    def add_ent_local(self, file_path: Path, ent: "Entity"):
+    def add_ent_local(self, file_path: Path, ent: "Entity") -> None:
         self.tree[file_path].add_ent(ent)
 
 
-def merge_db(package_db) -> "DepDB":
-    pass
+def merge_db(package_db: PackageDB) -> "DepDB":
+    raise NotImplementedError("not implemented yet")
 
 
 class InterpManager:
@@ -93,7 +93,7 @@ class InterpManager:
         self.dir_structure_init()
         self.module_stack = ModuleStack()
 
-    def dir_structure_init(self, file_path=None) -> bool:
+    def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
         in_package = False
         if file_path is None:
             file_path = self.project_root
@@ -114,7 +114,7 @@ class InterpManager:
 
         return in_package
 
-    def work_flow(self):
+    def work_flow(self) -> None:
         from enre.passes.entity_pass import EntityPass
         from enre.passes.build_ambiguous import BuildAmbiguous
         self.iter_dir(self.project_root)
@@ -123,7 +123,7 @@ class InterpManager:
         build_ambiguous_pass.execute_pass()
         # entity_pass.execute_pass()
 
-    def iter_dir(self, path: Path):
+    def iter_dir(self, path: Path) -> None:
         from .checker import AInterp
         print(path)
         if path.is_dir():

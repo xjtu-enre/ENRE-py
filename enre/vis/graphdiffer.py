@@ -1,10 +1,10 @@
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Iterable, TypeVar, Optional, Dict, Tuple, IO
+from typing import List, Iterable, TypeVar, Optional, Dict, Tuple, IO, Callable
 
 from enre.vis.mapping import Mapping
-from enre.vis.representation import NodeTy, EdgeTy
+from enre.vis.representation import NodeTy, EdgeTy, DepTy
 
 A = TypeVar("A")
 
@@ -18,7 +18,7 @@ class Graph:
         self.edge_list: List[EdgeTy] = graph_obj["Dependencies"]
         self.init_statistic()
 
-    def init_statistic(self):
+    def init_statistic(self) -> None:
         for node in self.node_list:
             node_kind = node["ent_type"]
             self.node_statistic[node_kind] += 1
@@ -28,7 +28,7 @@ class Graph:
             self.edge_statistic[edge_kind] += 1
 
 
-def first_match(l: Iterable[A], f):
+def first_match(l: Iterable[A], f: Callable[[A], bool]) -> Optional[A]:
     return next((x for x in l if f(x)), None)
 
 
@@ -39,8 +39,8 @@ class GraphDiffer:
         self.tar_graph = Graph(tar_path)
         self._diff_nodes: Optional[List[NodeTy]] = None
         self._diff_edges: Optional[List[EdgeTy]] = None
-        self._diff_ent_statistic: Optional[Dict] = None
-        self._diff_dep_statistic: Optional[Dict] = None
+        self._diff_ent_statistic: Optional[Dict[str, int]] = None
+        self._diff_dep_statistic: Optional[Dict[str, int]] = None
 
     def diff_nodes(self) -> List[NodeTy]:
         if self._diff_nodes is not None:
@@ -70,7 +70,7 @@ class GraphDiffer:
                 diff_edge_list.append(edge)
         return diff_edge_list
 
-    def diff_statistic(self) -> Tuple[Dict, Dict]:
+    def diff_statistic(self) -> Tuple[Dict[str, int], Dict[str, int]]:
         diff_node_statistic: Dict[str, int] = defaultdict(int)
         diff_edge_statistic: Dict[str, int] = defaultdict(int)
         for node in self.diff_nodes():
@@ -81,7 +81,7 @@ class GraphDiffer:
         self._diff_dep_statistic = diff_edge_statistic
         return diff_node_statistic, diff_edge_statistic
 
-    def dump_statistic(self, fp: IO):
+    def dump_statistic(self, fp: IO[str]) -> None:
         import csv
         writer = csv.writer(fp)
         

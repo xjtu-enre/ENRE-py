@@ -86,7 +86,7 @@ class UseAvaler:
             self.aval(key_word_arg.value, env)
         return ret
 
-    def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv):
+    def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv) -> AbstractValue:
         from enre.interp.checker import process_parameters
         in_class_env = isinstance(env.get_ctx(), Class)
         lam_span = get_syntactic_span(lam_expr)
@@ -126,7 +126,7 @@ class UseAvaler:
         self.aval(set_comp.elt, env)
         return [(Entity.get_anonymous_ent(), EntType.get_bot())]
 
-    def aval_DictComp(self, dict_comp: ast.DictComp, env) -> "AbstractValue":
+    def aval_DictComp(self, dict_comp: ast.DictComp, env: EntEnv) -> "AbstractValue":
         generators = dict_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(dict_comp.key, env)
@@ -139,7 +139,7 @@ class UseAvaler:
         self.aval(gen_exp.elt, env)
         return [(Entity.get_anonymous_ent(), EntType.get_bot())]
 
-    def dummy_generator_exp(self, env, generators: List[ast.comprehension]) -> None:
+    def dummy_generator_exp(self, env: EntEnv, generators: List[ast.comprehension]) -> None:
         from enre.interp.assign_target import build_target, dummy_iter, unpack_semantic
         from enre.interp.checker import InterpContext
         for comp in generators:
@@ -154,7 +154,7 @@ class UseAvaler:
 
 
 def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret: AbstractValue, package_db: PackageDB,
-                              current_db: ModuleDB):
+                              current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, ClassType):
             class_ent = ent_type.class_ent

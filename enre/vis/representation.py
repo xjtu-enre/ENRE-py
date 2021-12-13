@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Union, Literal, TypedDict
+from typing import List, Dict, Union, Literal, TypedDict, Any
 
 from enre.ent.entity import Entity
 from enre.interp.manager_interp import PackageDB
@@ -37,20 +37,18 @@ class Edge:
 
 
 class DepRepr:
-    def __init__(self):
+    def __init__(self) -> None:
         self._node_list: List[Node] = []
         self._edge_list: List[Edge] = []
 
-    def add_node(self, n: Node):
+    def add_node(self, n: Node) -> None:
         self._node_list.append(n)
 
-    def add_edge(self, e: Edge):
+    def add_edge(self, e: Edge) -> None:
         self._edge_list.append(e)
 
-    def to_json(self) -> Dict:
-        ret: Dict[str, List[Union[NodeTy, EdgeTy]]] = dict()
-        ret["Entities"] = []
-        ret["Dependencies"] = []
+    def to_json(self) -> DepTy:
+        ret: DepTy = {"Entities": [], "Dependencies": []}
         for n in self._node_list:
             ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type})
         for e in self._edge_list:
@@ -64,7 +62,7 @@ class DepRepr:
         return ret
 
     @classmethod
-    def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr"):
+    def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value))
         for ref in ent.refs():
             dep_repr._edge_list.append(Edge(src=ent.id,
@@ -86,7 +84,7 @@ class DepRepr:
         return dep_repr
 
     @classmethod
-    def from_und_db(cls, und_db) -> "DepRepr":
+    def from_und_db(cls, und_db: Any) -> "DepRepr":
         dep_repr = DepRepr()
         for ent in und_db.ents():
             dep_repr.add_node(Node(id=ent.id(),

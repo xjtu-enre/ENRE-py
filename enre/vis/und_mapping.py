@@ -92,7 +92,7 @@ class UndMapping(Mapping):
         return self.is_same_node(base_src_node, und_src_node) and \
                self.is_same_node(base_dest_node, und_dest_node)
 
-    def initialize_node_dict(self):
+    def initialize_node_dict(self) -> None:
         for node in self._node_list:
             self._node_dict[node["id"]] = node
 

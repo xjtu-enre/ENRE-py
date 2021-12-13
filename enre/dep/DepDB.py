@@ -5,10 +5,10 @@ from enre.ref.Ref import Ref
 
 
 class DepDB:
-    def __init__(self):
+    def __init__(self) -> None:
         self.ents: ty.List[Entity] = []
 
-    def add_ent(self, ent: Entity):
+    def add_ent(self, ent: Entity) -> None:
         self.ents.append(ent)
 
 
@@ -31,7 +31,7 @@ class DepDB:
     def get_module_attributes(self, ent: ty.Union[Module, ModuleAlias], attribute: str) -> ty.List[Entity]:
         return self._get_define_entities(ent.module_longname, attribute)
 
-    def remove(self, target: Entity):
+    def remove(self, target: Entity) -> None:
         try:
             self.ents.remove(target)
         except ValueError:

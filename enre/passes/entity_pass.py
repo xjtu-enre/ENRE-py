@@ -16,13 +16,13 @@ class DepDBPass:
         ...
 
     @abc.abstractmethod
-    def execute_pass(self):
+    def execute_pass(self) -> None:
         ...
 
 
 class EntityPass(DepDBPass):
 
-    def __init__(self, package_db: PackageDB):
+    def __init__(self, package_db: PackageDB) -> None:
         self.progress = 0
         self._package_db: PackageDB = package_db
         self.attribute_dict: Dict[str, List[Entity]] = defaultdict(list)
@@ -31,10 +31,10 @@ class EntityPass(DepDBPass):
     def package_db(self) -> PackageDB:
         return self._package_db
 
-    def execute_pass(self):
+    def execute_pass(self) -> None:
         self._resolve_referenced_attribute()
 
-    def _resolve_referenced_attribute(self):
+    def _resolve_referenced_attribute(self) -> None:
         self.build_attribute_dict()
         for _, module_db in self.package_db.tree.items():
             for ent in module_db.dep_db.ents:
@@ -54,7 +54,7 @@ class EntityPass(DepDBPass):
                         new_refs.append(ref)
                 ent.set_refs(new_refs)
 
-    def build_attribute_dict(self):
+    def build_attribute_dict(self) -> None:
         for _, module_db in self.package_db.tree.items():
             for ent in module_db.dep_db.ents:
                 for ref in ent.refs():

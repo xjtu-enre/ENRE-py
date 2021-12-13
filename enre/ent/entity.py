@@ -22,7 +22,7 @@ class EntLongname:
     def __init__(self, scope: List[str]):
         self._scope = scope
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, EntLongname) and len(other._scope) == len(self._scope):
             for lhs, rhs in zip(self._scope, other._scope):
                 if lhs != rhs:
@@ -30,7 +30,7 @@ class EntLongname:
             return True
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(self._scope))
 
 
@@ -57,9 +57,10 @@ def get_syntactic_span(tree: ast.AST) -> Span:
 
 _Nil_Span = Span(-1, -1, -1, -1)
 
+_Default_Empty_Path = Path()
 
 class Location:
-    def append(self, name: str, new_span: Span, new_path: Path = None) -> "Location":
+    def append(self, name: str, new_span: Span, new_path: Path = _Default_Empty_Path) -> "Location":
         if new_path == None:
             new_path = self._file_path
         return Location(new_path, new_span, self._scope + [name])
@@ -67,18 +68,14 @@ class Location:
     def to_longname(self) -> EntLongname:
         return EntLongname(self._scope)
 
-    def __init__(self, file_path: Path = None, code_span: Span = None, scope: Optional[List[str]] = None):
+    def __init__(self, file_path: Path = _Default_Empty_Path, code_span: Span = _Nil_Span, scope: Optional[List[str]] = None):
         if scope is None:
             scope = []
-        if file_path == None:
-            file_path = Path()
-        if code_span == None:
-            code_span = _Nil_Span
         self._scope: List[str] = scope
         self._span = code_span
         self._file_path = file_path
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Location) and len(other._scope) == len(self._scope):
             for lhs, rhs in zip(self._scope, other._scope):
                 if lhs != rhs:
@@ -86,7 +83,7 @@ class Location:
             return True
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(self._scope))
 
     @classmethod
@@ -112,7 +109,7 @@ class Entity(ABC):
     def refs(self) -> List[Ref]:
         return self._refs
 
-    def set_refs(self, refs: List[Ref]):
+    def set_refs(self, refs: List[Ref]) -> None:
         self._refs = refs
 
     @property
@@ -123,7 +120,7 @@ class Entity(ABC):
     def kind(self) -> EntKind:
         ...
 
-    def add_ref(self, ref: Ref):
+    def add_ref(self, ref: Ref) -> None:
         # todo: should we remove reference with same representation?
         for ref_1 in self._refs:
             if ref_1 == ref:
@@ -139,7 +136,7 @@ class Entity(ABC):
         from enre.interp.enttype import EntType
         return EntType.get_bot()
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.longname, self.location))
 
 
@@ -259,7 +256,7 @@ class Class(Entity):
                 return inherited_attrs
         return []
 
-    def add_ref(self, ref: Ref):
+    def add_ref(self, ref: Ref) -> None:
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Class, self).add_ref(ref)
@@ -312,8 +309,8 @@ class LambdaParameter(Parameter):
 
 
 class Anonymous(Entity):
-    def __init__(self):
-        super(Anonymous, self).__init__(EntLongname([""]), Location([""]))
+    def __init__(self) -> None:
+        super(Anonymous, self).__init__(EntLongname([""]), Location())
 
     def kind(self) -> EntKind:
         return EntKind.Anonymous
@@ -344,7 +341,7 @@ class AmbiguousAttribute(Entity):
 
 
 class UnresolvedAttribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location, receiver_type):
+    def __init__(self, longname: EntLongname, location: Location, receiver_type: "EntType") -> None:
         self.receiver_type = receiver_type
         super(UnresolvedAttribute, self).__init__(longname, location)
 

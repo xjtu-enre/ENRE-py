@@ -6,7 +6,8 @@ from pathlib import Path
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_module_level_ent
-from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
+from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, \
+    ModuleAlias, \
     Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
 from enre.interp.enttype import EntType
 from enre.interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
@@ -28,7 +29,8 @@ class AInterp:
         module_ent = manager.package_db[rel_path].module_ent
         self.manager = manager
         self.module = module_ent
-        self.global_env: ty.List
+        self.global_env: ty.List  # type: ignore
+        # placeholder for builtin function bindings
         self.package_db: "PackageDB" = manager.package_db
         self.current_db: "ModuleDB" = manager.package_db[rel_path]
         self._avaler = UseAvaler(self.package_db, self.current_db)
@@ -161,7 +163,7 @@ class AInterp:
         rvalue_expr = assign_stmt.value
         self.process_assign_helper(rvalue_expr, target_exprs, env)
 
-    def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv):
+    def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv) -> None:
         target_expr = aug_stmt.target
         rvalue_expr = aug_stmt.value
         if rvalue_expr is not None:
@@ -169,7 +171,7 @@ class AInterp:
         else:
             self.declare_semantic(target_expr, env)
 
-    def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv):
+    def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv) -> None:
         target_expr = ann_stmt.target
         rvalue_expr = ann_stmt.value
         self._avaler.aval(ann_stmt.annotation, env)
@@ -178,7 +180,8 @@ class AInterp:
     def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
-    def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr], env: EntEnv):
+    def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr],
+                              env: EntEnv) -> None:
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
         from enre.interp.assign_target import build_target, assign2target
@@ -299,7 +302,7 @@ class AInterp:
         env.add_sub_env(ContinuousSubEnv(forward_env, try_env))
 
     # entry of analysis of a module
-    def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv = None) -> None:
+    def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: ty.Optional[EntEnv] = None) -> None:
         if env is None:
             env = EntEnv(ScopeEnv(ctx_ent=self.module, location=Location()))
 
@@ -340,10 +343,10 @@ class AInterp:
                                       ClassAttribute(attr_location.to_longname(), attr_location),
                                       target_expr.lineno, target_expr.col_offset))
 
-    def declare_semantic(self, target_expr: ast.expr, env: EntEnv):
-        pass
+    def declare_semantic(self, target_expr: ast.expr, env: EntEnv) -> None:
+        raise NotImplementedError("not implemented yet")
 
-    def process_annotations(self, args: ast.arguments, env: EntEnv):
+    def process_annotations(self, args: ast.arguments, env: EntEnv) -> None:
         for arg in args.args:
             if arg.annotation is not None:
                 self._avaler.aval(arg.annotation, env)
@@ -368,19 +371,19 @@ def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB
     scope_env.append_ent(new_var, ent_type)
 
 
-def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB, class_ctx=ty.Optional[Class]):
+def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
+                       class_ctx: ty.Optional[Class] = None) -> None:
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
     para_constructor = LambdaParameter if isinstance(env.get_ctx(), LambdaFunction) else Parameter
 
-    def process_helper(a: ast.arg, ent_type=None):
-        if ent_type == None:
-            ent_type = EntType.get_bot()
+    def process_helper(a: ast.arg, ent_type: EntType = EntType.get_bot()) -> None:
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
-        env.add_continuous([(parameter_ent, ent_type)])
+        new_coming_ent: Entity = parameter_ent
+        env.add_continuous([(new_coming_ent, ent_type)])
         ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
     for arg in args.posonlyargs:

@@ -16,7 +16,7 @@ class BuildAmbiguous(DepDBPass):
     def package_db(self) -> PackageDB:
         return self._package_db
 
-    def execute_pass(self):
+    def execute_pass(self) -> None:
         self._build_ambiguous_attributes()
 
     def build_attr_map(self) -> Dict[str, List[Entity]]:
@@ -36,13 +36,13 @@ class BuildAmbiguous(DepDBPass):
         return ambiguous_dict
 
     def resolve_referenced_attr(self, attr_map: Dict[str, List[Entity]],
-                                ambiguous_ent_dict: Dict[str, Optional[AmbiguousAttribute]]):
+                                ambiguous_ent_dict: Dict[str, Optional[AmbiguousAttribute]]) -> None:
         for _, module_db in self.package_db.tree.items():
             for ent in module_db.dep_db.ents:
                 for ref in ent.refs():
                     rebuild_ref(ent, ref, attr_map, ambiguous_ent_dict)
 
-    def _build_ambiguous_attributes(self):
+    def _build_ambiguous_attributes(self) -> None:
         attr_map = self.build_attr_map()
         ambiguous_dict = self.build_ambiguous_dict(attr_map)
         ambiguous_ent_dict = self.build_ambiguous_ents(ambiguous_dict)
@@ -62,7 +62,7 @@ class BuildAmbiguous(DepDBPass):
 
 def rebuild_ref(ent: Entity, ref: Ref,
                 definite_attr_dict: Dict[str, List[Entity]],
-                ambiguous_ent_dict: Dict[str, Optional[AmbiguousAttribute]]):
+                ambiguous_ent_dict: Dict[str, Optional[AmbiguousAttribute]]) -> None:
     if ref.target_ent != ReferencedAttribute:
         return
     attr_name = ref.target_ent.longname.name
