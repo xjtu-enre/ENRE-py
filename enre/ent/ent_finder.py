@@ -1,7 +1,7 @@
 from typing import List
 
-from ent.EntKind import RefKind
-from ent.entity import Entity, Class, ClassAttribute, Module
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Entity, Class, ClassAttribute, Module
 
 
 def get_class_attr(ent: Class, attr: str) -> List[Entity]:

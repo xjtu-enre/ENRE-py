@@ -4,8 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Set, Dict
-from ent.EntKind import EntKind, RefKind
-from ref.Ref import Ref
+from enre.ent.EntKind import EntKind, RefKind
+from enre.ref.Ref import Ref
 
 _EntityID = 0
 
@@ -136,7 +136,7 @@ class Entity(ABC):
         return False
 
     def direct_type(self) -> "EntType":
-        from interp.enttype import EntType
+        from enre.interp.enttype import EntType
         return EntType.get_bot()
 
     def __hash__(self):
@@ -354,4 +354,4 @@ class UnresolvedAttribute(Entity):
 
 _anonymous_ent: Anonymous = Anonymous()
 
-from interp.enttype import EntType, ModuleType, ConstructorType
+from enre.interp.enttype import EntType, ModuleType, ConstructorType

@@ -1,8 +1,8 @@
 import ast
 from typing import List, Optional, Tuple
 
-from ent.entity import Entity as Entity, Location as Location, Class
-from interp.aval import EntType as EntType
+from enre.ent.entity import Entity as Entity, Location as Location, Class
+from enre.interp.aval import EntType as EntType
 
 
 class SubEnv:

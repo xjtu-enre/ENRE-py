@@ -4,13 +4,11 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import List, Tuple, TypeAlias, Callable, Optional
 
-from ent.EntKind import RefKind
-from ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
-from interp.aval import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
-from interp.enttype import EntType, ClassType
-from interp.env import EntEnv
-from interp.manager_interp import ModuleDB, PackageDB
-from ref.Ref import Ref
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
+from enre.interp.aval import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
+from enre.interp.enttype import EntType, ClassType
+from enre.ref.Ref import Ref
 
 
 class PatternBuilder:
@@ -179,7 +177,7 @@ def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpC
     unpack_semantic(target, rvalue, ctx)
 
 
-from interp.checker import InterpContext
+from enre.interp.checker import InterpContext
 
 if __name__ == '__main__':
     tree = ast.parse("*[(x, y), y]")

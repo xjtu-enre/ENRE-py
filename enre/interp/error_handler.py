@@ -1,11 +1,11 @@
 import ast
 from typing import Optional
 
-from ent.entity import UnknownVar
-from interp.assign_target import assign_semantic
-from interp.aval import AbstractValue, UseAvaler
-from interp.checker import InterpContext
-from interp.enttype import ConstructorType, EntType
+from enre.ent.entity import UnknownVar
+from enre.interp.assign_target import assign_semantic
+from enre.interp.aval import AbstractValue, UseAvaler
+from enre.interp.checker import InterpContext
+from enre.interp.enttype import ConstructorType, EntType
 
 
 def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpContext") -> None:

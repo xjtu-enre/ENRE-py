@@ -1,7 +1,7 @@
 from abc import ABC
 
-from ent.EntKind import RefKind
-from ent.entity import Entity
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Entity
 
 
 class Ref(ABC):

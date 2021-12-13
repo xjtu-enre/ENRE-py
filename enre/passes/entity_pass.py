@@ -1,11 +1,11 @@
 from collections import defaultdict
 from typing import List, Dict
 
-from ent.EntKind import RefKind
-from ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
-from interp.enttype import EntType
-from interp.manager_interp import PackageDB
-from ref.Ref import Ref
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
+from enre.interp.enttype import EntType
+from enre.interp.manager_interp import PackageDB
+from enre.ref.Ref import Ref
 import abc
 
 

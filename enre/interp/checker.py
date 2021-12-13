@@ -3,16 +3,16 @@ import typing as ty
 from dataclasses import dataclass
 from pathlib import Path
 
-from dep.DepDB import DepDB
-from ent.EntKind import RefKind
-from ent.ent_finder import get_module_level_ent
-from ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
+from enre.dep.DepDB import DepDB
+from enre.ent.EntKind import RefKind
+from enre.ent.ent_finder import get_module_level_ent
+from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, ModuleAlias, \
     Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
-from interp.enttype import EntType
-from interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
+from enre.interp.enttype import EntType
+from enre.interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
-from interp.manager_interp import InterpManager, PackageDB, ModuleDB
-from ref.Ref import Ref
+from enre.interp.manager_interp import InterpManager, PackageDB, ModuleDB
+from enre.ref.Ref import Ref
 
 
 @dataclass
@@ -136,7 +136,7 @@ class AInterp:
         assert (in_len == out_len)
 
     def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
-        from interp.assign_target import build_target, unpack_semantic, dummy_iter
+        from enre.interp.assign_target import build_target, unpack_semantic, dummy_iter
         iter_value = dummy_iter(self._avaler.aval(for_stmt.iter, env))
         target_expr = for_stmt.target
         target_lineno = target_expr.lineno
@@ -181,7 +181,7 @@ class AInterp:
     def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr], env: EntEnv):
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
-        from interp.assign_target import build_target, assign2target
+        from enre.interp.assign_target import build_target, assign2target
 
         frame_entities: ty.List[ty.Tuple[Entity, EntType]]
         for target_expr in target_exprs:
@@ -252,7 +252,7 @@ class AInterp:
             env.get_scope().add_continuous(frame_entities)
 
     def interp_With(self, with_stmt: ast.With, env: EntEnv) -> None:
-        from interp.assign_target import build_target, unpack_semantic
+        from enre.interp.assign_target import build_target, unpack_semantic
         for with_item in with_stmt.items:
             context_expr = with_item.context_expr
             optional_var = with_item.optional_vars
@@ -267,7 +267,7 @@ class AInterp:
         self.interp_stmts(with_stmt.body, env)
 
     def interp_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
-        from interp.error_handler import handler_semantic
+        from enre.interp.error_handler import handler_semantic
         env.add_sub_env(BasicSubEnv())
         self.interp_stmts(try_stmt.body, env)
         try_body_env = env.pop_sub_env()
@@ -413,4 +413,4 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         process_helper(args.kwarg)
 
 
-from interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
+from enre.interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler

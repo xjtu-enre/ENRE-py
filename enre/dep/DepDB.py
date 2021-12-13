@@ -1,7 +1,7 @@
 import typing as ty
-from ent.EntKind import RefKind
-from ent.entity import Entity, Class, Module, EntLongname, ModuleAlias
-from ref.Ref import Ref
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Entity, Class, Module, EntLongname, ModuleAlias
+from enre.ref.Ref import Ref
 
 
 class DepDB:

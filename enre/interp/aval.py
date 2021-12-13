@@ -2,16 +2,16 @@ import ast
 from typing import Sequence, Optional, TypeAlias, Callable
 from typing import Tuple, List
 
-from dep.DepDB import DepDB
-from ent.EntKind import RefKind
-from ent.ent_finder import get_class_attr, get_module_level_ent
-from ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
+from enre.dep.DepDB import DepDB
+from enre.ent.EntKind import RefKind
+from enre.ent.ent_finder import get_class_attr, get_module_level_ent
+from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span, get_syntactic_span
-from interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
-from interp.env import EntEnv, ScopeEnv
+from enre.interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
+from enre.interp.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
-from interp.manager_interp import PackageDB, ModuleDB
-from ref.Ref import Ref
+from enre.interp.manager_interp import PackageDB, ModuleDB
+from enre.ref.Ref import Ref
 
 AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
 
@@ -87,7 +87,7 @@ class UseAvaler:
         return ret
 
     def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv):
-        from interp.checker import process_parameters
+        from enre.interp.checker import process_parameters
         in_class_env = isinstance(env.get_ctx(), Class)
         lam_span = get_syntactic_span(lam_expr)
         now_scope = env.get_scope().get_location()
@@ -140,8 +140,8 @@ class UseAvaler:
         return [(Entity.get_anonymous_ent(), EntType.get_bot())]
 
     def dummy_generator_exp(self, env, generators: List[ast.comprehension]) -> None:
-        from interp.assign_target import build_target, dummy_iter, unpack_semantic
-        from interp.checker import InterpContext
+        from enre.interp.assign_target import build_target, dummy_iter, unpack_semantic
+        from enre.interp.checker import InterpContext
         for comp in generators:
             target_lineno = comp.target.lineno
             target_col_offset = comp.target.col_offset

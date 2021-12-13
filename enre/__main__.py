@@ -3,8 +3,8 @@ import sys
 import time
 from pathlib import Path
 
-from interp.manager_interp import InterpManager
-from vis.representation import DepRepr
+from enre.interp.manager_interp import InterpManager
+from enre.vis.representation import DepRepr
 
 
 def main():

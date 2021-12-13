@@ -50,4 +50,4 @@ class AnyType(EntType):
 
 _any_type = AnyType()
 _module_type = ModuleType()
-from ent.entity import Class
+from enre.ent.entity import Class

@@ -2,10 +2,10 @@ import ast
 import typing as ty
 from pathlib import Path
 
-from ent.EntKind import RefKind
-from ent.entity import Module, UnknownModule
-from interp.env import EntEnv, ScopeEnv
-from ref.Ref import Ref
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Module, UnknownModule
+from enre.interp.env import EntEnv, ScopeEnv
+from enre.ref.Ref import Ref
 
 
 class ModuleStack:
@@ -30,7 +30,7 @@ class ModuleStack:
 
 class ModuleDB:
     def __init__(self, project_root: Path, module_ent: Module):
-        from dep.DepDB import DepDB
+        from enre.dep.DepDB import DepDB
         self.project_root = project_root
         self.module_path = module_ent.module_path
         self.module_ent = module_ent
@@ -48,14 +48,14 @@ class ModuleDB:
     def tree(self) -> ast.Module:
         return self._tree
 
-    def parse_a_module(self, module_path: Path) -> ty.Optional[ast.Module]:
+    def parse_a_module(self, module_path: Path) -> ast.Module:
         absolute_path = self.project_root.parent.joinpath(module_path)
         return ast.parse(absolute_path.read_text(encoding="utf-8"),module_path.name)
 
 
 class PackageDB:
     def __init__(self, root_path: Path):
-        from dep.DepDB import DepDB
+        from enre.dep.DepDB import DepDB
         self.root_dir = root_path
         self.global_db = DepDB()
         self.tree: ty.Dict[Path, ModuleDB] = dict()
@@ -64,7 +64,7 @@ class PackageDB:
 
     def initialize_tree(self, path: Path):
         if path.is_file() and path.name.endswith(".py"):
-            from dep.DepDB import DepDB
+            from enre.dep.DepDB import DepDB
             module_ent = Module(path.relative_to(self.root_dir.parent))
             self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(self.root_dir, module_ent)
 
@@ -104,7 +104,7 @@ class InterpManager:
                 if self.dir_structure_init(sub_file_path):
                     in_package = True
             if in_package:
-                from ent.entity import Package
+                from enre.ent.entity import Package
                 package_ent = Package(file_path.relative_to(self.project_root.parent))
                 # todo: create dependency tree per file
                 self.package_db.add_ent_global(package_ent)
@@ -115,8 +115,8 @@ class InterpManager:
         return in_package
 
     def work_flow(self):
-        from passes.entity_pass import EntityPass
-        from passes.build_ambiguous import BuildAmbiguous
+        from enre.passes.entity_pass import EntityPass
+        from enre.passes.build_ambiguous import BuildAmbiguous
         self.iter_dir(self.project_root)
         entity_pass = EntityPass(self.package_db)
         build_ambiguous_pass = BuildAmbiguous(self.package_db)
@@ -188,9 +188,9 @@ def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> t
     return None
 
 
-from ent.entity import Entity
-from dep.DepDB import DepDB
-import ent.entity as entity
+from enre.ent.entity import Entity
+from enre.dep.DepDB import DepDB
+import enre.ent.entity as entity
 
 E = ty.TypeVar('E',
                entity.Entity,
