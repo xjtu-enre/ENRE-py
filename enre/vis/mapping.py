@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import List
 
-from vis.representation import NodeTy, EdgeTy
+from enre.vis.representation import NodeTy, EdgeTy
 
 
 class Mapping(ABC):

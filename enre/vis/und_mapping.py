@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 from typing import List, Dict
 
-from vis.mapping import Mapping
-from vis.representation import NodeTy, EdgeTy
+from enre.vis.mapping import Mapping
+from enre.vis.representation import NodeTy, EdgeTy
 
 ENTMAPPING = {
     "Module File": ["Module"],
@@ -12,7 +12,7 @@ ENTMAPPING = {
     "Class": ["Class"],
     "Attribute": ["Class Attribute"],
     "Unresolved Attribute": ["Unresolved Attribute", "Referenced Attribute"],
-    "Ambiguous Attribute": ["Referenced Attribute"],
+    "Ambiguous Attribute": ["Referenced Attribute", "Ambiguous Attribute"],
     "Unknown Module": ["Unknown Module"],
     "Unknown Class": ["Unknown Variable"],
     "Unknown Variable": ["Unknown Variable"],

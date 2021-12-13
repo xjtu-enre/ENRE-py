@@ -1,3 +1,4 @@
+# type: ignore
 from neo4j import GraphDatabase
 
 from vis.graphutil import Graph

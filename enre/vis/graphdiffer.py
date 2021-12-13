@@ -3,17 +3,29 @@ from collections import defaultdict
 from pathlib import Path
 from typing import List, Iterable, TypeVar, Optional, Dict, Tuple, IO
 
-from vis.mapping import Mapping
-from vis.representation import NodeTy, EdgeTy
+from enre.vis.mapping import Mapping
+from enre.vis.representation import NodeTy, EdgeTy
 
 A = TypeVar("A")
 
 
 class Graph:
     def __init__(self, file_path: Path):
+        self.edge_statistic: Dict[str, int] = defaultdict(int)
+        self.node_statistic: Dict[str, int] = defaultdict(int)
         graph_obj = json.loads(file_path.read_text())
         self.node_list: List[NodeTy] = graph_obj["Entities"]
         self.edge_list: List[EdgeTy] = graph_obj["Dependencies"]
+        self.init_statistic()
+
+    def init_statistic(self):
+        for node in self.node_list:
+            node_kind = node["ent_type"]
+            self.node_statistic[node_kind] += 1
+
+        for edge in self.edge_list:
+            edge_kind = edge["kind"]
+            self.edge_statistic[edge_kind] += 1
 
 
 def first_match(l: Iterable[A], f):
@@ -59,15 +71,11 @@ class GraphDiffer:
         return diff_edge_list
 
     def diff_statistic(self) -> Tuple[Dict, Dict]:
-        if self._diff_edges is None:
-            self.diff_edges()
-        if self._diff_nodes is None:
-            self.diff_nodes()
-        diff_node_statistic = defaultdict(int)
-        diff_edge_statistic = defaultdict(int)
-        for node in self._diff_nodes:
+        diff_node_statistic: Dict[str, int] = defaultdict(int)
+        diff_edge_statistic: Dict[str, int] = defaultdict(int)
+        for node in self.diff_nodes():
             diff_node_statistic[node["ent_type"]] += 1
-        for edge in self._diff_edges:
+        for edge in self.diff_edges():
             diff_edge_statistic[edge["kind"]] += 1
         self._diff_ent_statistic = diff_node_statistic
         self._diff_dep_statistic = diff_edge_statistic

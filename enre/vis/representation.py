@@ -1,11 +1,21 @@
 from dataclasses import dataclass
-from typing import List, Dict, Union, Literal
+from typing import List, Dict, Union, Literal, TypedDict
 
-from ent.entity import Entity
-from interp.manager_interp import PackageDB
+from enre.ent.entity import Entity
+from enre.interp.manager_interp import PackageDB
 
-NodeTy = Dict[Union[str, Literal["id"]], Union[str, int]]
-EdgeTy = Dict[str, Union[str, int]]
+EdgeTy = TypedDict("EdgeTy", {"src": int,
+                              "src_name": str,
+                              "dest": int,
+                              "dest_name": str,
+                              "kind": str,
+                              "lineno": int,
+                              "col_offset": int
+                              })
+
+NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str})
+
+DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
 
 
 @dataclass
@@ -42,9 +52,15 @@ class DepRepr:
         ret["Entities"] = []
         ret["Dependencies"] = []
         for n in self._node_list:
-            ret["Entities"].append(n.__dict__)
+            ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type})
         for e in self._edge_list:
-            ret["Dependencies"].append(e.__dict__)
+            ret["Dependencies"].append({"src": e.src,
+                                        "src_name": e.src_name,
+                                        "dest": e.dest,
+                                        "dest_name": e.dest_name,
+                                        "kind": e.kind,
+                                        "lineno": e.lineno,
+                                        "col_offset": e.col_offset})
         return ret
 
     @classmethod
@@ -58,6 +74,7 @@ class DepRepr:
                                             kind=ref.ref_kind.value,
                                             lineno=ref.lineno,
                                             col_offset=ref.col_offset))
+
     @classmethod
     def from_package_db(cls, package_db: PackageDB) -> "DepRepr":
         dep_repr = DepRepr()
