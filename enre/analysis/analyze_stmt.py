@@ -15,6 +15,9 @@ from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv
 from enre.analysis.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
 from enre.ref.Ref import Ref
 
+if ty.TYPE_CHECKING:
+    from enre.analysis.env import Binding, Bindings
+
 
 @dataclass
 class InterpContext:
@@ -62,6 +65,7 @@ class Analyzer:
         now_scope = env.get_scope().get_location()
         new_scope = now_scope.append(def_stmt.name, fun_code_span)
         func_ent = Function(new_scope.to_longname(), new_scope)
+        func_name = def_stmt.name
 
         # add function entity to dependency database
         self.current_db.add_ent(func_ent)
@@ -70,12 +74,13 @@ class Analyzer:
         current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
-        env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
+        new_binding: "Bindings" = [(func_name, [(func_ent, EntType.get_bot())])]
+        env.get_scope().add_continuous(new_binding)
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
         # add function entity to the scope environment corresponding to the function while it's not a class method
         if not isinstance(current_ctx, Class):
-            body_env.add_continuous([(func_ent, EntType.get_bot())])
+            body_env.add_continuous(new_binding)
         # add parameters to the scope environment
         process_parameters(def_stmt.args, body_env, self.current_db, env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
@@ -89,6 +94,7 @@ class Analyzer:
         class_code_span = get_syntactic_span(class_stmt)
         new_scope = now_scope.append(class_stmt.name, class_code_span)
         class_ent = Class(new_scope.to_longname(), new_scope)
+        class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
         env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset))
         for base_expr in class_stmt.bases:
@@ -103,11 +109,11 @@ class Analyzer:
                     # todo: handle unknown class
 
         # add class to current environment
-        env.get_scope().add_continuous([(class_ent, ConstructorType(class_ent))])
+        new_binding: Bindings = [(class_name, [(class_ent, ConstructorType(class_ent))])]
+        env.get_scope().add_continuous(new_binding)
 
         body_env = ScopeEnv(ctx_ent=class_ent, location=new_scope, class_ctx=class_ent)
-
-        body_env.add_continuous([(class_ent, ConstructorType(class_ent))])
+        body_env.add_continuous(new_binding)
         # todo: bugfix, the environment should be same as the environment of class
         env.add_scope(body_env)
         self.interp_top_stmts(class_stmt.body, env)
@@ -198,13 +204,16 @@ class Analyzer:
         for module_alias in import_stmt.names:
             module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
                                                     import_stmt.col_offset)
+            module_name = module_alias.name
             if module_alias.asname is None:
-                env.get_scope().add_continuous([(module_ent, ModuleType.get_module_type())])
+                module_binding: Bindings = [(module_name, [(module_ent, ModuleType.get_module_type())])]
+                env.get_scope().add_continuous(module_binding)
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil())
                 module_alias_ent = ModuleAlias(module_ent, alias_location)
                 self.current_db.add_ent(module_alias_ent)
-                env.get_scope().add_continuous([(module_alias_ent, ModuleType.get_module_type())])
+                alias_binding: Bindings = [(module_alias.asname, [(module_alias_ent, ModuleType.get_module_type())])]
+                env.get_scope().add_continuous(alias_binding)
             env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
                                       import_stmt.col_offset))
 
@@ -218,27 +227,29 @@ class Analyzer:
                                                 import_stmt.col_offset)
         current_ctx = env.get_ctx()
         current_ctx.add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
+        new_bindings: "Bindings"
         if not isinstance(module_ent, UnknownModule):
-            # if the imported module can't found in package
+            # if the imported module can found in package
             frame_entities: ty.List[ty.Tuple[Entity, EntType]]
+            new_bindings = []
             for alias in import_stmt.names:
                 name = alias.name
                 as_name = alias.asname
                 imported_ents = get_module_level_ent(module_ent, name)
-                frame_entities = []
-                for ent in imported_ents:
-                    if as_name is not None:
-                        location = env.get_scope().get_location().append(as_name, Span.get_nil())
-                        alias_ent = Alias(location.to_longname(), location, ent)
-                        current_ctx.add_ref(Ref(RefKind.DefineKind, alias_ent, alias.lineno, alias.col_offset))
-                        self.current_db.add_ent(alias_ent)
-                        frame_entities.append((alias_ent, ent.direct_type()))
-                    else:
-                        frame_entities.append((ent, ent.direct_type()))
-                env.get_scope().add_continuous(frame_entities)
+                import_binding: Binding
+                if as_name is not None:
+                    location = env.get_scope().get_location().append(as_name, Span.get_nil())
+                    alias_ent = Alias(location.to_longname(), location, imported_ents)
+                    import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
+                else:
+                    import_binding = name, [(ent, ent.direct_type()) for ent in imported_ents]
+                new_bindings.append(import_binding)
+            env.get_scope().add_continuous(new_bindings)
         else:
+            # importing entities belong to a unknown module
             self.package_db.add_ent_global(module_ent)
             frame_entities = []
+            new_bindings = []
             for alias in import_stmt.names:
                 alias_code_span = get_syntactic_span(alias)
                 location = module_ent.location.append(alias.name, alias_code_span)
@@ -247,12 +258,12 @@ class Analyzer:
                 module_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
                 if alias.asname is not None:
                     as_location = env.get_scope().get_location().append(alias.asname, alias_code_span)
-                    alias_ent = Alias(as_location.to_longname(), location, unknown_var)
+                    alias_ent = Alias(as_location.to_longname(), location, [unknown_var])
                     self.current_db.add_ent(alias_ent)
-                    frame_entities.append((alias_ent, EntType.get_bot()))
+                    new_bindings.append((alias.asname, [(alias_ent, alias_ent.direct_type())]))
                 else:
-                    frame_entities.append((unknown_var, EntType.get_bot()))
-            env.get_scope().add_continuous(frame_entities)
+                    new_bindings.append((alias.name, [(unknown_var, EntType.get_bot())]))
+            env.get_scope().add_continuous(new_bindings)
 
     def interp_With(self, with_stmt: ast.With, env: EntEnv) -> None:
         from enre.analysis.assign_target import build_target, unpack_semantic
@@ -377,17 +388,19 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     ctx_fun = env.get_ctx()
     para_constructor = LambdaParameter if isinstance(env.get_ctx(), LambdaFunction) else Parameter
 
-    def process_helper(a: ast.arg, ent_type: EntType = EntType.get_bot()) -> None:
+    def process_helper(a: ast.arg, ent_type: EntType, bindings: "Bindings") -> None:
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
-        env.add_continuous([(new_coming_ent, ent_type)])
+        bindings.append((a.arg, [(new_coming_ent, ent_type)]))
         ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset))
 
+    args_binding: "Bindings" = []
+
     for arg in args.posonlyargs:
-        process_helper(arg)
+        process_helper(arg, EntType.get_bot(), args_binding)
 
     if len(args.args) >= 1:
         first_arg = args.args[0].arg
@@ -396,24 +409,26 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
                 class_type: EntType = ClassType(class_ctx)
             else:
                 class_type = EntType.get_bot()
-            process_helper(args.args[0], class_type)
+            process_helper(args.args[0], class_type, args_binding)
         elif first_arg == "cls":
             if class_ctx is not None:
                 constructor_type: EntType = ConstructorType(class_ctx)
             else:
                 constructor_type = EntType.get_bot()
-            process_helper(args.args[0], constructor_type)
+            process_helper(args.args[0], constructor_type, args_binding)
         else:
-            process_helper(args.args[0])
+            process_helper(args.args[0], EntType.get_bot(), args_binding)
 
     for arg in args.args[1:]:
-        process_helper(arg)
+        process_helper(arg, EntType.get_bot(), args_binding)
     if args.vararg is not None:
-        process_helper(args.vararg)
+        process_helper(args.vararg, EntType.get_bot(), args_binding)
     for arg in args.kwonlyargs:
-        process_helper(arg)
+        process_helper(arg, EntType.get_bot(), args_binding)
     if args.kwarg is not None:
-        process_helper(args.kwarg)
+        process_helper(args.kwarg, EntType.get_bot(), args_binding)
+
+    env.add_continuous(args_binding)
 
 
 from enre.analysis.analyze_expr import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler

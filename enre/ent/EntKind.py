@@ -9,6 +9,7 @@ class RefKind(Enum):
     InheritKind = "Inherit"
     ImportKind = "Import"
     HasambiguousKind = "Hasambiguous"
+    AliasTo = "Alias"
 
 
 class EntKind(Enum):

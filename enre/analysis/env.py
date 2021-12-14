@@ -1,74 +1,98 @@
 import ast
-from abc import ABC
-from typing import List
+from abc import ABC, abstractmethod
+from typing import List, TYPE_CHECKING, Tuple, TypeAlias, Optional
 
-from ent.entity import Entity, Location
+from enre.ent.entity import Entity, Location
+
+if TYPE_CHECKING:
+    from enre.ent.entity import AbstractValue, Class
+    Binding = Tuple[str, AbstractValue]
+    Bindings: TypeAlias = List[Binding]
+
+
+class LookupResult:
+    def __init__(self, found_entities: "AbstractValue", must_found: bool) -> None:
+        self._found_entities: AbstractValue = found_entities
+        self._must_found = must_found
+
+    @property
+    def found_entities(self) -> "AbstractValue":
+        return self._found_entities
+
+    @property
+    def must_found(self) -> bool:
+        return self._must_found
 
 
 class SubEnv(ABC):
 
-    def __init__(self, depth = 0):
+    def __init__(self, depth: int = 0) -> None:
         self.depth = depth
 
-    def join(self, sub_env: "SubEnv"):
+    def join(self, sub_env: "SubEnv") -> "ParallelSubEnv":
         return ParallelSubEnv(self, sub_env)
 
-    def __getitem__(self, name: str):
-        raise NotImplementedError
+    @abstractmethod
+    def __getitem__(self, name: str) -> LookupResult:
+        ...
 
 
 class BasicSubEnv(SubEnv):
-    def __init__(self, pairs=None):
+    def __init__(self, pairs: "Optional[Bindings]" = None):
         super().__init__(1)
         if pairs is None:
             pairs = []
-        self._pairs = pairs
+        self._bindings = pairs
 
-    def __getitem__(self, name: str):
+    def __getitem__(self, name: str) -> LookupResult:
         ret = []
-        for ent, ent_type in self._pairs:
-            if ent.longname.name == name:
-                ret.append((ent, ent_type))
-        return [None] if ret == [] else ret
+        for n, binds in self._bindings:
+            if n == name:
+                ret.extend(binds)
+        return LookupResult([], False) if ret == [] else LookupResult(ret, True)
 
 
 class ParallelSubEnv(SubEnv):
-    def __init__(self, b1, b2):
+    def __init__(self, b1: SubEnv, b2: SubEnv) -> None:
         super().__init__(max(b1.depth, b2.depth) + 1)
         self._branch1_sub_env = b1
         self._branch2_sub_env = b2
 
-    def __getitem__(self, name: str):
-        ents_b1 = self._branch1_sub_env[name]
-        ents_b2 = self._branch2_sub_env[name]
-        return ents_b1 + ents_b2
+    def __getitem__(self, name: str) -> LookupResult:
+        look_up_res1 = self._branch1_sub_env[name]
+        look_up_res2 = self._branch2_sub_env[name]
+        is_must_found = look_up_res1.must_found and look_up_res2.must_found
+        found_entities = look_up_res1.found_entities + look_up_res2.found_entities
+        return LookupResult(found_entities, is_must_found)
 
 
 class ContinuousSubEnv(SubEnv):
-    def __init__(self, forward: SubEnv, backward: SubEnv):
+    def __init__(self, forward: SubEnv, backward: SubEnv) -> None:
         super().__init__(1 + max(forward.depth, backward.depth))
         # print(f"ContinuousSubEnv constructed, depth: {self.depth}")
         self._forward = forward
         self._backward = backward
 
-    def __getitem__(self, name: str):
-        backward_res = self._backward[name]
+    def __getitem__(self, name: str) -> LookupResult:
+        backward_lookup_res = self._backward[name]
         # print(f"finding name {name} in env {self}")
-        if None not in backward_res:
-            return backward_res
+        if backward_lookup_res.must_found:
+            return backward_lookup_res
         else:
             # print(f"name {name} not found continue find at {self._forward}")
-            return backward_res + self._forward[name]
+            forward_lookup_res = self._forward[name]
+            found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
+            return LookupResult(found_entities, forward_lookup_res.must_found)
 
 
 class OptionalSubEnv(SubEnv):
-    def __init__(self, sub_env: SubEnv):
+    def __init__(self, sub_env: SubEnv) -> None:
         super().__init__(sub_env.depth + 1)
         self._optional = sub_env
 
-    def __getitem__(self, name: str):
-        optional_ents = self._optional[name]
-        return optional_ents + [None]
+    def __getitem__(self, name: str) -> LookupResult:
+        optional_lookup_res = self._optional[name]
+        return LookupResult(optional_lookup_res.found_entities, False)
 
 
 class Hook:
@@ -79,51 +103,49 @@ class Hook:
 
 class ScopeEnv:
 
-    def add_hook(self, stmts: List[ast.stmt], scope_env: "ScopeEnv"):
+    def add_hook(self, stmts: List[ast.stmt], scope_env: "ScopeEnv") -> None:
         self._hooks.append(Hook(stmts, scope_env))
 
-    def get_location(self):
+    def get_location(self) -> Location:
         return self._location
 
     def get_hooks(self) -> List[Hook]:
         return self._hooks
 
-    def __init__(self, ctx_ent: Entity, location: Location, class_ctx=None):
+    def __init__(self, ctx_ent: Entity, location: Location, class_ctx: "Optional[Class]" = None) -> None:
         self._ctx_ent = ctx_ent
         self._location = location
         self._class_ctx = class_ctx
-        self._hooks = []
-        self._sub_envs: List[BasicSubEnv] = [BasicSubEnv()]
+        self._hooks: List[Hook] = []
+        self._sub_envs: List[SubEnv] = [BasicSubEnv()]
 
-    def add_sub_env(self, sub_env: SubEnv):
+    def add_sub_env(self, sub_env: SubEnv) -> None:
         self._sub_envs.append(sub_env)
 
-    def pop_sub_env(self):
+    def pop_sub_env(self) -> SubEnv:
         return self._sub_envs.pop()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._sub_envs)
 
-    def append_ent(self, ent, ent_type):
-        self._sub_envs[-1].add(ent, ent_type)
-
-    def get_ctx(self):
+    def get_ctx(self) -> Entity:
         return self._ctx_ent
 
-    def get_class_ctx(self):
+    def get_class_ctx(self) -> "Optional[Class]":
         return self._class_ctx
 
-    def __getitem__(self, name: str):
+    def __getitem__(self, name: str) -> LookupResult:
         ret = []
         for sub_env in reversed(self._sub_envs):
-            sub_ents = sub_env[name]
+            lookup_res = sub_env[name]
+            sub_ents = lookup_res.found_entities
             ret.extend(sub_ents)
-            if None not in sub_ents:
-                return sub_ents
+            if lookup_res.must_found:
+                return LookupResult(ret, True)
 
-        return [x for x in ret if x is not None]
+        return LookupResult(ret, False)
 
-    def add_continuous(self, pairs):
+    def add_continuous(self, pairs: "Bindings") -> None:
         before = len(self)
         top_sub_env = self.pop_sub_env()
         non_duplicate = []
@@ -139,25 +161,25 @@ class ScopeEnv:
 
 class EntEnv:
 
-    def get_scope(self, offset=0):
+    def get_scope(self, offset: int = 0) -> ScopeEnv:
         return self.scope_envs[-(offset + 1)]
 
-    def add_scope(self, scope_env: ScopeEnv):
+    def add_scope(self, scope_env: ScopeEnv) -> None:
         self.scope_envs.append(scope_env)
 
-    def pop_scope(self):
+    def pop_scope(self) -> ScopeEnv:
         return self.scope_envs.pop()
 
-    def add_sub_env(self, sub_env: SubEnv):
+    def add_sub_env(self, sub_env: SubEnv) -> None:
         self.scope_envs[-1].add_sub_env(sub_env)
 
-    def pop_sub_env(self):
+    def pop_sub_env(self) -> SubEnv:
         return self.scope_envs[-1].pop_sub_env()
 
-    def get_ctx(self):
+    def get_ctx(self) -> Entity:
         return self.get_scope().get_ctx()
 
-    def get_class_ctx(self):
+    def get_class_ctx(self) -> "Optional[Class]":
         for scope_env in reversed(self.scope_envs):
             if scope_env.get_class_ctx() is not None:
                 return scope_env.get_class_ctx()
@@ -166,9 +188,12 @@ class EntEnv:
     def __init__(self, scope_env: ScopeEnv):
         self.scope_envs: List[ScopeEnv] = [scope_env]
 
-    def __getitem__(self, name: str):
+    def __getitem__(self, name: str) -> LookupResult:
+        possible_ents: AbstractValue = []
         for scope_env in reversed(self.scope_envs):
-            ents_in_scope = scope_env[name]
-            if len(ents_in_scope) != 0:
-                return ents_in_scope
-        return []
+            lookup_res = scope_env[name]
+            ents_in_scope = lookup_res.found_entities
+            possible_ents.extend(ents_in_scope)
+            if lookup_res.must_found:
+                return LookupResult(possible_ents, True)
+        return LookupResult(possible_ents, False)

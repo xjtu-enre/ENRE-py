@@ -1,22 +1,19 @@
 import ast
-from typing import Sequence, Optional, TypeAlias, Callable
+from typing import Sequence
 from typing import Tuple, List
-
-from enre.dep.DepDB import DepDB
+import time
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_module_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span, get_syntactic_span
+    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span
 from enre.analysis.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from enre.analysis.analyze_manager import PackageDB, ModuleDB
 from enre.ref.Ref import Ref
+from enre.ent.entity import AbstractValue
 
-AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
-
-MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
-
+AnonymousFakeName = "$"
 
 class UseAvaler:
 
@@ -48,7 +45,8 @@ class UseAvaler:
         return [(Entity.get_anonymous_ent(), ret)]
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
-        ent_objs = env[name_expr.id]
+        lookup_res = env[name_expr.id]
+        ent_objs = lookup_res.found_entities
         ctx = env.get_ctx()
         for ent, ent_type in ent_objs:
             ctx.add_ref(Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
@@ -99,12 +97,12 @@ class UseAvaler:
         # add reference of current contest to the function entity
         env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, lam_expr.lineno, lam_expr.col_offset))
 
-        # add function entity to the current environment
-        env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
+        # do not add lambda entity to the current environment
+        # env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
-        # add function entity to the scope environment corresponding to the function
-        body_env.add_continuous([(func_ent, EntType.get_bot())])
+        # do not add lambda entity to the scope environment corresponding to the function
+        # body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
         process_parameters(lam_expr.args, body_env, self._current_db, env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
@@ -223,7 +221,8 @@ class SetAvaler:
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
         # while in a set context, only entity in the current scope visible
-        ent_objs = env.get_scope()[name_expr.id]
+        lookup_res = env.get_scope()[name_expr.id]
+        ent_objs = lookup_res.found_entities
         if ent_objs != []:
             return ent_objs
         else:
@@ -252,7 +251,8 @@ class CallAvaler:
         return visitor(expr, env)
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
-        ent_objs = env[name_expr.id]
+        lookup_res = env[name_expr.id]
+        ent_objs = lookup_res.found_entities
         if ent_objs:
             return ent_objs
         else:

@@ -1,4 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from enre.ent.entity import Class
 
 
 class EntType(ABC):
@@ -50,4 +54,3 @@ class AnyType(EntType):
 
 _any_type = AnyType()
 _module_type = ModuleType()
-from enre.ent.entity import Class

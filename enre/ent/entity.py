@@ -1,9 +1,11 @@
 import ast
+import time
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Set, Dict
+from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
+from enre.analysis.enttype import EntType, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 from enre.ref.Ref import Ref
 
@@ -31,10 +33,10 @@ class EntLongname:
         return False
 
     def __hash__(self) -> int:
-        return hash(tuple(self._scope))
+        return hash(self.longname)
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class Span:
     @classmethod
     def get_nil(cls) -> "Span":
@@ -84,11 +86,15 @@ class Location:
         return False
 
     def __hash__(self) -> int:
-        return hash(tuple(self._scope))
+        return hash((".".join(self._scope), self._file_path, self._span))
 
     @classmethod
     def global_name(cls, name: str) -> "Location":
         return Location(Path(), _Nil_Span, [name])
+
+    @property
+    def code_span(self) -> Span:
+        return self._span
 
 
 # Entity is the abstract domain of the Abstract Interpreter
@@ -207,12 +213,24 @@ class ModuleAlias(Entity):
 
 
 class Alias(Entity):
-    def __init__(self, longname: EntLongname, location: Location, ent: Entity):
+    def __init__(self, longname: EntLongname, location: Location, ents: List[Entity]) -> None:
         super(Alias, self).__init__(longname, location)
-        self.target_ent = ent
+        self.possible_target_ent = ents
+        self._build_alias_deps()
 
     def kind(self) -> EntKind:
         return EntKind.Alias
+
+    def direct_type(self) -> "EntType":
+        if len(self.possible_target_ent) == 1:
+            return self.possible_target_ent[0].direct_type()
+        else:
+            return EntType.get_bot()
+
+    def _build_alias_deps(self) -> None:
+        for ent in self.possible_target_ent:
+            alias_span = self.location.code_span
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line))
 
 
 class Package(Entity):
@@ -351,4 +369,6 @@ class UnresolvedAttribute(Entity):
 
 _anonymous_ent: Anonymous = Anonymous()
 
-from enre.analysis.enttype import EntType, ModuleType, ConstructorType
+
+AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
+MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
