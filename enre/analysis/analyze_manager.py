@@ -138,7 +138,7 @@ class AnalyzeManager:
                 module_ent = self.package_db[rel_path].module_ent
                 checker = Analyzer(rel_path, self)
                 self.module_stack.push(rel_path)
-                checker.interp_top_stmts(checker.current_db.tree.body,
+                checker.analyze_top_stmts(checker.current_db.tree.body,
                                          EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
@@ -155,7 +155,7 @@ class AnalyzeManager:
             self.module_stack.push(rel_path)
             print(f"importing the module {rel_path} now analyzing this module")
             with open(p, "r") as file:
-                checker.interp_top_stmts(ast.parse(file.read()).body,
+                checker.analyze_top_stmts(ast.parse(file.read()).body,
                                          EntEnv(ScopeEnv(module_ent, module_ent.location)))
             print(f"module {rel_path} finished")
             self.module_stack.pop()

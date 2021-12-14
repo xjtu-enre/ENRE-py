@@ -40,7 +40,7 @@ class Analyzer:
 
     def interp(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
-        method = 'interp_' + stmt.__class__.__name__
+        method = 'analyze_' + stmt.__class__.__name__
         if isinstance(stmt, ast.expr):
             self._avaler.aval(stmt, env)
             return
@@ -59,7 +59,7 @@ class Analyzer:
             elif isinstance(value, ast.AST):
                 self.interp(value, env)
 
-    def interp_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
+    def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
         in_class_env = isinstance(env.get_ctx(), Class)
         fun_code_span = get_syntactic_span(def_stmt)
         now_scope = env.get_scope().get_location()
@@ -88,7 +88,7 @@ class Analyzer:
         hook_scope.add_hook(def_stmt.body, body_env)
         self.process_annotations(def_stmt.args, env)
 
-    def interp_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
+    def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = UseAvaler(self.package_db, self.current_db)
         now_scope = env.get_scope().get_location()
         class_code_span = get_syntactic_span(class_stmt)
@@ -116,19 +116,19 @@ class Analyzer:
         body_env.add_continuous(new_binding)
         # todo: bugfix, the environment should be same as the environment of class
         env.add_scope(body_env)
-        self.interp_top_stmts(class_stmt.body, env)
+        self.analyze_top_stmts(class_stmt.body, env)
         env.pop_scope()
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
         # known the class's attribute
 
-    def interp_If(self, if_stmt: ast.If, env: EntEnv) -> None:
+    def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         in_len = len(env.get_scope())
         avaler = UseAvaler(self.package_db, self.current_db)
         avaler.aval(if_stmt.test, env)
         before = len(env.get_scope())
         env.add_sub_env(BasicSubEnv())
-        self.interp_stmts(if_stmt.body, env)
+        self.analyze_stmts(if_stmt.body, env)
         body_env = env.pop_sub_env()
         after = len(env.get_scope())
         assert before == after
@@ -143,7 +143,7 @@ class Analyzer:
         # print(f"in length: {in_len} out length: {out_len}")
         assert (in_len == out_len)
 
-    def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
+    def analyze_For(self, for_stmt: ast.For, env: EntEnv) -> None:
         from enre.analysis.assign_target import build_target, unpack_semantic, dummy_iter
         iter_value = dummy_iter(self._avaler.aval(for_stmt.iter, env))
         target_expr = for_stmt.target
@@ -157,19 +157,19 @@ class Analyzer:
         # self._avaler.aval(for_stmt.iter, env)
         # todo: verify it's two re evaluation
         env.add_sub_env(BasicSubEnv())
-        self.interp_stmts(for_stmt.body, env)
+        self.analyze_stmts(for_stmt.body, env)
         sub_env = env.pop_sub_env()
         optional_sub_env = OptionalSubEnv(sub_env)
         continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), optional_sub_env)
         env.add_sub_env(continuous_sub_env)
         # todo: loop the for statement until stabilized
 
-    def interp_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
+    def analyze_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
         rvalue_expr = assign_stmt.value
         self.process_assign_helper(rvalue_expr, target_exprs, env)
 
-    def interp_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv) -> None:
+    def analyze_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv) -> None:
         target_expr = aug_stmt.target
         rvalue_expr = aug_stmt.value
         if rvalue_expr is not None:
@@ -177,13 +177,13 @@ class Analyzer:
         else:
             self.declare_semantic(target_expr, env)
 
-    def interp_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv) -> None:
+    def analyze_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv) -> None:
         target_expr = ann_stmt.target
         rvalue_expr = ann_stmt.value
         self._avaler.aval(ann_stmt.annotation, env)
         self.process_assign_helper(rvalue_expr, [target_expr], env)
 
-    def interp_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
+    def analyze_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         self._avaler.aval(expr_stmt.value, env)
 
     def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr],
@@ -200,7 +200,7 @@ class Analyzer:
             assign2target(target, rvalue_expr,
                           InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
 
-    def interp_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
+    def analyze_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:
             module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
                                                     import_stmt.col_offset)
@@ -217,7 +217,7 @@ class Analyzer:
             env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
                                       import_stmt.col_offset))
 
-    def interp_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
+    def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
         # todo: import from statement
         module_identifier = import_stmt.module
         if module_identifier is None:
@@ -265,7 +265,7 @@ class Analyzer:
                     new_bindings.append((alias.name, [(unknown_var, EntType.get_bot())]))
             env.get_scope().add_continuous(new_bindings)
 
-    def interp_With(self, with_stmt: ast.With, env: EntEnv) -> None:
+    def analyze_With(self, with_stmt: ast.With, env: EntEnv) -> None:
         from enre.analysis.assign_target import build_target, unpack_semantic
         for with_item in with_stmt.items:
             context_expr = with_item.context_expr
@@ -278,12 +278,12 @@ class Analyzer:
                 unpack_semantic(target, with_value,
                                 InterpContext(env, self.package_db, self.current_db,
                                               (target_lineno, target_col_offset)))
-        self.interp_stmts(with_stmt.body, env)
+        self.analyze_stmts(with_stmt.body, env)
 
-    def interp_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
+    def analyze_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
         from enre.analysis.error_handler import handler_semantic
         env.add_sub_env(BasicSubEnv())
-        self.interp_stmts(try_stmt.body, env)
+        self.analyze_stmts(try_stmt.body, env)
         try_body_env = env.pop_sub_env()
 
         for handler in try_stmt.handlers:
@@ -296,16 +296,16 @@ class Analyzer:
                 handler_semantic(handler.name, ast.Expr(err_constructor),
                                  InterpContext(env, self.package_db, self.current_db,
                                                (target_lineno, target_col_offset)))
-            self.interp_stmts(handler.body, env)
+            self.analyze_stmts(handler.body, env)
             handler_env = env.pop_sub_env()
             try_body_env = ParallelSubEnv(try_body_env, handler_env)
 
         env.add_sub_env(BasicSubEnv())
-        self.interp_stmts(try_stmt.orelse, env)
+        self.analyze_stmts(try_stmt.orelse, env)
         orelse_body_env = env.pop_sub_env()
 
         env.add_sub_env(BasicSubEnv())
-        self.interp_stmts(try_stmt.finalbody, env)
+        self.analyze_stmts(try_stmt.finalbody, env)
         finally_body_env = env.pop_sub_env()
 
         try_env = ParallelSubEnv(try_body_env, ParallelSubEnv(orelse_body_env, finally_body_env))
@@ -313,7 +313,7 @@ class Analyzer:
         env.add_sub_env(ContinuousSubEnv(forward_env, try_env))
 
     # entry of analysis of a module
-    def interp_top_stmts(self, stmts: ty.List[ast.stmt], env: ty.Optional[EntEnv] = None) -> None:
+    def analyze_top_stmts(self, stmts: ty.List[ast.stmt], env: ty.Optional[EntEnv] = None) -> None:
         if env is None:
             env = EntEnv(ScopeEnv(ctx_ent=self.module, location=Location()))
 
@@ -324,12 +324,12 @@ class Analyzer:
             stmts, scope_env = hook.stmts, hook.scope_env
             before = len(env.get_scope())
             env.add_scope(scope_env)
-            self.interp_top_stmts(stmts, env)
+            self.analyze_top_stmts(stmts, env)
             env.pop_scope()
             after = len(env.get_scope())
             assert (before == after)
 
-    def interp_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
+    def analyze_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
         for stmt in stmts:
             self.interp(stmt, env)
 
