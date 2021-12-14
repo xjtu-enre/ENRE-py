@@ -86,7 +86,7 @@ def merge_db(package_db: PackageDB) -> "DepDB":
     raise NotImplementedError("not implemented yet")
 
 
-class InterpManager:
+class AnalyzeManager:
     def __init__(self, root_path: Path):
         self.project_root = root_path
         self.package_db = PackageDB(root_path)
@@ -124,7 +124,7 @@ class InterpManager:
         # entity_pass.execute_pass()
 
     def iter_dir(self, path: Path) -> None:
-        from .checker import AInterp
+        from .analyze_stmt import Analyzer
         print(path)
         if path.is_dir():
             for sub_file in path.iterdir():
@@ -136,14 +136,14 @@ class InterpManager:
                 return
             else:
                 module_ent = self.package_db[rel_path].module_ent
-                checker = AInterp(rel_path, self)
+                checker = Analyzer(rel_path, self)
                 self.module_stack.push(rel_path)
                 checker.interp_top_stmts(checker.current_db.tree.body,
                                          EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
     def import_module(self, from_module_ent: Module, module_identifier: str, lineno: int, col_offset: int) -> Module:
-        from .checker import AInterp
+        from .analyze_stmt import Analyzer
         rel_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
 
@@ -151,7 +151,7 @@ class InterpManager:
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
             # new module entity
             module_ent = self.package_db[rel_path].module_ent
-            checker = AInterp(rel_path, self)
+            checker = Analyzer(rel_path, self)
             self.module_stack.push(rel_path)
             with open(p, "r") as file:
                 checker.interp_top_stmts(ast.parse(file.read()).body,

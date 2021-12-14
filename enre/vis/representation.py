@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Union, Literal, TypedDict, Any
 
 from enre.ent.entity import Entity
-from enre.interp.manager_interp import PackageDB
+from enre.interp.analyze_manager import PackageDB
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,

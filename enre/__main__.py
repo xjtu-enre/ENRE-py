@@ -3,7 +3,7 @@ import sys
 import time
 from pathlib import Path
 
-from enre.interp.manager_interp import InterpManager
+from enre.interp.analyze_manager import AnalyzeManager
 from enre.vis.representation import DepRepr
 
 
@@ -17,7 +17,7 @@ def main() -> None:
 
 def enre_wrapper(root_path: Path) -> None:
     project_name = root_path.name
-    manager = InterpManager(root_path)
+    manager = AnalyzeManager(root_path)
     manager.work_flow()
     out_path = Path(f"{project_name}-report-enre.json")
     with open(out_path, "w") as file:

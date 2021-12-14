@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Class, AmbiguousAttribute, ReferencedAttribute
-from enre.interp.manager_interp import PackageDB
+from enre.interp.analyze_manager import PackageDB
 from enre.passes.entity_pass import DepDBPass
 from enre.ref.Ref import Ref
 

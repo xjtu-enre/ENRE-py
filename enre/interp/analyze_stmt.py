@@ -12,7 +12,7 @@ from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Pa
 from enre.interp.enttype import EntType
 from enre.interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
-from enre.interp.manager_interp import InterpManager, PackageDB, ModuleDB
+from enre.interp.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
 from enre.ref.Ref import Ref
 
 
@@ -24,8 +24,8 @@ class InterpContext:
     coordinate: ty.Tuple[int, int]
 
 
-class AInterp:
-    def __init__(self, rel_path: Path, manager: InterpManager):
+class Analyzer:
+    def __init__(self, rel_path: Path, manager: AnalyzeManager):
         module_ent = manager.package_db[rel_path].module_ent
         self.manager = manager
         self.module = module_ent
@@ -416,4 +416,4 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         process_helper(args.kwarg)
 
 
-from enre.interp.aval import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
+from enre.interp.analyze_expr import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler

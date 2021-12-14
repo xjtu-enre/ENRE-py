@@ -3,8 +3,8 @@ from typing import Optional
 
 from enre.ent.entity import UnknownVar
 from enre.interp.assign_target import assign_semantic
-from enre.interp.aval import AbstractValue, UseAvaler
-from enre.interp.checker import InterpContext
+from enre.interp.analyze_expr import AbstractValue, UseAvaler
+from enre.interp.analyze_stmt import InterpContext
 from enre.interp.enttype import ConstructorType, EntType
 
 
