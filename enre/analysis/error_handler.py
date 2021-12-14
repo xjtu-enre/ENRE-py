@@ -2,10 +2,10 @@ import ast
 from typing import Optional
 
 from enre.ent.entity import UnknownVar
-from enre.interp.assign_target import assign_semantic
-from enre.interp.analyze_expr import AbstractValue, UseAvaler
-from enre.interp.analyze_stmt import InterpContext
-from enre.interp.enttype import ConstructorType, EntType
+from enre.analysis.assign_target import assign_semantic
+from enre.analysis.analyze_expr import AbstractValue, UseAvaler
+from enre.analysis.analyze_stmt import InterpContext
+from enre.analysis.enttype import ConstructorType, EntType
 
 
 def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpContext") -> None:

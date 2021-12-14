@@ -9,10 +9,10 @@ from enre.ent.ent_finder import get_module_level_ent
 from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, \
     ModuleAlias, \
     Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
-from enre.interp.enttype import EntType
-from enre.interp.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
+from enre.analysis.enttype import EntType
+from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
-from enre.interp.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
+from enre.analysis.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
 from enre.ref.Ref import Ref
 
 
@@ -138,7 +138,7 @@ class Analyzer:
         assert (in_len == out_len)
 
     def interp_For(self, for_stmt: ast.For, env: EntEnv) -> None:
-        from enre.interp.assign_target import build_target, unpack_semantic, dummy_iter
+        from enre.analysis.assign_target import build_target, unpack_semantic, dummy_iter
         iter_value = dummy_iter(self._avaler.aval(for_stmt.iter, env))
         target_expr = for_stmt.target
         target_lineno = target_expr.lineno
@@ -184,7 +184,7 @@ class Analyzer:
                               env: EntEnv) -> None:
         set_avaler = SetAvaler(self.package_db, self.current_db)
         use_avaler = UseAvaler(self.package_db, self.current_db)
-        from enre.interp.assign_target import build_target, assign2target
+        from enre.analysis.assign_target import build_target, assign2target
 
         frame_entities: ty.List[ty.Tuple[Entity, EntType]]
         for target_expr in target_exprs:
@@ -255,7 +255,7 @@ class Analyzer:
             env.get_scope().add_continuous(frame_entities)
 
     def interp_With(self, with_stmt: ast.With, env: EntEnv) -> None:
-        from enre.interp.assign_target import build_target, unpack_semantic
+        from enre.analysis.assign_target import build_target, unpack_semantic
         for with_item in with_stmt.items:
             context_expr = with_item.context_expr
             optional_var = with_item.optional_vars
@@ -270,7 +270,7 @@ class Analyzer:
         self.interp_stmts(with_stmt.body, env)
 
     def interp_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
-        from enre.interp.error_handler import handler_semantic
+        from enre.analysis.error_handler import handler_semantic
         env.add_sub_env(BasicSubEnv())
         self.interp_stmts(try_stmt.body, env)
         try_body_env = env.pop_sub_env()
@@ -416,4 +416,4 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         process_helper(args.kwarg)
 
 
-from enre.interp.analyze_expr import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
+from enre.analysis.analyze_expr import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler

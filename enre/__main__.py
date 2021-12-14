@@ -3,7 +3,7 @@ import sys
 import time
 from pathlib import Path
 
-from enre.interp.analyze_manager import AnalyzeManager
+from enre.analysis.analyze_manager import AnalyzeManager
 from enre.vis.representation import DepRepr
 
 

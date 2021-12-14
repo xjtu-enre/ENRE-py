@@ -4,7 +4,7 @@ from pathlib import Path
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Module, UnknownModule
-from enre.interp.env import EntEnv, ScopeEnv
+from enre.analysis.env import EntEnv, ScopeEnv
 from enre.ref.Ref import Ref
 
 

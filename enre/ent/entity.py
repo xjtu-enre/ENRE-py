@@ -133,7 +133,7 @@ class Entity(ABC):
         return False
 
     def direct_type(self) -> "EntType":
-        from enre.interp.enttype import EntType
+        from enre.analysis.enttype import EntType
         return EntType.get_bot()
 
     def __hash__(self) -> int:
@@ -351,4 +351,4 @@ class UnresolvedAttribute(Entity):
 
 _anonymous_ent: Anonymous = Anonymous()
 
-from enre.interp.enttype import EntType, ModuleType, ConstructorType
+from enre.analysis.enttype import EntType, ModuleType, ConstructorType

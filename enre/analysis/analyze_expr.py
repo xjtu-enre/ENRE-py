@@ -7,10 +7,10 @@ from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_module_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, UnknownModule, Function, Class, LambdaFunction, Span, get_syntactic_span
-from enre.interp.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
-from enre.interp.env import EntEnv, ScopeEnv
+from enre.analysis.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
+from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
-from enre.interp.analyze_manager import PackageDB, ModuleDB
+from enre.analysis.analyze_manager import PackageDB, ModuleDB
 from enre.ref.Ref import Ref
 
 AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
@@ -87,7 +87,7 @@ class UseAvaler:
         return ret
 
     def aval_Lambda(self, lam_expr: ast.Lambda, env: EntEnv) -> AbstractValue:
-        from enre.interp.analyze_stmt import process_parameters
+        from enre.analysis.analyze_stmt import process_parameters
         in_class_env = isinstance(env.get_ctx(), Class)
         lam_span = get_syntactic_span(lam_expr)
         now_scope = env.get_scope().get_location()
@@ -140,8 +140,8 @@ class UseAvaler:
         return [(Entity.get_anonymous_ent(), EntType.get_bot())]
 
     def dummy_generator_exp(self, env: EntEnv, generators: List[ast.comprehension]) -> None:
-        from enre.interp.assign_target import build_target, dummy_iter, unpack_semantic
-        from enre.interp.analyze_stmt import InterpContext
+        from enre.analysis.assign_target import build_target, dummy_iter, unpack_semantic
+        from enre.analysis.analyze_stmt import InterpContext
         for comp in generators:
             target_lineno = comp.target.lineno
             target_col_offset = comp.target.col_offset

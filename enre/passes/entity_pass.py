@@ -3,8 +3,8 @@ from typing import List, Dict
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
-from enre.interp.enttype import EntType
-from enre.interp.analyze_manager import PackageDB
+from enre.analysis.enttype import EntType
+from enre.analysis.analyze_manager import PackageDB
 from enre.ref.Ref import Ref
 import abc
 

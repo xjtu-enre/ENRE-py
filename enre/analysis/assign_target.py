@@ -6,8 +6,8 @@ from typing import List, Tuple, TypeAlias, Callable, Optional
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
-from enre.interp.analyze_expr import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
-from enre.interp.enttype import EntType, ClassType
+from enre.analysis.analyze_expr import UseAvaler, SetAvaler, AbstractValue, MemberDistiller
+from enre.analysis.enttype import EntType, ClassType
 from enre.ref.Ref import Ref
 
 
@@ -177,7 +177,7 @@ def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpC
     unpack_semantic(target, rvalue, ctx)
 
 
-from enre.interp.analyze_stmt import InterpContext
+from enre.analysis.analyze_stmt import InterpContext
 
 if __name__ == '__main__':
     tree = ast.parse("*[(x, y), y]")
