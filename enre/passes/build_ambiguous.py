@@ -1,14 +1,19 @@
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Entity, Class, AmbiguousAttribute, ReferencedAttribute
+from enre.ent.entity import Entity, Class, AmbiguousAttribute, ReferencedAttribute, NamespaceType
 from enre.analysis.analyze_manager import PackageDB
 from enre.passes.entity_pass import DepDBPass
 from enre.ref.Ref import Ref
 
 
 class BuildAmbiguous(DepDBPass):
+    """Build ambiguous attribute dictionary,
+    An attribute would be seen as ambiguous when there's
+    another attribute with the same name.
+    """
+
     def __init__(self, package_db: PackageDB):
         self._package_db = package_db
 
@@ -20,6 +25,10 @@ class BuildAmbiguous(DepDBPass):
         self._build_ambiguous_attributes()
 
     def build_attr_map(self) -> Dict[str, List[Entity]]:
+        """
+        :return: the attribute map which map attribute name to the
+            attribute entities
+        """
         attr_map: Dict[str, List[Entity]] = defaultdict(list)
         for _, module_db in self.package_db.tree.items():
             for ent in module_db.dep_db.ents:
@@ -28,7 +37,15 @@ class BuildAmbiguous(DepDBPass):
                         attr_map[attr_name].extend(attr_ent)
         return attr_map
 
-    def build_ambiguous_dict(self, attr_map: Dict[str, List[Entity]]) -> Dict[str, List[Entity]]:
+    def build_ambiguous_dict(self, attr_map: Dict[str, List[Entity]]) -> "NamespaceType":
+        """
+        if the name corresponds to more than one class attribute, the
+        attribute would be seen has ambiguous
+        :param attr_map: the attribute map maps the attribute name to
+            attribute entities
+        :return: the attribute map maps the attribute name to ambiguous
+            attribute entities
+        """
         ambiguous_dict: Dict[str, List[Entity]] = defaultdict(list)
         for name, ents in attr_map.items():
             if len(ents) > 1:
@@ -48,9 +65,8 @@ class BuildAmbiguous(DepDBPass):
         ambiguous_ent_dict = self.build_ambiguous_ents(ambiguous_dict)
         self.resolve_referenced_attr(attr_map, ambiguous_ent_dict)
 
-
     def build_ambiguous_ents(self, ambiguous_dict: Dict[str, List[Entity]]) -> Dict[str, Optional[AmbiguousAttribute]]:
-        ambiguous_ents_dict: Dict[str, Optional[AmbiguousAttribute]] = defaultdict(lambda : None)
+        ambiguous_ents_dict: Dict[str, Optional[AmbiguousAttribute]] = defaultdict(lambda: None)
         for name, ents in ambiguous_dict.items():
             ambiguous_ent = AmbiguousAttribute(name)
             ambiguous_ents_dict[name] = ambiguous_ent
@@ -63,13 +79,35 @@ class BuildAmbiguous(DepDBPass):
 def rebuild_ref(ent: Entity, ref: Ref,
                 definite_attr_dict: Dict[str, List[Entity]],
                 ambiguous_ent_dict: Dict[str, Optional[AmbiguousAttribute]]) -> None:
-    if ref.target_ent != ReferencedAttribute:
+    """
+    If the target of a reference is an referenced attribute, rebuild the relation
+    to the resolved attribute entities.
+
+    If the name of the target referenced attribute in the ambiguous dictionary,
+    build the relation to the ambiguous entity(AmbiguousAttribute).
+
+    If the name not in the ambiguous dictionary, build the relation to the
+    relation to the attribute entity directly.
+
+    If can't find the name at any attribute dictionary, create an unresolved attribute
+    in place, and create the relation the relation to that.
+
+    :param ent: the src entity which need to rebuild relation
+    :param ref: the reference to the target attribute
+    :param definite_attr_dict: the dictionary maps name to attribute entity with
+        no ambiguous
+    :param ambiguous_ent_dict: the dictionary maps name to attribute ambiguous
+        entities
+    :return:
+    """
+    if not isinstance(ref.target_ent, ReferencedAttribute):
         return
     attr_name = ref.target_ent.longname.name
     ambiguous_ent = ambiguous_ent_dict[attr_name]
     if ambiguous_ent is not None:
         ent.add_ref(Ref(ref.ref_kind, ambiguous_ent, ref.lineno, ref.col_offset))
         return
-    definite_attr = definite_attr_dict[attr_name]
-    for attr_ent in definite_attr:
-        ent.add_ref(Ref(ref.ref_kind, attr_ent, ref.lineno, ref.col_offset))
+    else:
+        definite_attr = definite_attr_dict[attr_name]
+        for attr_ent in definite_attr:
+            ent.add_ref(Ref(ref.ref_kind, attr_ent, ref.lineno, ref.col_offset))
