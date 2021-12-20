@@ -145,6 +145,14 @@ class Entity(ABC):
     def __hash__(self) -> int:
         return hash((self.longname, self.location))
 
+# AbstractValue instance contains all possible result of a an expression
+# A possible result is a tuple of entity and entity's type.
+# If some entity, to which an expression evaluate, maybe bound to several types,
+# the abstract value will contain the tuple of the entity to those types.
+AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
+MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
+NamespaceType: TypeAlias = Dict[str, List[Entity]]
+
 
 class Variable(Entity):
     def __init__(self, longname: EntLongname, location: Location):
@@ -180,16 +188,27 @@ class Module(Entity):
         longname = EntLongname(path_list)
         location = Location(file_path, Span.get_nil(), path_list)
         super(Module, self).__init__(longname, location)
+        self._names: "NamespaceType" = defaultdict(list)
 
     def kind(self) -> EntKind:
         return EntKind.Module
+
+    @property
+    def names(self) -> "NamespaceType":
+        return self._names
+
+    def add_ref(self, ref: Ref) -> None:
+        if ref.ref_kind == RefKind.DefineKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        super(Module, self).add_ref(ref)
+
 
     @property
     def module_longname(self) -> EntLongname:
         return self.longname
 
     def direct_type(self) -> "ModuleType":
-        return ModuleType.get_module_type()
+        return ModuleType(self.names)
 
 
 class ModuleAlias(Entity):
@@ -369,10 +388,3 @@ class UnresolvedAttribute(Entity):
 
 _anonymous_ent: Anonymous = Anonymous()
 
-# AbstractValue instance contains all possible result of a an expression
-# A possible result is a tuple of entity and entity's type.
-# If some entity, to which an expression evaluate, maybe bound to several types,
-# the abstract value will contain the tuple of the entity to those types.
-AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
-MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
-NamespaceType: TypeAlias = Dict[str, List[Entity]]

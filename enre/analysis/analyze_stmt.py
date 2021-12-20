@@ -206,13 +206,13 @@ class Analyzer:
                                                     import_stmt.col_offset)
             module_name = module_alias.name
             if module_alias.asname is None:
-                module_binding: Bindings = [(module_name, [(module_ent, ModuleType.get_module_type())])]
+                module_binding: Bindings = [(module_name, [(module_ent, ModuleType(module_ent.names))])]
                 env.get_scope().add_continuous(module_binding)
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil())
                 module_alias_ent = ModuleAlias(module_ent, alias_location)
                 self.current_db.add_ent(module_alias_ent)
-                alias_binding: Bindings = [(module_alias.asname, [(module_alias_ent, ModuleType.get_module_type())])]
+                alias_binding: Bindings = [(module_alias.asname, [(module_alias_ent, ModuleType(module_ent.names))])]
                 env.get_scope().add_continuous(alias_binding)
             env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
                                       import_stmt.col_offset))

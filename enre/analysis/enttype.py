@@ -49,9 +49,13 @@ class ConstructorType(EntType):
 
 # Every Module Entity is Module Type
 class ModuleType(EntType):
-    @classmethod
-    def get_module_type(cls) -> "ModuleType":
-        return _module_type
+
+    def __init__(self, names: "NamespaceType"):
+        self._names = names
+
+    @property
+    def namespace(self) -> "NamespaceType":
+        return self._names
 
     def join(self, rhs: "EntType") -> "EntType":
         return EntType.get_bot()
@@ -63,4 +67,3 @@ class AnyType(EntType):
 
 
 _any_type = AnyType()
-_module_type = ModuleType()
