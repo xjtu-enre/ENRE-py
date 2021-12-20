@@ -9,7 +9,7 @@ from enre.ent.ent_finder import get_module_level_ent
 from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, \
     ModuleAlias, \
     Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
-from enre.analysis.enttype import EntType
+from enre.analysis.value_info import ValueInfo
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
 from enre.analysis.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
@@ -74,7 +74,7 @@ class Analyzer:
         current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset))
 
         # add function entity to the current environment
-        new_binding: "Bindings" = [(func_name, [(func_ent, EntType.get_bot())])]
+        new_binding: "Bindings" = [(func_name, [(func_ent, ValueInfo.get_any())])]
         env.get_scope().add_continuous(new_binding)
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope)
@@ -192,7 +192,7 @@ class Analyzer:
         use_avaler = UseAvaler(self.package_db, self.current_db)
         from enre.analysis.assign_target import build_target, assign2target
 
-        frame_entities: ty.List[ty.Tuple[Entity, EntType]]
+        frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
         for target_expr in target_exprs:
             target_lineno = target_expr.lineno
             target_col_offset = target_expr.col_offset
@@ -230,7 +230,7 @@ class Analyzer:
         new_bindings: "Bindings"
         if not isinstance(module_ent, UnknownModule):
             # if the imported module can found in package
-            frame_entities: ty.List[ty.Tuple[Entity, EntType]]
+            frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
             new_bindings = []
             for alias in import_stmt.names:
                 name = alias.name
@@ -262,7 +262,7 @@ class Analyzer:
                     self.current_db.add_ent(alias_ent)
                     new_bindings.append((alias.asname, [(alias_ent, alias_ent.direct_type())]))
                 else:
-                    new_bindings.append((alias.name, [(unknown_var, EntType.get_bot())]))
+                    new_bindings.append((alias.name, [(unknown_var, ValueInfo.get_any())]))
             env.get_scope().add_continuous(new_bindings)
 
     def analyze_With(self, with_stmt: ast.With, env: EntEnv) -> None:
@@ -366,7 +366,7 @@ class Analyzer:
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
 # deprecated function
 @ty.no_type_check
-def add_target_var(target: Entity, ent_type: EntType, env: EntEnv, dep_db: DepDB) -> None:
+def add_target_var(target: Entity, ent_type: ValueInfo, env: EntEnv, dep_db: DepDB) -> None:
     raise ValueError("calling deprecated function")
     scope_env = env.get_scope()
     matched_ents = scope_env[target.longname.name]
@@ -388,7 +388,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     ctx_fun = env.get_ctx()
     para_constructor = LambdaParameter if isinstance(env.get_ctx(), LambdaFunction) else Parameter
 
-    def process_helper(a: ast.arg, ent_type: EntType, bindings: "Bindings") -> None:
+    def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings") -> None:
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
@@ -400,33 +400,33 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     args_binding: "Bindings" = []
 
     for arg in args.posonlyargs:
-        process_helper(arg, EntType.get_bot(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding)
 
     if len(args.args) >= 1:
         first_arg = args.args[0].arg
         if first_arg == "self":
             if class_ctx is not None:
-                class_type: EntType = InstanceType(class_ctx)
+                class_type: ValueInfo = InstanceType(class_ctx)
             else:
-                class_type = EntType.get_bot()
+                class_type = ValueInfo.get_any()
             process_helper(args.args[0], class_type, args_binding)
         elif first_arg == "cls":
             if class_ctx is not None:
-                constructor_type: EntType = ConstructorType(class_ctx)
+                constructor_type: ValueInfo = ConstructorType(class_ctx)
             else:
-                constructor_type = EntType.get_bot()
+                constructor_type = ValueInfo.get_any()
             process_helper(args.args[0], constructor_type, args_binding)
         else:
-            process_helper(args.args[0], EntType.get_bot(), args_binding)
+            process_helper(args.args[0], ValueInfo.get_any(), args_binding)
 
     for arg in args.args[1:]:
-        process_helper(arg, EntType.get_bot(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding)
     if args.vararg is not None:
-        process_helper(args.vararg, EntType.get_bot(), args_binding)
+        process_helper(args.vararg, ValueInfo.get_any(), args_binding)
     for arg in args.kwonlyargs:
-        process_helper(arg, EntType.get_bot(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding)
     if args.kwarg is not None:
-        process_helper(args.kwarg, EntType.get_bot(), args_binding)
+        process_helper(args.kwarg, ValueInfo.get_any(), args_binding)
 
     env.add_continuous(args_binding)
 

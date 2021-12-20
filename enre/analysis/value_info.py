@@ -5,17 +5,24 @@ if TYPE_CHECKING:
     from enre.ent.entity import Class, Entity, NamespaceType
 
 
-class EntType(ABC):
+class ValueInfo(ABC):
+    """ValueInfo contain the part of analyze result of an expression.
+
+    ValueInfo of an expression could be changed during analyzing,
+    when the analyzed expression corresponds to an entity whose
+    analyze progress haven't finished.
+    """
+
     @classmethod
-    def get_bot(cls) -> "AnyType":
+    def get_any(cls) -> "AnyType":
         return _any_type
 
     @abstractmethod
-    def join(self, rhs: "EntType") -> "EntType":
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
         pass
 
 
-class InstanceType(EntType):
+class InstanceType(ValueInfo):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
         self._names: "NamespaceType"= class_ent.names
@@ -24,11 +31,11 @@ class InstanceType(EntType):
     def namespace(self) -> "NamespaceType":
         return self._names
 
-    def join(self, rhs: "EntType") -> "EntType":
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
         ...
 
 
-class ConstructorType(EntType):
+class ConstructorType(ValueInfo):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
         self._names: "NamespaceType" = class_ent.names
@@ -40,15 +47,15 @@ class ConstructorType(EntType):
     def to_class_type(self) -> InstanceType:
         return InstanceType(self.class_ent)
 
-    def join(self, rhs: "EntType") -> "EntType":
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
         if isinstance(rhs, ConstructorType) and rhs.class_ent == self.class_ent:
             return self
         else:
-            return EntType.get_bot()
+            return ValueInfo.get_any()
 
 
 # Every Module Entity is Module Type
-class ModuleType(EntType):
+class ModuleType(ValueInfo):
 
     def __init__(self, names: "NamespaceType"):
         self._names = names
@@ -57,12 +64,12 @@ class ModuleType(EntType):
     def namespace(self) -> "NamespaceType":
         return self._names
 
-    def join(self, rhs: "EntType") -> "EntType":
-        return EntType.get_bot()
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        return ValueInfo.get_any()
 
 
-class AnyType(EntType):
-    def join(self, rhs: "EntType") -> "EntType":
+class AnyType(ValueInfo):
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return _any_type
 
 

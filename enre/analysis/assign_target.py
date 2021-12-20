@@ -9,7 +9,7 @@ from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
 from enre.analysis.analyze_expr import UseAvaler, SetAvaler
 from enre.ent.entity import AbstractValue, MemberDistiller
-from enre.analysis.enttype import EntType, InstanceType
+from enre.analysis.value_info import ValueInfo, InstanceType
 from enre.ref.Ref import Ref
 
 if TYPE_CHECKING:
@@ -76,16 +76,16 @@ def build_target(tar_expr: ast.expr) -> Target:
 
 def dummy_unpack(_: AbstractValue) -> MemberDistiller:
     def wrapper(_: int) -> AbstractValue:
-        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
     return wrapper
 
 
 def dummy_iter(_: AbstractValue) -> AbstractValue:
-    return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+    return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
 
-def assign_semantic(tar_ent: Entity, value_type: EntType, new_bindings: List[Tuple[str, List[Tuple[Entity, EntType]]]],
+def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
                     ctx: "InterpContext") -> None:
     # depends on which kind of the context entity is, define/set/use variable entity of the environment or
     # the current
@@ -133,7 +133,7 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, new_bindings: List[Tup
 
 
 def compress_abstract_value(entities: AbstractValue) -> AbstractValue:
-    new_entities_dict: Dict[Entity, Set[EntType]] = defaultdict(set)
+    new_entities_dict: Dict[Entity, Set[ValueInfo]] = defaultdict(set)
     for ent, ent_type in entities:
         new_entities_dict[ent].add(ent_type)
     new_entities: AbstractValue = []
@@ -198,7 +198,7 @@ def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpC
     avaler = UseAvaler(ctx.package_db, ctx.current_db)
     rvalue: AbstractValue
     if rvalue_expr is None:
-        rvalue = [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        rvalue = [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
     else:
         rvalue = avaler.aval(rvalue_expr, ctx.env)
     unpack_semantic(target, rvalue, ctx)

@@ -5,7 +5,7 @@ from enre.ent.entity import UnknownVar, AbstractValue
 from enre.analysis.assign_target import assign_semantic, flatten_bindings
 from enre.analysis.analyze_expr import UseAvaler
 from enre.analysis.analyze_stmt import InterpContext
-from enre.analysis.enttype import ConstructorType, EntType
+from enre.analysis.value_info import ConstructorType, ValueInfo
 
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
@@ -18,7 +18,7 @@ def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpCont
         if isinstance(ent_type, ConstructorType):
             assign_semantic(new_var_ent, ent_type.to_class_type(), new_bindings, ctx)
         else:
-            assign_semantic(new_var_ent, EntType.get_bot(), new_bindings, ctx)
+            assign_semantic(new_var_ent, ValueInfo.get_any(), new_bindings, ctx)
     new_bindings = flatten_bindings(new_bindings)
     ctx.env.get_scope().add_continuous(new_bindings)
 

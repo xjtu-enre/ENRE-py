@@ -6,7 +6,7 @@ from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_module_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span
-from enre.analysis.enttype import EntType, ConstructorType, InstanceType, ModuleType, AnyType
+from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from enre.analysis.analyze_manager import PackageDB, ModuleDB
@@ -29,7 +29,7 @@ class UseAvaler:
 
     def generic_aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Called if no explicit visitor function exists for a node."""
-        ret: EntType = EntType.get_bot()
+        ret: ValueInfo = ValueInfo.get_any()
         for field, value in ast.iter_fields(expr):
             if isinstance(value, list):
                 for item in value:
@@ -56,7 +56,7 @@ class UseAvaler:
             unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
             ctx.add_ref(Ref(RefKind.UseKind, unknown_var, name_expr.lineno, name_expr.col_offset))
-            return [(unknown_var, EntType.get_bot())]
+            return [(unknown_var, ValueInfo.get_any())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
 
@@ -76,7 +76,7 @@ class UseAvaler:
             if isinstance(func_type, ConstructorType):
                 ret.append((Entity.get_anonymous_ent(), func_type.to_class_type()))
             else:
-                ret.append((Entity.get_anonymous_ent(), EntType.get_bot()))
+                ret.append((Entity.get_anonymous_ent(), ValueInfo.get_any()))
             env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
         for arg in call_expr.args:
             self.aval(arg, env)
@@ -110,32 +110,32 @@ class UseAvaler:
         # this type error is safety
         lam_body: List[ast.stmt] = [ast.Expr(lam_expr.body)]
         hook_scope.add_hook(lam_body, body_env)
-        return [(func_ent, EntType.get_bot())]
+        return [(func_ent, ValueInfo.get_any())]
 
     def aval_ListComp(self, list_comp: ast.ListComp, env: EntEnv) -> "AbstractValue":
         generators = list_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(list_comp.elt, env)
-        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_SetComp(self, set_comp: ast.SetComp, env: EntEnv) -> "AbstractValue":
         generators = set_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(set_comp.elt, env)
-        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_DictComp(self, dict_comp: ast.DictComp, env: EntEnv) -> "AbstractValue":
         generators = dict_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(dict_comp.key, env)
         self.aval(dict_comp.value, env)
-        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_GeneratorExp(self, gen_exp: ast.GeneratorExp, env: EntEnv) -> "AbstractValue":
         generators = gen_exp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(gen_exp.elt, env)
-        return [(Entity.get_anonymous_ent(), EntType.get_bot())]
+        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
 
     def dummy_generator_exp(self, env: EntEnv, generators: List[ast.comprehension]) -> None:
         from enre.analysis.assign_target import build_target, dummy_iter, unpack_semantic
@@ -167,13 +167,13 @@ def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret:
             location = Location.global_name(attribute)
             referenced_attr = ReferencedAttribute(location.to_longname(), location)
             current_db.add_ent(referenced_attr)
-            ret.append((referenced_attr, EntType.get_bot()))
+            ret.append((referenced_attr, ValueInfo.get_any()))
         else:
             raise NotImplementedError("attribute receiver entity matching not implemented")
 
 
 def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, dep_db: ModuleDB,
-                       container: Entity, receiver_type: EntType) -> None:
+                       container: Entity, receiver_type: ValueInfo) -> None:
     if attr_ents != []:
         # when get attribute of another entity, presume
 
@@ -186,7 +186,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
         # dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
         # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
         # relation in the class entity, while in a self set context.
-        ret.append((unresolved, EntType.get_bot()))
+        ret.append((unresolved, ValueInfo.get_any()))
 
 
 class SetAvaler:
@@ -210,7 +210,7 @@ class SetAvaler:
         else:
             unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
-            return [(unknown_var, EntType.get_bot())]
+            return [(unknown_var, ValueInfo.get_any())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
@@ -240,7 +240,7 @@ class CallAvaler:
         else:
             unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
-            return [(unknown_var, EntType.get_bot())]
+            return [(unknown_var, ValueInfo.get_any())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
         possible_receivers = self._avaler.aval(attr_expr.value, env)

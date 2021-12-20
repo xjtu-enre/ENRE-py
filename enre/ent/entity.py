@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
-from enre.analysis.enttype import EntType, ModuleType, ConstructorType
+from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 from enre.ref.Ref import Ref
 
@@ -138,9 +138,9 @@ class Entity(ABC):
             return other.longname == self.longname and other.location == self.location
         return False
 
-    def direct_type(self) -> "EntType":
-        from enre.analysis.enttype import EntType
-        return EntType.get_bot()
+    def direct_type(self) -> "ValueInfo":
+        from enre.analysis.value_info import ValueInfo
+        return ValueInfo.get_any()
 
     def __hash__(self) -> int:
         return hash((self.longname, self.location))
@@ -149,7 +149,7 @@ class Entity(ABC):
 # A possible result is a tuple of entity and entity's type.
 # If some entity, to which an expression evaluate, maybe bound to several types,
 # the abstract value will contain the tuple of the entity to those types.
-AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
+AbstractValue: TypeAlias = List[Tuple[Entity, ValueInfo]]
 MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
 NamespaceType: TypeAlias = Dict[str, List[Entity]]
 
@@ -240,11 +240,11 @@ class Alias(Entity):
     def kind(self) -> EntKind:
         return EntKind.Alias
 
-    def direct_type(self) -> "EntType":
+    def direct_type(self) -> "ValueInfo":
         if len(self.possible_target_ent) == 1:
             return self.possible_target_ent[0].direct_type()
         else:
-            return EntType.get_bot()
+            return ValueInfo.get_any()
 
     def _build_alias_deps(self) -> None:
         for ent in self.possible_target_ent:
@@ -298,7 +298,7 @@ class Class(Entity):
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Class, self).add_ref(ref)
 
-    def direct_type(self) -> "EntType":
+    def direct_type(self) -> "ValueInfo":
         return ConstructorType(self)
 
 
@@ -378,7 +378,7 @@ class AmbiguousAttribute(Entity):
 
 
 class UnresolvedAttribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location, receiver_type: "EntType") -> None:
+    def __init__(self, longname: EntLongname, location: Location, receiver_type: "ValueInfo") -> None:
         self.receiver_type = receiver_type
         super(UnresolvedAttribute, self).__init__(longname, location)
 
