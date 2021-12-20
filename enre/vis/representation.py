@@ -3,6 +3,7 @@ from typing import List, Dict, Union, Literal, TypedDict, Any
 
 from enre.ent.entity import Entity
 from enre.analysis.analyze_manager import PackageDB
+from enre.ent.EntKind import EntKind
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -63,15 +64,18 @@ class DepRepr:
 
     @classmethod
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
-        dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value))
-        for ref in ent.refs():
-            dep_repr._edge_list.append(Edge(src=ent.id,
-                                            src_name=ent.longname.longname,
-                                            dest=ref.target_ent.id,
-                                            dest_name=ref.target_ent.longname.longname,
-                                            kind=ref.ref_kind.value,
-                                            lineno=ref.lineno,
-                                            col_offset=ref.col_offset))
+        helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
+        if ent.kind() not in helper_ent_types:
+            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value))
+            for ref in ent.refs():
+                if ref.target_ent.kind() not in helper_ent_types:
+                    dep_repr._edge_list.append(Edge(src=ent.id,
+                                                    src_name=ent.longname.longname,
+                                                    dest=ref.target_ent.id,
+                                                    dest_name=ref.target_ent.longname.longname,
+                                                    kind=ref.ref_kind.value,
+                                                lineno=ref.lineno,
+                                                col_offset=ref.col_offset))
 
     @classmethod
     def from_package_db(cls, package_db: PackageDB) -> "DepRepr":
