@@ -369,6 +369,10 @@ class UnresolvedAttribute(Entity):
 
 _anonymous_ent: Anonymous = Anonymous()
 
-
+# AbstractValue instance contains all possible result of a an expression
+# A possible result is a tuple of entity and entity's type.
+# If some entity, to which an expression evaluate, maybe bound to several types,
+# the abstract value will contain the tuple of the entity to those types.
 AbstractValue: TypeAlias = List[Tuple[Entity, EntType]]
 MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
+NamespaceType: TypeAlias = Dict[str, List[Entity]]

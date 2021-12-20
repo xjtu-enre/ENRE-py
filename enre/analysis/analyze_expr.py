@@ -6,7 +6,7 @@ from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_module_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span
-from enre.analysis.enttype import EntType, ConstructorType, ClassType, ModuleType, AnyType
+from enre.analysis.enttype import EntType, ConstructorType, InstanceType, ModuleType, AnyType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from enre.analysis.analyze_manager import PackageDB, ModuleDB
@@ -21,13 +21,13 @@ class UseAvaler:
         self._package_db = package_db
         self._current_db = current_db
 
-    def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
         method = 'aval_' + expr.__class__.__name__
         visitor = getattr(self, method, self.generic_aval)
         return visitor(expr, env)
 
-    def generic_aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def generic_aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Called if no explicit visitor function exists for a node."""
         ret: EntType = EntType.get_bot()
         for field, value in ast.iter_fields(expr):
@@ -44,7 +44,7 @@ class UseAvaler:
 
         return [(Entity.get_anonymous_ent(), ret)]
 
-    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> AbstractValue:
         lookup_res = env[name_expr.id]
         ent_objs = lookup_res.found_entities
         ctx = env.get_ctx()
@@ -58,20 +58,20 @@ class UseAvaler:
             ctx.add_ref(Ref(RefKind.UseKind, unknown_var, name_expr.lineno, name_expr.col_offset))
             return [(unknown_var, EntType.get_bot())]
 
-    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
 
         possible_ents = self.aval(attr_expr.value, env)
         attribute = attr_expr.attr
-        ret: List[Tuple[Entity, EntType]] = []
+        ret: AbstractValue = []
         extend_possible_attribute(attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
             env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
         return ret
 
-    def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> AbstractValue:
         call_avaler = CallAvaler(self._package_db, self._current_db)
         possible_callers = call_avaler.aval(call_expr.func, env)
-        ret: List[Tuple[Entity, EntType]] = []
+        ret: AbstractValue = []
         for caller, func_type in possible_callers:
             if isinstance(func_type, ConstructorType):
                 ret.append((Entity.get_anonymous_ent(), func_type.to_class_type()))
@@ -151,16 +151,14 @@ class UseAvaler:
                 self.aval(cond_expr, env)
 
 
-def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, EntType]], ret: AbstractValue, package_db: PackageDB,
+def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: PackageDB,
                               current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
-        if isinstance(ent_type, ClassType):
-            class_ent = ent_type.class_ent
-            class_attrs = get_class_attr(class_ent, attribute)
+        if isinstance(ent_type, InstanceType):
+            class_attrs = ent_type.namespace[attribute]
             process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
         elif isinstance(ent_type, ConstructorType):
-            class_ent = ent_type.class_ent
-            class_attrs = get_class_attr(class_ent, attribute)
+            class_attrs = ent_type.namespace[attribute]
             process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
         elif isinstance(ent_type, ModuleType) and isinstance(ent, Module):
             module_level_ents = get_module_level_ent(ent, attribute)
@@ -190,7 +188,7 @@ def extend_possible_attribute(attribute: str, possible_ents: List[Tuple[Entity, 
             raise NotImplementedError("attribute receiver entity matching not implemented")
 
 
-def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: List[Tuple[Entity, EntType]], dep_db: ModuleDB,
+def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, dep_db: ModuleDB,
                        container: Entity, receiver_type: EntType) -> None:
     if attr_ents != []:
         # when get attribute of another entity, presume
@@ -213,13 +211,13 @@ class SetAvaler:
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)
 
-    def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
         method = 'aval_' + expr.__class__.__name__
         visitor = getattr(self, method, self._avaler.aval)
         return visitor(expr, env)
 
-    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> AbstractValue:
         # while in a set context, only entity in the current scope visible
         lookup_res = env.get_scope()[name_expr.id]
         ent_objs = lookup_res.found_entities
@@ -230,10 +228,10 @@ class SetAvaler:
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
 
-    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
-        ret: List[Tuple[Entity, EntType]] = []
+        ret: AbstractValue = []
         extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret
 
@@ -244,13 +242,13 @@ class CallAvaler:
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)
 
-    def aval(self, expr: ast.expr, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
         method = 'aval_' + expr.__class__.__name__
         visitor = getattr(self, method, self._avaler.aval)
         return visitor(expr, env)
 
-    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> AbstractValue:
         lookup_res = env[name_expr.id]
         ent_objs = lookup_res.found_entities
         if ent_objs:
@@ -260,9 +258,9 @@ class CallAvaler:
             self._current_db.add_ent(unknown_var)
             return [(unknown_var, EntType.get_bot())]
 
-    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> List[Tuple[Entity, EntType]]:
+    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
-        ret: List[Tuple[Entity, EntType]] = []
+        ret: AbstractValue = []
         extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret

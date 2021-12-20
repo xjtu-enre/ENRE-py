@@ -406,7 +406,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         first_arg = args.args[0].arg
         if first_arg == "self":
             if class_ctx is not None:
-                class_type: EntType = ClassType(class_ctx)
+                class_type: EntType = InstanceType(class_ctx)
             else:
                 class_type = EntType.get_bot()
             process_helper(args.args[0], class_type, args_binding)
@@ -431,4 +431,4 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     env.add_continuous(args_binding)
 
 
-from enre.analysis.analyze_expr import UseAvaler, ClassType, ConstructorType, ModuleType, SetAvaler
+from enre.analysis.analyze_expr import UseAvaler, InstanceType, ConstructorType, ModuleType, SetAvaler

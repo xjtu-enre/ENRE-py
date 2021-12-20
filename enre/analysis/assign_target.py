@@ -9,7 +9,7 @@ from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
 from enre.analysis.analyze_expr import UseAvaler, SetAvaler
 from enre.ent.entity import AbstractValue, MemberDistiller
-from enre.analysis.enttype import EntType, ClassType
+from enre.analysis.enttype import EntType, InstanceType
 from enre.ref.Ref import Ref
 
 if TYPE_CHECKING:
@@ -120,7 +120,7 @@ def assign_semantic(tar_ent: Entity, value_type: EntType, new_bindings: List[Tup
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
-        if isinstance(tar_ent.receiver_type, ClassType):
+        if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
             new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
             new_attr = ClassAttribute(new_location.to_longname(), new_location)

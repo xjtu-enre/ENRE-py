@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List
 
 if TYPE_CHECKING:
-    from enre.ent.entity import Class
+    from enre.ent.entity import Class, Entity, NamespaceType
 
 
 class EntType(ABC):
@@ -15,9 +15,14 @@ class EntType(ABC):
         pass
 
 
-class ClassType(EntType):
+class InstanceType(EntType):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
+        self._names: "NamespaceType"= class_ent.names
+
+    @property
+    def namespace(self) -> "NamespaceType":
+        return self._names
 
     def join(self, rhs: "EntType") -> "EntType":
         ...
@@ -26,9 +31,14 @@ class ClassType(EntType):
 class ConstructorType(EntType):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
+        self._names: "NamespaceType" = class_ent.names
 
-    def to_class_type(self) -> ClassType:
-        return ClassType(self.class_ent)
+    @property
+    def namespace(self) -> "NamespaceType":
+        return self._names
+
+    def to_class_type(self) -> InstanceType:
+        return InstanceType(self.class_ent)
 
     def join(self, rhs: "EntType") -> "EntType":
         if isinstance(rhs, ConstructorType) and rhs.class_ent == self.class_ent:
