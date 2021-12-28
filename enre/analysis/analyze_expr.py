@@ -9,7 +9,7 @@ from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Loc
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
-from enre.analysis.analyze_manager import PackageDB, ModuleDB
+from enre.analysis.analyze_manager import RootDB, ModuleDB
 from enre.ref.Ref import Ref
 from enre.ent.entity import AbstractValue
 
@@ -17,7 +17,7 @@ AnonymousFakeName = "$"
 
 class UseAvaler:
 
-    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
+    def __init__(self, package_db: RootDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
 
@@ -155,7 +155,7 @@ class UseAvaler:
                 self.aval(cond_expr, env)
 
 
-def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: PackageDB,
+def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: RootDB,
                               current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
@@ -194,7 +194,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
 
 
 class SetAvaler:
-    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
+    def __init__(self, package_db: RootDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)
@@ -225,7 +225,7 @@ class SetAvaler:
 
 
 class CallAvaler:
-    def __init__(self, package_db: PackageDB, current_db: ModuleDB):
+    def __init__(self, package_db: RootDB, current_db: ModuleDB):
         self._package_db = package_db
         self._current_db = current_db
         self._avaler = UseAvaler(package_db, current_db)

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Union, Literal, TypedDict, Any
 
 from enre.ent.entity import Entity
-from enre.analysis.analyze_manager import PackageDB
+from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
@@ -78,7 +78,7 @@ class DepRepr:
                                                 col_offset=ref.col_offset))
 
     @classmethod
-    def from_package_db(cls, package_db: PackageDB) -> "DepRepr":
+    def from_package_db(cls, package_db: RootDB) -> "DepRepr":
         dep_repr = DepRepr()
         for rel_path, module_db in package_db.tree.items():
             for ent in module_db.dep_db.ents:

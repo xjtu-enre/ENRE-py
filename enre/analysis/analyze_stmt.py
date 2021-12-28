@@ -12,7 +12,7 @@ from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Pa
 from enre.analysis.value_info import ValueInfo
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
-from enre.analysis.analyze_manager import AnalyzeManager, PackageDB, ModuleDB
+from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.ref.Ref import Ref
 
 if ty.TYPE_CHECKING:
@@ -22,7 +22,7 @@ if ty.TYPE_CHECKING:
 @dataclass
 class AnalyzeContext:
     env: EntEnv  # visible entities
-    package_db: PackageDB  # entity database of the package
+    package_db: RootDB  # entity database of the package
     current_db: ModuleDB  # entity database of current package
     coordinate: ty.Tuple[int, int]
     is_generator_expr: bool
@@ -30,13 +30,13 @@ class AnalyzeContext:
 
 class Analyzer:
     def __init__(self, rel_path: Path, manager: AnalyzeManager):
-        module_ent = manager.package_db[rel_path].module_ent
+        module_ent = manager.root_db[rel_path].module_ent
         self.manager = manager
         self.module = module_ent
         self.global_env: ty.List  # type: ignore
         # placeholder for builtin function bindings
-        self.package_db: "PackageDB" = manager.package_db
-        self.current_db: "ModuleDB" = manager.package_db[rel_path]
+        self.package_db: "RootDB" = manager.root_db
+        self.current_db: "ModuleDB" = manager.root_db[rel_path]
         self._avaler = UseAvaler(self.package_db, self.current_db)
 
     def interp(self, stmt: ast.AST, env: EntEnv) -> None:

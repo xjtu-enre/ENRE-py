@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule
+from enre.ent.entity import Module, UnknownModule, Package
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.ref.Ref import Ref
 
@@ -53,24 +53,43 @@ class ModuleDB:
         return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
 
 
-class PackageDB:
+class RootDB:
     def __init__(self, root_path: Path):
         from enre.dep.DepDB import DepDB
         self.root_dir = root_path
         self.global_db = DepDB()
         self.tree: ty.Dict[Path, ModuleDB] = dict()
+        self.package_tree: ty.Dict[Path, Package] = dict()
         self.initialize_tree(root_path)
         self.global_db.add_ent(Entity.get_anonymous_ent())
 
-    def initialize_tree(self, path: Path) -> None:
+    def initialize_tree(self, path: Path) -> ty.List[Path]:
+        py_files: ty.List[Path] = []
+        rel_path = path.relative_to(self.root_dir.parent)
         if path.is_file() and path.name.endswith(".py"):
+            py_files.append(rel_path)
             from enre.dep.DepDB import DepDB
             module_ent = Module(path.relative_to(self.root_dir.parent))
             self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(self.root_dir, module_ent)
-
-        if path.is_dir():
+        elif path.is_dir():
+            sub_py_files = []
             for file in path.iterdir():
-                self.initialize_tree(file)
+                sub_py_files.extend(self.initialize_tree(file))
+                py_files.extend(sub_py_files)
+            if sub_py_files:
+                package_ent = Package(rel_path)
+                self.global_db.add_ent(package_ent)
+                self.package_tree[rel_path] = package_ent
+                for file in path.iterdir():
+                    sub_path = file.relative_to(self.root_dir.parent)
+                    if sub_path in self.package_tree:
+                        sub_package_ent = self.package_tree[sub_path]
+                        package_ent.add_ref(Ref(RefKind.Contain, sub_package_ent, 0, 0))
+                    elif sub_path in self.tree:
+                        module_ent = self.tree[sub_path].module_ent
+                        package_ent.add_ref(Ref(RefKind.Contain, module_ent, 0, 0))
+
+        return py_files
 
     def __getitem__(self, item: Path) -> ModuleDB:
         return self.tree[item]
@@ -82,15 +101,14 @@ class PackageDB:
         self.tree[file_path].add_ent(ent)
 
 
-def merge_db(package_db: PackageDB) -> "DepDB":
+def merge_db(package_db: RootDB) -> "DepDB":
     raise NotImplementedError("not implemented yet")
 
 
 class AnalyzeManager:
     def __init__(self, root_path: Path):
         self.project_root = root_path
-        self.package_db = PackageDB(root_path)
-        self.dir_structure_init()
+        self.root_db = RootDB(root_path)
         self.module_stack = ModuleStack()
 
     def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
@@ -107,7 +125,7 @@ class AnalyzeManager:
                 from enre.ent.entity import Package
                 package_ent = Package(file_path.relative_to(self.project_root.parent))
                 # todo: create dependency tree per file
-                self.package_db.add_ent_global(package_ent)
+                self.root_db.add_ent_global(package_ent)
 
         elif file_path.name.endswith(".py"):
             in_package = True
@@ -118,8 +136,8 @@ class AnalyzeManager:
         from enre.passes.entity_pass import EntityPass
         from enre.passes.build_ambiguous import BuildAmbiguous
         self.iter_dir(self.project_root)
-        entity_pass = EntityPass(self.package_db)
-        build_ambiguous_pass = BuildAmbiguous(self.package_db)
+        entity_pass = EntityPass(self.root_db)
+        build_ambiguous_pass = BuildAmbiguous(self.root_db)
         build_ambiguous_pass.execute_pass()
         # entity_pass.execute_pass()
 
@@ -135,7 +153,7 @@ class AnalyzeManager:
                 print(f"the module {rel_path} already imported by some analyzed module")
                 return
             else:
-                module_ent = self.package_db[rel_path].module_ent
+                module_ent = self.root_db[rel_path].module_ent
                 checker = Analyzer(rel_path, self)
                 self.module_stack.push(rel_path)
                 checker.analyze_top_stmts(checker.current_db.tree.body,
@@ -147,10 +165,10 @@ class AnalyzeManager:
         rel_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
 
-            return self.package_db[rel_path].module_ent
+            return self.root_db[rel_path].module_ent
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
             # new module entity
-            module_ent = self.package_db[rel_path].module_ent
+            module_ent = self.root_db[rel_path].module_ent
             checker = Analyzer(rel_path, self)
             self.module_stack.push(rel_path)
             print(f"importing the module {rel_path} now analyzing this module")
@@ -163,7 +181,7 @@ class AnalyzeManager:
         else:
             unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
-            module_db = self.package_db[from_module_ent.module_path]
+            module_db = self.root_db[from_module_ent.module_path]
             module_db.add_ent(unknown_module_ent)
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
             return unknown_module_ent
@@ -192,16 +210,3 @@ def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> t
 
 from enre.ent.entity import Entity
 from enre.dep.DepDB import DepDB
-import enre.ent.entity as entity
-
-E = ty.TypeVar('E',
-               entity.Entity,
-               entity.Anonymous,
-               entity.Variable,
-               entity.Module,
-               entity.UnknownModule,
-               entity.UnknownVar,
-               entity.UnresolvedAttribute,
-               entity.Function,
-               entity.Class,
-               entity.ClassAttribute)  # Must be str or bytes

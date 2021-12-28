@@ -4,7 +4,7 @@ from typing import List, Dict
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
 from enre.analysis.value_info import ValueInfo
-from enre.analysis.analyze_manager import PackageDB
+from enre.analysis.analyze_manager import RootDB
 from enre.ref.Ref import Ref
 import abc
 
@@ -12,7 +12,7 @@ import abc
 class DepDBPass:
     @property
     @abc.abstractmethod
-    def package_db(self) -> PackageDB:
+    def package_db(self) -> RootDB:
         ...
 
     @abc.abstractmethod
@@ -22,13 +22,13 @@ class DepDBPass:
 
 class EntityPass(DepDBPass):
 
-    def __init__(self, package_db: PackageDB) -> None:
+    def __init__(self, package_db: RootDB) -> None:
         self.progress = 0
-        self._package_db: PackageDB = package_db
+        self._package_db: RootDB = package_db
         self.attribute_dict: Dict[str, List[Entity]] = defaultdict(list)
 
     @property
-    def package_db(self) -> PackageDB:
+    def package_db(self) -> RootDB:
         return self._package_db
 
     def execute_pass(self) -> None:

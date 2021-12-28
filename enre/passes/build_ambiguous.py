@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from enre.analysis.value_info import ValueInfo
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Class, AmbiguousAttribute, ReferencedAttribute, NamespaceType, UnresolvedAttribute
-from enre.analysis.analyze_manager import PackageDB
+from enre.analysis.analyze_manager import RootDB
 from enre.passes.entity_pass import DepDBPass
 from enre.ref.Ref import Ref
 
@@ -15,11 +15,11 @@ class BuildAmbiguous(DepDBPass):
     another attribute with the same name.
     """
 
-    def __init__(self, package_db: PackageDB):
+    def __init__(self, package_db: RootDB):
         self._package_db = package_db
 
     @property
-    def package_db(self) -> PackageDB:
+    def package_db(self) -> RootDB:
         return self._package_db
 
     def execute_pass(self) -> None:

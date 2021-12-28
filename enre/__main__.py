@@ -21,7 +21,7 @@ def enre_wrapper(root_path: Path) -> None:
     manager.work_flow()
     out_path = Path(f"{project_name}-report-enre.json")
     with open(out_path, "w") as file:
-        repr = DepRepr.from_package_db(manager.package_db).to_json()
+        repr = DepRepr.from_package_db(manager.root_db).to_json()
         json.dump(repr, file, indent=4)
 
 
