@@ -20,11 +20,12 @@ if ty.TYPE_CHECKING:
 
 
 @dataclass
-class InterpContext:
-    env: EntEnv
-    package_db: PackageDB
-    current_db: ModuleDB
+class AnalyzeContext:
+    env: EntEnv  # visible entities
+    package_db: PackageDB  # entity database of the package
+    current_db: ModuleDB  # entity database of current package
     coordinate: ty.Tuple[int, int]
+    is_generator_expr: bool
 
 
 class Analyzer:
@@ -151,7 +152,7 @@ class Analyzer:
         target_col_offset = target_expr.col_offset
         target = build_target(target_expr)
         unpack_semantic(target, iter_value,
-                        InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
+                        AnalyzeContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset), True))
 
         # self._avaler.aval(for_stmt.target, env)
         # self._avaler.aval(for_stmt.iter, env)
@@ -198,7 +199,11 @@ class Analyzer:
             target_col_offset = target_expr.col_offset
             target = build_target(target_expr)
             assign2target(target, rvalue_expr,
-                          InterpContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset)))
+                          AnalyzeContext(env,
+                                         self.package_db,
+                                         self.current_db,
+                                         (target_lineno, target_col_offset),
+                                         False))
 
     def analyze_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         for module_alias in import_stmt.names:
@@ -276,8 +281,8 @@ class Analyzer:
                 target_lineno = optional_var.lineno
                 target_col_offset = optional_var.col_offset
                 unpack_semantic(target, with_value,
-                                InterpContext(env, self.package_db, self.current_db,
-                                              (target_lineno, target_col_offset)))
+                                AnalyzeContext(env, self.package_db, self.current_db,
+                                               (target_lineno, target_col_offset), False))
         self.analyze_stmts(with_stmt.body, env)
 
     def analyze_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
@@ -294,8 +299,8 @@ class Analyzer:
                 target_lineno = handler.lineno
                 target_col_offset = handler.col_offset
                 handler_semantic(handler.name, ast.Expr(err_constructor),
-                                 InterpContext(env, self.package_db, self.current_db,
-                                               (target_lineno, target_col_offset)))
+                                 AnalyzeContext(env, self.package_db, self.current_db,
+                                                (target_lineno, target_col_offset), False))
             self.analyze_stmts(handler.body, env)
             handler_env = env.pop_sub_env()
             try_body_env = ParallelSubEnv(try_body_env, handler_env)

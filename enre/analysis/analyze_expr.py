@@ -139,14 +139,18 @@ class UseAvaler:
 
     def dummy_generator_exp(self, env: EntEnv, generators: List[ast.comprehension]) -> None:
         from enre.analysis.assign_target import build_target, dummy_iter, unpack_semantic
-        from enre.analysis.analyze_stmt import InterpContext
+        from enre.analysis.analyze_stmt import AnalyzeContext
         for comp in generators:
             target_lineno = comp.target.lineno
             target_col_offset = comp.target.col_offset
             iter_value = dummy_iter(self.aval(comp.iter, env))
             tar = build_target(comp.target)
             unpack_semantic(tar, iter_value,
-                            InterpContext(env, self._package_db, self._current_db, (target_lineno, target_col_offset)))
+                            AnalyzeContext(env,
+                                           self._package_db,
+                                           self._current_db,
+                                           (target_lineno, target_col_offset),
+                                           True))
             for cond_expr in comp.ifs:
                 self.aval(cond_expr, env)
 

@@ -4,13 +4,13 @@ from typing import Optional, TYPE_CHECKING
 from enre.ent.entity import UnknownVar, AbstractValue
 from enre.analysis.assign_target import assign_semantic, flatten_bindings
 from enre.analysis.analyze_expr import UseAvaler
-from enre.analysis.analyze_stmt import InterpContext
+from enre.analysis.analyze_stmt import AnalyzeContext
 from enre.analysis.value_info import ConstructorType, ValueInfo
 
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
 
-def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpContext") -> None:
+def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "AnalyzeContext") -> None:
     frame_entities: AbstractValue = []
     new_bindings: "Bindings" = []
     new_var_ent = UnknownVar.get_unknown_var(name)
@@ -23,7 +23,7 @@ def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "InterpCont
     ctx.env.get_scope().add_continuous(new_bindings)
 
 
-def handler_semantic(name: Optional[str], error_expr: ast.Expr, ctx: "InterpContext") -> None:
+def handler_semantic(name: Optional[str], error_expr: ast.Expr, ctx: "AnalyzeContext") -> None:
     use_avaler = UseAvaler(ctx.package_db, ctx.current_db)
     err_constructor = use_avaler.aval(error_expr.value, ctx.env)
     if name is not None:

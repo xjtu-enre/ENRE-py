@@ -86,11 +86,18 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
 
 
 def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
-                    ctx: "InterpContext") -> None:
-    # depends on which kind of the context entity is, define/set/use variable entity of the environment or
-    # the current
+                    ctx: "AnalyzeContext") -> None:
+    """
+    Depends on which kind of the context entity is, define/set/use variable entity of the environment or
+    the current.
+    Add the new bindings names to the new_bindings, if it creates.
+    :param tar_ent: the target entity by look up
+    :param value_type: value information about the assigned target entity
+    :param new_bindings: newly created bindings by this assignment
+    :param ctx: analyze context
+    """
     target_lineno, target_col_offset = ctx.coordinate
-    # target should be the entity which the target_expr could possiblelly eval to
+    # target should be the entity which the target_expr could possibl   y eval to
     if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
         # if target entity is a defined variable or parameter, just add the target new type to the environment
         # env.add(target, value_type)
@@ -99,12 +106,12 @@ def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[T
         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
         ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset))
         # record the target assign to target entity
-    # if the target is a newly defined variable
     elif isinstance(tar_ent, UnknownVar):
+        # if the target is a newly defined variable
         ctx_ent = ctx.env.get_ctx()
         location = ctx.env.get_scope().get_location()
         location = location.append(tar_ent.longname.name, Span.get_nil())
-        if isinstance(ctx_ent, Class):
+        if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
             new_attr = ClassAttribute(location.to_longname(), location)
             new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
             ctx.current_db.add_ent(new_attr)
@@ -153,7 +160,7 @@ def flatten_bindings(bindings: "Bindings") -> "Bindings":
     return new_bindings
 
 
-def abstract_assign(lvalue: AbstractValue, rvalue: AbstractValue, ctx: "InterpContext") -> None:
+def abstract_assign(lvalue: AbstractValue, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
     new_bindings: "Bindings" = []
     for _, value_type in rvalue:
         for target, _ in lvalue:
@@ -162,13 +169,13 @@ def abstract_assign(lvalue: AbstractValue, rvalue: AbstractValue, ctx: "InterpCo
     ctx.env.get_scope().add_continuous(new_bindings)
 
 
-def unpack_list(tar_list: List[Target], distiller: MemberDistiller, ctx: "InterpContext") -> None:
+def unpack_list(tar_list: List[Target], distiller: MemberDistiller, ctx: "AnalyzeContext") -> None:
     for i, tar in enumerate(tar_list):
         rvalue = distiller(i)
         unpack_semantic(tar, rvalue, ctx)
 
 
-def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "InterpContext") -> None:
+def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
     set_avaler = SetAvaler(ctx.package_db, ctx.current_db)
     distiller = dummy_unpack(rvalue)
     # replace pattern match to use mypy
@@ -194,7 +201,7 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "InterpContext")
         unpack_list([target.target], distiller, ctx)
 
 
-def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpContext") -> None:
+def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "AnalyzeContext") -> None:
     avaler = UseAvaler(ctx.package_db, ctx.current_db)
     rvalue: AbstractValue
     if rvalue_expr is None:
@@ -204,7 +211,7 @@ def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "InterpC
     unpack_semantic(target, rvalue, ctx)
 
 
-from enre.analysis.analyze_stmt import InterpContext
+from enre.analysis.analyze_stmt import AnalyzeContext
 
 if __name__ == '__main__':
     tree = ast.parse("*[(x, y), y]")
