@@ -25,11 +25,9 @@ class ValueInfo(ABC):
 class InstanceType(ValueInfo):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
-        self._names: "NamespaceType"= class_ent.names
 
-    @property
-    def namespace(self) -> "NamespaceType":
-        return self._names
+    def lookup_attr(self, attr: str) -> List["Entity"]:
+        return self.class_ent.get_attribute(attr)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         ...
@@ -38,11 +36,9 @@ class InstanceType(ValueInfo):
 class ConstructorType(ValueInfo):
     def __init__(self, class_ent: "Class"):
         self.class_ent = class_ent
-        self._names: "NamespaceType" = class_ent.names
 
-    @property
-    def namespace(self) -> "NamespaceType":
-        return self._names
+    def lookup_attr(self, attr: str) -> List["Entity"]:
+        return self.class_ent.get_attribute(attr)
 
     def to_class_type(self) -> InstanceType:
         return InstanceType(self.class_ent)

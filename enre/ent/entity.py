@@ -275,7 +275,7 @@ class Class(Entity):
         return EntKind.Class
 
     @property
-    def names(self) -> Dict[str, List[Entity]]:
+    def names(self) -> "NamespaceType":
         # class scope, name to possible bound entities
         return self._names
 
@@ -288,7 +288,7 @@ class Class(Entity):
         if current_class_attrs:
             return current_class_attrs
         for cls_ent in self.inherits:
-            inherited_attrs = cls_ent.names[attr]
+            inherited_attrs = cls_ent.get_attribute(attr)
             if inherited_attrs:
                 return inherited_attrs
         return []
@@ -296,6 +296,9 @@ class Class(Entity):
     def add_ref(self, ref: Ref) -> None:
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        elif ref.ref_kind == RefKind.InheritKind:
+            if isinstance(ref.target_ent, Class):
+                self._inherits.append(ref.target_ent)
         super(Class, self).add_ref(ref)
 
     def direct_type(self) -> "ValueInfo":

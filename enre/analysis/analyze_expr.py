@@ -159,10 +159,10 @@ def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret:
                               current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
-            class_attrs = ent_type.namespace[attribute]
+            class_attrs = ent_type.lookup_attr(attribute)
             process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
         elif isinstance(ent_type, ConstructorType):
-            class_attrs = ent_type.namespace[attribute]
+            class_attrs = ent_type.lookup_attr(attribute)
             process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
         elif isinstance(ent_type, ModuleType):
             module_level_ents = ent_type.namespace[attribute]
