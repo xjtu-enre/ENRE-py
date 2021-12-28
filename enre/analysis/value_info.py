@@ -64,6 +64,18 @@ class ModuleType(ValueInfo):
         return ValueInfo.get_any()
 
 
+class PackageType(ValueInfo):
+    def __init__(self, names: "NamespaceType"):
+        self._names = names
+
+    @property
+    def namespace(self) -> "NamespaceType":
+        return self._names
+
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        return ValueInfo.get_any()
+
+
 class AnyType(ValueInfo):
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return _any_type

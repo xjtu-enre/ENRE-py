@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package
+from enre.ent.entity import Module, UnknownModule, Package, Entity
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.ref.Ref import Ref
 
@@ -84,15 +84,21 @@ class RootDB:
                     sub_path = file.relative_to(self.root_dir.parent)
                     if sub_path in self.package_tree:
                         sub_package_ent = self.package_tree[sub_path]
-                        package_ent.add_ref(Ref(RefKind.Contain, sub_package_ent, 0, 0))
+                        package_ent.add_ref(Ref(RefKind.ContainKind, sub_package_ent, 0, 0))
                     elif sub_path in self.tree:
                         module_ent = self.tree[sub_path].module_ent
-                        package_ent.add_ref(Ref(RefKind.Contain, module_ent, 0, 0))
+                        package_ent.add_ref(Ref(RefKind.ContainKind, module_ent, 0, 0))
 
         return py_files
 
     def __getitem__(self, item: Path) -> ModuleDB:
         return self.tree[item]
+
+    def get_path_ent(self, path: Path) -> ty.Union["Package", "Module"]:
+        if path in self.tree:
+            return self.tree[path].module_ent
+        else:
+            return self.package_tree[path]
 
     def add_ent_global(self, ent: "Entity") -> None:
         self.global_db.add_ent(ent)
@@ -160,42 +166,57 @@ class AnalyzeManager:
                                          EntEnv(ScopeEnv(module_ent, module_ent.location)))
                 self.module_stack.pop()
 
-    def import_module(self, from_module_ent: Module, module_identifier: str, lineno: int, col_offset: int) -> Module:
+    def import_module(self, from_module_ent: Module, module_identifier: str,
+                      lineno: int, col_offset: int) -> ty.Tuple[ty.Union[Module, Package], ty.Union[Module, Package]]:
         from .analyze_stmt import Analyzer
-        rel_path = self.alias2path(from_module_ent.module_path, module_identifier)
+        rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
 
-            return self.root_db[rel_path].module_ent
+            return self.root_db[rel_path].module_ent, self.root_db.get_path_ent(head_module_path)
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
-            # new module entity
-            module_ent = self.root_db[rel_path].module_ent
-            checker = Analyzer(rel_path, self)
-            self.module_stack.push(rel_path)
-            print(f"importing the module {rel_path} now analyzing this module")
-            with open(p, "r") as file:
-                checker.analyze_top_stmts(ast.parse(file.read()).body,
-                                         EntEnv(ScopeEnv(module_ent, module_ent.location)))
-            print(f"module {rel_path} finished")
-            self.module_stack.pop()
-            return module_ent
+            if p.is_file():
+                module_ent = self.root_db[rel_path].module_ent
+                checker = Analyzer(rel_path, self)
+                self.module_stack.push(rel_path)
+                print(f"importing the module {rel_path} now analyzing this module")
+                with open(p, "r") as file:
+                    checker.analyze_top_stmts(ast.parse(file.read()).body,
+                                             EntEnv(ScopeEnv(module_ent, module_ent.location)))
+                print(f"module {rel_path} finished")
+                self.module_stack.pop()
+                return module_ent, self.root_db.get_path_ent(head_module_path)
+            else:
+                package_ent = self.root_db.package_tree[rel_path]
+                return package_ent, self.root_db.get_path_ent(rel_path)
         else:
             unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
             module_db = self.root_db[from_module_ent.module_path]
             module_db.add_ent(unknown_module_ent)
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
-            return unknown_module_ent
+            return unknown_module_ent, unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
 
-    def alias2path(self, from_path: Path, alias: str) -> Path:
+    def alias2path(self, from_path: Path, alias: str) -> ty.Tuple[Path, Path]:
+        def resolve_head_path(imported_path: Path, head_path: Path) -> ty.Tuple[Path, Path]:
+            if str(imported_path) == str(head_path) + ".py":
+                return imported_path,imported_path
+            else:
+                return imported_path, head_path
         path_elems = alias.split(".")
+        head_module_name = path_elems[0]
         rel_path = Path("/".join(path_elems) + ".py")
+        dir_rel_path = Path("/".join(path_elems))
         from_path = from_path.parent
-        while from_path != Path():
+        while True:
             if self.project_root.parent.joinpath(from_path).joinpath(rel_path).exists():
-                return from_path.joinpath(rel_path)
+                return resolve_head_path(from_path.joinpath(rel_path), from_path.joinpath(head_module_name))
+            elif self.project_root.parent.joinpath(from_path).joinpath(dir_rel_path).exists():
+                return resolve_head_path(from_path.joinpath(dir_rel_path), from_path.joinpath(head_module_name))
+            if from_path == Path():
+                break
             from_path = from_path.parent
-        return rel_path
+        return rel_path, from_path.joinpath(head_module_name)
 
 
 def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> ty.Optional[Path]:

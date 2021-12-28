@@ -177,17 +177,40 @@ class LambdaFunction(Function):
     def kind(self) -> EntKind:
         return EntKind.AnonymousFunction
 
+class Package(Entity):
+    def __init__(self, file_path: Path):
+        import os
+        path = os.path.normpath(str(file_path))
+        path_list = path.split(os.sep)
+        longname = EntLongname(path_list)
+        location = Location(file_path, Span.get_nil(), path_list)
+        super(Package, self).__init__(longname, location)
+        self._names: "NamespaceType" = defaultdict(list)
+        self.package_path = file_path
+
+    @property
+    def names(self) -> "NamespaceType":
+        return self._names
+
+    def kind(self) -> EntKind:
+        return EntKind.Package
+
+    def add_ref(self, ref: Ref) -> None:
+        if ref.ref_kind == RefKind.ContainKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        super(Package, self).add_ref(ref)
+
 
 class Module(Entity):
     def __init__(self, file_path: Path):
         # file_path: relative path to root directory's parent
         import os
-        self.module_path = file_path
         path = os.path.normpath(str(file_path)[:-len(".py")])
         path_list = path.split(os.sep)
         longname = EntLongname(path_list)
         location = Location(file_path, Span.get_nil(), path_list)
         super(Module, self).__init__(longname, location)
+        self.module_path = file_path
         self._names: "NamespaceType" = defaultdict(list)
 
     def kind(self) -> EntKind:
@@ -231,6 +254,26 @@ class ModuleAlias(Entity):
         return EntKind.ModuleAlias
 
 
+class PackageAlias(Entity):
+    def __init__(self, package_ent: Package, alias_location: Location):
+        super(PackageAlias, self).__init__(alias_location.to_longname(), alias_location)
+        self.package_ent = package_ent
+        self.module_path = package_ent.package_path
+        self.alias_name = alias_location.to_longname().name
+
+    @property
+    def module_longname(self) -> EntLongname:
+        import os
+        module_path = self.module_path
+        path = os.path.normpath(str(module_path))
+        path_list = path.split(os.sep)
+        longname = EntLongname(path_list)
+        return longname
+
+    def kind(self) -> EntKind:
+        return EntKind.ModuleAlias
+
+
 class Alias(Entity):
     def __init__(self, longname: EntLongname, location: Location, ents: List[Entity]) -> None:
         super(Alias, self).__init__(longname, location)
@@ -250,19 +293,6 @@ class Alias(Entity):
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
             self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line))
-
-
-class Package(Entity):
-    def __init__(self, file_path: Path):
-        import os
-        path = os.path.normpath(str(file_path))
-        path_list = path.split(os.sep)
-        longname = EntLongname(path_list)
-        location = Location(file_path, Span.get_nil(), path_list)
-        super(Package, self).__init__(longname, location)
-
-    def kind(self) -> EntKind:
-        return EntKind.Package
 
 
 class Class(Entity):

@@ -3,10 +3,10 @@ from typing import Sequence
 from typing import Tuple, List
 import time
 from enre.ent.EntKind import RefKind
-from enre.ent.ent_finder import get_class_attr, get_module_level_ent
+from enre.ent.ent_finder import get_class_attr, get_file_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span
-from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType
+from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
 from enre.analysis.analyze_manager import RootDB, ModuleDB
@@ -167,6 +167,9 @@ def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret:
         elif isinstance(ent_type, ModuleType):
             module_level_ents = ent_type.namespace[attribute]
             process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+        elif isinstance(ent_type, PackageType):
+            package_level_ents = ent_type.namespace[attribute]
+            process_known_attr(package_level_ents, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, AnyType):
             location = Location.global_name(attribute)
             referenced_attr = ReferencedAttribute(location.to_longname(), location)

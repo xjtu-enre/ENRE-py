@@ -5,11 +5,12 @@ from pathlib import Path
 
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
-from enre.ent.ent_finder import get_module_level_ent
+from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, \
     ModuleAlias, \
-    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span
-from enre.analysis.value_info import ValueInfo
+    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
+    Package, PackageAlias
+from enre.analysis.value_info import ValueInfo, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 # Avaler stand for Abstract evaluation
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
@@ -206,20 +207,26 @@ class Analyzer:
                                          False))
 
     def analyze_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
+        def create_proper_alias(file_ent: ty.Union[Module, Package], location: Location) -> Entity:
+            if isinstance(file_ent, Module):
+                return ModuleAlias(file_ent, location)
+            else:
+                return PackageAlias(file_ent, location)
+
         for module_alias in import_stmt.names:
-            module_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
-                                                    import_stmt.col_offset)
-            module_name = module_alias.name
+            path_ent, bound_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
+                                                             import_stmt.col_offset)
+            bound_name = bound_ent.longname.name
             if module_alias.asname is None:
-                module_binding: Bindings = [(module_name, [(module_ent, ModuleType(module_ent.names))])]
+                module_binding: Bindings = [(bound_name, [(bound_ent, PackageType(bound_ent.names))])]
                 env.get_scope().add_continuous(module_binding)
             else:
                 alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil())
-                module_alias_ent = ModuleAlias(module_ent, alias_location)
-                self.current_db.add_ent(module_alias_ent)
-                alias_binding: Bindings = [(module_alias.asname, [(module_alias_ent, ModuleType(module_ent.names))])]
+                alias_ent = create_proper_alias(path_ent, alias_location)
+                self.current_db.add_ent(alias_ent)
+                alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
                 env.get_scope().add_continuous(alias_binding)
-            env.get_ctx().add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno,
+            env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, import_stmt.lineno,
                                       import_stmt.col_offset))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
@@ -228,19 +235,19 @@ class Analyzer:
         if module_identifier is None:
             print("implicit import not implemented yet")
             return
-        module_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
-                                                import_stmt.col_offset)
+        file_ent, bound_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
+                                                         import_stmt.col_offset)
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.ImportKind, module_ent, import_stmt.lineno, import_stmt.col_offset))
+        current_ctx.add_ref(Ref(RefKind.ImportKind, file_ent, import_stmt.lineno, import_stmt.col_offset))
         new_bindings: "Bindings"
-        if not isinstance(module_ent, UnknownModule):
+        if not isinstance(file_ent, UnknownModule):
             # if the imported module can found in package
             frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
             new_bindings = []
             for alias in import_stmt.names:
                 name = alias.name
                 as_name = alias.asname
-                imported_ents = get_module_level_ent(module_ent, name)
+                imported_ents = get_file_level_ent(file_ent, name)
                 import_binding: Binding
                 if as_name is not None:
                     location = env.get_scope().get_location().append(as_name, Span.get_nil())
@@ -252,15 +259,15 @@ class Analyzer:
             env.get_scope().add_continuous(new_bindings)
         else:
             # importing entities belong to a unknown module
-            self.package_db.add_ent_global(module_ent)
+            self.package_db.add_ent_global(file_ent)
             frame_entities = []
             new_bindings = []
             for alias in import_stmt.names:
                 alias_code_span = get_syntactic_span(alias)
-                location = module_ent.location.append(alias.name, alias_code_span)
+                location = file_ent.location.append(alias.name, alias_code_span)
                 unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
-                module_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
+                file_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0))
                 if alias.asname is not None:
                     as_location = env.get_scope().get_location().append(alias.asname, alias_code_span)
                     alias_ent = Alias(as_location.to_longname(), location, [unknown_var])

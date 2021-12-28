@@ -5,7 +5,7 @@ class RefKind(Enum):
     SetKind = "Set"
     UseKind = "Use"
     CallKind = "Call"
-    Contain = "Contain"
+    ContainKind = "Contain"
     DefineKind = "Define"
     InheritKind = "Inherit"
     ImportKind = "Import"
