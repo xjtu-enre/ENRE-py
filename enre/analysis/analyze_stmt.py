@@ -258,6 +258,7 @@ class Analyzer:
                 if as_name is not None:
                     location = env.get_scope().get_location().append(as_name, Span.get_nil())
                     alias_ent = Alias(location.to_longname(), location, imported_ents)
+                    self.current_db.add_ent(alias_ent)
                     import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
                 else:
                     import_binding = name, [(ent, ent.direct_type()) for ent in imported_ents]
