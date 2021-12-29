@@ -40,16 +40,19 @@ class Analyzer:
         self.current_db: "ModuleDB" = manager.root_db[rel_path]
         self._avaler = UseAvaler(self.package_db, self.current_db)
 
-    def interp(self, stmt: ast.AST, env: EntEnv) -> None:
+    def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
         method = 'analyze_' + stmt.__class__.__name__
-        if isinstance(stmt, ast.expr):
-            self._avaler.aval(stmt, env)
+        if isinstance(stmt, ast.Expr):
+            self._avaler.aval(stmt.value, env)
             return
-        visitor = getattr(self, method, self.generic_interp)
+        if stmt in self.current_db.analyzed_set:
+            return 
+        visitor = getattr(self, method, self.generic_analyze)
         visitor(stmt, env)
+        self.current_db.analyzed_set.add(stmt)
 
-    def generic_interp(self, stmt: ast.AST, env: EntEnv) -> None:
+    def generic_analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Called if no explicit visitor function exists for a node."""
         for field, value in ast.iter_fields(stmt):
             if isinstance(value, list):
@@ -57,9 +60,9 @@ class Analyzer:
                     if isinstance(item, ast.expr):
                         self._avaler.aval(item, env)
                     elif isinstance(item, ast.AST):
-                        self.interp(item, env)
+                        self.analyze(item, env)
             elif isinstance(value, ast.AST):
-                self.interp(value, env)
+                self.analyze(value, env)
 
     def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
         in_class_env = isinstance(env.get_ctx(), Class)
@@ -136,7 +139,7 @@ class Analyzer:
         assert before == after
         for stmt in if_stmt.orelse:
             env.add_sub_env(BasicSubEnv())
-            self.interp(stmt, env)
+            self.analyze(stmt, env)
             branch_env = env.pop_sub_env()
             body_env = ParallelSubEnv(body_env, branch_env)
         forward_env = env.pop_sub_env()
@@ -330,7 +333,7 @@ class Analyzer:
             env = EntEnv(ScopeEnv(ctx_ent=self.module, location=Location()))
 
         for stmt in stmts:
-            self.interp(stmt, env)
+            self.analyze(stmt, env)
 
         for hook in env.get_scope().get_hooks():
             stmts, scope_env = hook.stmts, hook.scope_env
@@ -343,7 +346,7 @@ class Analyzer:
 
     def analyze_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
         for stmt in stmts:
-            self.interp(stmt, env)
+            self.analyze(stmt, env)
 
     # unused function
     @ty.no_type_check

@@ -38,6 +38,7 @@ class ModuleDB:
         self.dep_db.add_ent(self.module_ent)
         self.ent_id_set: ty.Set[int] = set()
         self._tree = self.parse_a_module(self.module_path)
+        self.analyzed_set: ty.Set[ast.AST] = set()
 
     def add_ent(self, ent: "Entity") -> None:
         if ent.id not in self.ent_id_set:
