@@ -44,8 +44,8 @@ class Analyzer:
     def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
         method = 'analyze_' + stmt.__class__.__name__
-        if isinstance(stmt, ast.Expr):
-            self._avaler.aval(stmt.value, env)
+        if isinstance(stmt, ast.expr):
+            self._avaler.aval(stmt, env)
             return
         if stmt in self.current_db.analyzed_set:
             return
