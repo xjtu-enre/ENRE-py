@@ -9,7 +9,7 @@ from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Loc
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
-from enre.analysis.analyze_manager import RootDB, ModuleDB
+from enre.analysis.analyze_manager import RootDB, ModuleDB, AnalyzeManager
 from enre.ref.Ref import Ref
 from enre.ent.entity import AbstractValue
 
@@ -17,7 +17,8 @@ AnonymousFakeName = "$"
 
 class UseAvaler:
 
-    def __init__(self, package_db: RootDB, current_db: ModuleDB):
+    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
+        self.manager = manager
         self._package_db = package_db
         self._current_db = current_db
 
@@ -63,13 +64,13 @@ class UseAvaler:
         possible_ents = self.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_possible_attribute(attribute, possible_ents, ret, self._package_db, self._current_db)
+        extend_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
             env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
         return ret
 
     def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> AbstractValue:
-        call_avaler = CallAvaler(self._package_db, self._current_db)
+        call_avaler = CallAvaler(self.manager, self._package_db, self._current_db)
         possible_callers = call_avaler.aval(call_expr.func, env)
         ret: AbstractValue = []
         for caller, func_type in possible_callers:
@@ -147,6 +148,7 @@ class UseAvaler:
             tar = build_target(comp.target)
             unpack_semantic(tar, iter_value,
                             AnalyzeContext(env,
+                                           self.manager,
                                            self._package_db,
                                            self._current_db,
                                            (target_lineno, target_col_offset),
@@ -155,7 +157,7 @@ class UseAvaler:
                 self.aval(cond_expr, env)
 
 
-def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: RootDB,
+def extend_possible_attribute(manager: AnalyzeManager, attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: RootDB,
                               current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
@@ -165,6 +167,8 @@ def extend_possible_attribute(attribute: str, possible_ents: AbstractValue, ret:
             class_attrs = ent_type.lookup_attr(attribute)
             process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
         elif isinstance(ent_type, ModuleType):
+            if isinstance(ent, Module):
+                manager.strict_analyze_module(ent)
             module_level_ents = ent_type.namespace[attribute]
             process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, PackageType):
@@ -197,10 +201,11 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
 
 
 class SetAvaler:
-    def __init__(self, package_db: RootDB, current_db: ModuleDB):
+    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
+        self.manager = manager
         self._package_db = package_db
         self._current_db = current_db
-        self._avaler = UseAvaler(package_db, current_db)
+        self._avaler = UseAvaler(manager, package_db, current_db)
 
     def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
@@ -223,15 +228,16 @@ class SetAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
+        extend_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret
 
 
 class CallAvaler:
-    def __init__(self, package_db: RootDB, current_db: ModuleDB):
+    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
+        self.manager = manager
         self._package_db = package_db
         self._current_db = current_db
-        self._avaler = UseAvaler(package_db, current_db)
+        self._avaler = UseAvaler(manager, package_db, current_db)
 
     def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
@@ -253,5 +259,5 @@ class CallAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_possible_attribute(attribute, possible_receivers, ret, self._package_db, self._current_db)
+        extend_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret

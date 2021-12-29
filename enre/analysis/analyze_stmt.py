@@ -23,6 +23,7 @@ if ty.TYPE_CHECKING:
 @dataclass
 class AnalyzeContext:
     env: EntEnv  # visible entities
+    manager: AnalyzeManager
     package_db: RootDB  # entity database of the package
     current_db: ModuleDB  # entity database of current package
     coordinate: ty.Tuple[int, int]
@@ -38,7 +39,7 @@ class Analyzer:
         # placeholder for builtin function bindings
         self.package_db: "RootDB" = manager.root_db
         self.current_db: "ModuleDB" = manager.root_db[rel_path]
-        self._avaler = UseAvaler(self.package_db, self.current_db)
+        self._avaler = UseAvaler(self.manager, self.package_db, self.current_db)
 
     def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
@@ -47,7 +48,7 @@ class Analyzer:
             self._avaler.aval(stmt.value, env)
             return
         if stmt in self.current_db.analyzed_set:
-            return 
+            return
         visitor = getattr(self, method, self.generic_analyze)
         visitor(stmt, env)
         self.current_db.analyzed_set.add(stmt)
@@ -94,7 +95,7 @@ class Analyzer:
         self.process_annotations(def_stmt.args, env)
 
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
-        avaler = UseAvaler(self.package_db, self.current_db)
+        avaler = UseAvaler(self.manager, self.package_db, self.current_db)
         now_scope = env.get_scope().get_location()
         class_code_span = get_syntactic_span(class_stmt)
         new_scope = now_scope.append(class_stmt.name, class_code_span)
@@ -129,7 +130,7 @@ class Analyzer:
 
     def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         in_len = len(env.get_scope())
-        avaler = UseAvaler(self.package_db, self.current_db)
+        avaler = UseAvaler(self.manager, self.package_db, self.current_db)
         avaler.aval(if_stmt.test, env)
         before = len(env.get_scope())
         env.add_sub_env(BasicSubEnv())
@@ -156,7 +157,8 @@ class Analyzer:
         target_col_offset = target_expr.col_offset
         target = build_target(target_expr)
         unpack_semantic(target, iter_value,
-                        AnalyzeContext(env, self.package_db, self.current_db, (target_lineno, target_col_offset), True))
+                        AnalyzeContext(env, self.manager, self.package_db, self.current_db,
+                                       (target_lineno, target_col_offset), True))
 
         # self._avaler.aval(for_stmt.target, env)
         # self._avaler.aval(for_stmt.iter, env)
@@ -193,8 +195,8 @@ class Analyzer:
 
     def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr],
                               env: EntEnv) -> None:
-        set_avaler = SetAvaler(self.package_db, self.current_db)
-        use_avaler = UseAvaler(self.package_db, self.current_db)
+        set_avaler = SetAvaler(self.manager, self.package_db, self.current_db)
+        use_avaler = UseAvaler(self.manager, self.package_db, self.current_db)
         from enre.analysis.assign_target import build_target, assign2target
 
         frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
@@ -204,6 +206,7 @@ class Analyzer:
             target = build_target(target_expr)
             assign2target(target, rvalue_expr,
                           AnalyzeContext(env,
+                                         self.manager,
                                          self.package_db,
                                          self.current_db,
                                          (target_lineno, target_col_offset),
@@ -218,7 +221,7 @@ class Analyzer:
 
         for module_alias in import_stmt.names:
             path_ent, bound_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
-                                                             import_stmt.col_offset)
+                                                             import_stmt.col_offset, False)
             bound_name = bound_ent.longname.name
             if module_alias.asname is None:
                 module_binding: Bindings = [(bound_name, [(bound_ent, PackageType(bound_ent.names))])]
@@ -239,7 +242,7 @@ class Analyzer:
             print("implicit import not implemented yet")
             return
         file_ent, bound_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
-                                                         import_stmt.col_offset)
+                                                         import_stmt.col_offset, True)
         current_ctx = env.get_ctx()
         current_ctx.add_ref(Ref(RefKind.ImportKind, file_ent, import_stmt.lineno, import_stmt.col_offset))
         new_bindings: "Bindings"
@@ -291,7 +294,7 @@ class Analyzer:
                 target_lineno = optional_var.lineno
                 target_col_offset = optional_var.col_offset
                 unpack_semantic(target, with_value,
-                                AnalyzeContext(env, self.package_db, self.current_db,
+                                AnalyzeContext(env, self.manager, self.package_db, self.current_db,
                                                (target_lineno, target_col_offset), False))
         self.analyze_stmts(with_stmt.body, env)
 
@@ -309,7 +312,7 @@ class Analyzer:
                 target_lineno = handler.lineno
                 target_col_offset = handler.col_offset
                 handler_semantic(handler.name, ast.Expr(err_constructor),
-                                 AnalyzeContext(env, self.package_db, self.current_db,
+                                 AnalyzeContext(env, self.manager, self.package_db, self.current_db,
                                                 (target_lineno, target_col_offset), False))
             self.analyze_stmts(handler.body, env)
             handler_env = env.pop_sub_env()

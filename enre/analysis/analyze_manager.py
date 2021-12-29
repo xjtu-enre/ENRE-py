@@ -168,7 +168,7 @@ class AnalyzeManager:
                 self.module_stack.pop()
 
     def import_module(self, from_module_ent: Module, module_identifier: str,
-                      lineno: int, col_offset: int) -> ty.Tuple[ty.Union[Module, Package], ty.Union[Module, Package]]:
+                      lineno: int, col_offset: int, strict: bool) -> ty.Tuple[ty.Union[Module, Package], ty.Union[Module, Package]]:
         from .analyze_stmt import Analyzer
         rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
@@ -177,14 +177,8 @@ class AnalyzeManager:
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
             if p.is_file():
                 module_ent = self.root_db[rel_path].module_ent
-                checker = Analyzer(rel_path, self)
-                self.module_stack.push(rel_path)
-                print(f"importing the module {rel_path} now analyzing this module")
-                with open(p, "r") as file:
-                    checker.analyze_top_stmts(ast.parse(file.read()).body,
-                                             EntEnv(ScopeEnv(module_ent, module_ent.location)))
-                print(f"module {rel_path} finished")
-                self.module_stack.pop()
+                if strict:
+                    self.strict_analyze_module(module_ent)
                 return module_ent, self.root_db.get_path_ent(head_module_path)
             else:
                 package_ent = self.root_db.package_tree[rel_path]
@@ -197,6 +191,21 @@ class AnalyzeManager:
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
             return unknown_module_ent, unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
+
+    def strict_analyze_module(self, module_ent: Module) -> None:
+        if self.module_stack.in_process(module_ent.module_path) or \
+                self.module_stack.finished_module(module_ent.module_path):
+            return
+        from enre.analysis.analyze_stmt import Analyzer
+        rel_path = module_ent.module_path
+        checker = Analyzer(rel_path, self)
+        self.module_stack.push(rel_path)
+        print(f"importing the module {rel_path} now analyzing this module")
+        with open(self.project_root.parent.joinpath(rel_path), "r") as file:
+            checker.analyze_top_stmts(ast.parse(file.read()).body,
+                                      EntEnv(ScopeEnv(module_ent, module_ent.location)))
+        print(f"module {rel_path} finished")
+        self.module_stack.pop()
 
     def alias2path(self, from_path: Path, alias: str) -> ty.Tuple[Path, Path]:
         def resolve_head_path(imported_path: Path, head_path: Path) -> ty.Tuple[Path, Path]:

@@ -24,7 +24,7 @@ def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "AnalyzeCon
 
 
 def handler_semantic(name: Optional[str], error_expr: ast.Expr, ctx: "AnalyzeContext") -> None:
-    use_avaler = UseAvaler(ctx.package_db, ctx.current_db)
+    use_avaler = UseAvaler(ctx.manager, ctx.package_db, ctx.current_db)
     err_constructor = use_avaler.aval(error_expr.value, ctx.env)
     if name is not None:
         abstract_capture(name, err_constructor, ctx)

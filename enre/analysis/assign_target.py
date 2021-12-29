@@ -176,7 +176,7 @@ def unpack_list(tar_list: List[Target], distiller: MemberDistiller, ctx: "Analyz
 
 
 def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
-    set_avaler = SetAvaler(ctx.package_db, ctx.current_db)
+    set_avaler = SetAvaler(ctx.manager, ctx.package_db, ctx.current_db)
     distiller = dummy_unpack(rvalue)
     # replace pattern match to use mypy
     # match target:
@@ -202,7 +202,7 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext"
 
 
 def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "AnalyzeContext") -> None:
-    avaler = UseAvaler(ctx.package_db, ctx.current_db)
+    avaler = UseAvaler(ctx.manager, ctx.package_db, ctx.current_db)
     rvalue: AbstractValue
     if rvalue_expr is None:
         rvalue = [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
