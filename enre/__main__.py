@@ -2,20 +2,31 @@ import json
 import sys
 import time
 from pathlib import Path
-
+import argparse
 from enre.analysis.analyze_manager import AnalyzeManager
 from enre.vis.representation import DepRepr
+import json
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root path", type=str,
+                        help="root package path")
+    parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
+    args = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
-    enre_wrapper(root_path)
+    manager = enre_wrapper(root_path)
     end = time.time()
-    print(f"analysing time: {end - start}s")
+    if args.profile:
+        time_in_json = json.dumps({
+            "analyzed files": len(manager.root_db.tree),
+            "analysing time": end - start})
+        print(time_in_json)
+        # print(f"analysing time: {end - start}s")
 
 
-def enre_wrapper(root_path: Path) -> None:
+def enre_wrapper(root_path: Path) -> AnalyzeManager:
     project_name = root_path.name
     manager = AnalyzeManager(root_path)
     manager.work_flow()
@@ -23,6 +34,7 @@ def enre_wrapper(root_path: Path) -> None:
     with open(out_path, "w") as file:
         repr = DepRepr.from_package_db(manager.root_db).to_json()
         json.dump(repr, file, indent=4)
+    return manager
 
 
 if __name__ == '__main__':
