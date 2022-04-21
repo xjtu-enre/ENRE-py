@@ -76,7 +76,7 @@ class RootDB:
             sub_py_files = []
             for file in path.iterdir():
                 sub_py_files.extend(self.initialize_tree(file))
-                py_files.extend(sub_py_files)
+            py_files.extend(sub_py_files)
             if sub_py_files:
                 package_ent = Package(rel_path)
                 self.global_db.add_ent(package_ent)
@@ -201,7 +201,7 @@ class AnalyzeManager:
         checker = Analyzer(rel_path, self)
         self.module_stack.push(rel_path)
         print(f"importing the module {rel_path} now analyzing this module")
-        with open(self.project_root.parent.joinpath(rel_path), "r") as file:
+        with open(self.project_root.parent.joinpath(rel_path), "r", encoding="utf-8") as file:
             checker.analyze_top_stmts(ast.parse(file.read()).body,
                                       EntEnv(ScopeEnv(module_ent, module_ent.location)))
         print(f"module {rel_path} finished")
@@ -219,12 +219,12 @@ class AnalyzeManager:
         dir_rel_path = Path("/".join(path_elems))
         from_path = from_path.parent
         while True:
+            if from_path == Path():
+                break
             if self.project_root.parent.joinpath(from_path).joinpath(rel_path).exists():
                 return resolve_head_path(from_path.joinpath(rel_path), from_path.joinpath(head_module_name))
             elif self.project_root.parent.joinpath(from_path).joinpath(dir_rel_path).exists():
                 return resolve_head_path(from_path.joinpath(dir_rel_path), from_path.joinpath(head_module_name))
-            if from_path == Path():
-                break
             from_path = from_path.parent
         return rel_path, from_path.joinpath(head_module_name)
 

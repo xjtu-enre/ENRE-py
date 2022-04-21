@@ -14,7 +14,8 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "col_offset": int
                               })
 
-NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str})
+NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
+                              "start_line": int, "end_line": int, "start_col": int, "end_col": int})
 
 DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
 
@@ -24,6 +25,10 @@ class Node:
     id: int
     longname: str
     ent_type: str
+    start_line: int
+    end_line: int
+    start_col: int
+    end_col: int
 
 
 @dataclass
@@ -51,7 +56,9 @@ class DepRepr:
     def to_json(self) -> DepTy:
         ret: DepTy = {"Entities": [], "Dependencies": []}
         for n in self._node_list:
-            ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type})
+            ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type,
+                                    "start_line": n.start_line, "end_line": n.end_line,
+                                    "start_col": n.start_col, "end_col": n.end_col})
         for e in self._edge_list:
             ret["Dependencies"].append({"src": e.src,
                                         "src_name": e.src_name,
@@ -66,7 +73,8 @@ class DepRepr:
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
-            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value))
+            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
+                                   ent.location.code_span.end_col, ent.location.code_span.start_col, ent.location.code_span.end_col))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     dep_repr._edge_list.append(Edge(src=ent.id,
@@ -93,7 +101,11 @@ class DepRepr:
         for ent in und_db.ents():
             dep_repr.add_node(Node(id=ent.id(),
                                    longname=ent.longname(),
-                                   ent_type=ent.kindname()))
+                                   ent_type=ent.kindname(),
+                                   start_line=-1,
+                                   end_line=-1,
+                                   start_col=-1,
+                                   end_col=-1))
 
             for ref in ent.refs():
                 if not ref.isforward():
