@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
+
 if typing.TYPE_CHECKING:
     from enre.ref.Ref import Ref
 
@@ -63,6 +64,7 @@ _Nil_Span = Span(-1, -1, -1, -1)
 
 _Default_Empty_Path = Path()
 
+
 class Location:
     def append(self, name: str, new_span: Span, new_path: Path = _Default_Empty_Path) -> "Location":
         if new_path == None:
@@ -72,7 +74,8 @@ class Location:
     def to_longname(self) -> EntLongname:
         return EntLongname(self._scope)
 
-    def __init__(self, file_path: Path = _Default_Empty_Path, code_span: Span = _Nil_Span, scope: Optional[List[str]] = None):
+    def __init__(self, file_path: Path = _Default_Empty_Path, code_span: Span = _Nil_Span,
+                 scope: Optional[List[str]] = None):
         if scope is None:
             scope = []
         self._scope: List[str] = scope
@@ -99,11 +102,14 @@ class Location:
         return self._span
 
 
+class Syntactic(ABC):
+    @abstractmethod
+    def node(self) -> ast.AST:
+        ...
+
+
 # Entity is the abstract domain of the Abstract Interpreter
 class Entity(ABC):
-    @classmethod
-    def get_anonymous_ent(cls) -> "Entity":
-        return _anonymous_ent
 
     def __init__(self, longname: EntLongname, location: Location):
         global _EntityID
@@ -147,6 +153,7 @@ class Entity(ABC):
     def __hash__(self) -> int:
         return hash((self.longname, self.location))
 
+
 # AbstractValue instance contains all possible result of a an expression
 # A possible result is a tuple of entity and entity's type.
 # If some entity, to which an expression evaluate, maybe bound to several types,
@@ -178,6 +185,7 @@ class LambdaFunction(Function):
 
     def kind(self) -> EntKind:
         return EntKind.AnonymousFunction
+
 
 class Package(Entity):
     def __init__(self, file_path: Path):
@@ -226,7 +234,6 @@ class Module(Entity):
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Module, self).add_ref(ref)
-
 
     @property
     def module_longname(self) -> EntLongname:
@@ -422,5 +429,8 @@ class UnresolvedAttribute(Entity):
         return EntKind.UnresolvedAttr
 
 
-_anonymous_ent: Anonymous = Anonymous()
+def get_anonymous_ent() -> "Entity":
+    return _anonymous_ent
 
+
+_anonymous_ent: Anonymous = Anonymous()

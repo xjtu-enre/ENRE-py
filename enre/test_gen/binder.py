@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias, Dict, List, Sequence, TypedDict
 import re
-import enre.ent.entity
-from dep.DepDB import DepDB
 
 EntityPattern = re.compile("E: (.*)-\\$(.*)=(.*)@(.*)")
 DependencyPattern = re.compile("D: (.*)-\\$(.*)->\\$(.*)@(.*)")
@@ -45,6 +43,7 @@ class DepRepr:
             ret["Dependencies"].append(e)
         return ret
 
+
 @dataclass
 class HostLine:
     lineno: int
@@ -55,7 +54,6 @@ class HostLine:
 
 
 Bind: TypeAlias = Dict[str, NodeTy]
-
 
 _index = 0
 
@@ -74,7 +72,7 @@ def interp_line(comment_line: str, dep: DepRepr, bind: Bind, host: HostLine) -> 
         ent_longname = ent_longname.replace("$line", str(host.lineno))
         location_format = matches[4]
         node: NodeTy = {"id": get_index(), "longname": ent_longname, "ent_type": ent_kind,
-                "start_line": host.lineno, "start_col": host.get_col(location_format)}
+                        "start_line": host.lineno, "start_col": host.get_col(location_format)}
         dep.add_node(node)
         if var_name != "":
             bind[var_name] = node
@@ -90,12 +88,13 @@ def interp_line(comment_line: str, dep: DepRepr, bind: Bind, host: HostLine) -> 
                       "dest": dest_node["id"], "dest_name": dest_node["longname"],
                       "kind": dep_kind, "lineno": host.lineno, "col_offset": host.get_col(location_format)})
 
+
 @dataclass
 class CommentBlock:
     related_line: HostLine
     comment_lines: Sequence[str]
 
-    def write_dependencies(self, dep: DepRepr, bind: Bind):
+    def write_dependencies(self, dep: DepRepr, bind: Bind) -> None:
         for line in self.comment_lines:
             interp_line(line, dep, bind, self.related_line)
 
@@ -112,7 +111,9 @@ def build_comment_blocks(file_path: Path) -> Sequence[CommentBlock]:
         for i in range(1, len(lines) - lineno):
             maybe_comment_line = lines[lineno + i]
             if "#" in maybe_comment_line:
-                comment_line = re.match(CommentPattern, maybe_comment_line)[1]
+                match_result = re.match(CommentPattern, maybe_comment_line)
+                assert match_result
+                comment_line = match_result[1]
                 comment_lines.append(comment_line)
             else:
                 lineno += i - 1
@@ -126,13 +127,14 @@ def build_comment_blocks(file_path: Path) -> Sequence[CommentBlock]:
 
 def gen_test_case_for(file_path: Path) -> DepRepr:
     dep = DepRepr()
-    bind = {}
+    bind: Bind = {}
     comment_blocks = build_comment_blocks(file_path)
     for block in comment_blocks:
         block.write_dependencies(dep, bind)
     return dep
 
-def dump_meta_data(dep: DepRepr, ent_count, dep_count):
+
+def dump_meta_data(dep: DepRepr, ent_count: Dict[str, int], dep_count: Dict[str, int]) -> None:
     for node in dep.node_list:
         ent_count["all entity"] += 1
         ent_count[node["ent_type"]] += 1
@@ -143,8 +145,8 @@ def dump_meta_data(dep: DepRepr, ent_count, dep_count):
 
 
 def gen_test_case_dir(dir: Path) -> None:
-    test_case_dep_meta_data = defaultdict(int)
-    test_case_ent_meta_data = defaultdict(int)
+    test_case_dep_meta_data: Dict[str, int] = defaultdict(int)
+    test_case_ent_meta_data: Dict[str, int] = defaultdict(int)
     for file_path in dir.iterdir():
         if file_path.name.endswith(".py"):
             test_case_name = file_path.name.removesuffix(".py")
@@ -154,9 +156,9 @@ def gen_test_case_dir(dir: Path) -> None:
                 json.dump(dep.to_json(), file, indent=4)
 
     with open("test_case_meta_data.json", "w") as file:
-        meta_data = {"Entity":test_case_ent_meta_data, "Dependency": test_case_dep_meta_data}
+        meta_data = {"Entity": test_case_ent_meta_data, "Dependency": test_case_dep_meta_data}
         json.dump(meta_data, file, indent=4)
+
 
 if __name__ == '__main__':
     gen_test_case_dir(Path("."))
-

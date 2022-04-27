@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import List, Tuple, TypeAlias, Callable, Optional, TYPE_CHECKING, Dict, Set
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span
+from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span, \
+    get_anonymous_ent
 from enre.analysis.analyze_expr import UseAvaler, SetAvaler
 from enre.ent.entity import AbstractValue, MemberDistiller
 from enre.analysis.value_info import ValueInfo, InstanceType
@@ -76,13 +77,13 @@ def build_target(tar_expr: ast.expr) -> Target:
 
 def dummy_unpack(_: AbstractValue) -> MemberDistiller:
     def wrapper(_: int) -> AbstractValue:
-        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
 
     return wrapper
 
 
 def dummy_iter(_: AbstractValue) -> AbstractValue:
-    return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+    return [(get_anonymous_ent(), ValueInfo.get_any())]
 
 
 def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
@@ -205,7 +206,7 @@ def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "Analyze
     avaler = UseAvaler(ctx.manager, ctx.package_db, ctx.current_db)
     rvalue: AbstractValue
     if rvalue_expr is None:
-        rvalue = [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        rvalue = [(get_anonymous_ent(), ValueInfo.get_any())]
     else:
         rvalue = avaler.aval(rvalue_expr, ctx.env)
     unpack_semantic(target, rvalue, ctx)

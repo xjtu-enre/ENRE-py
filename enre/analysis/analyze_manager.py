@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package, Entity
+from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.ref.Ref import Ref
 
@@ -62,7 +62,7 @@ class RootDB:
         self.tree: ty.Dict[Path, ModuleDB] = dict()
         self.package_tree: ty.Dict[Path, Package] = dict()
         self.initialize_tree(root_path)
-        self.global_db.add_ent(Entity.get_anonymous_ent())
+        self.global_db.add_ent(get_anonymous_ent())
 
     def initialize_tree(self, path: Path) -> ty.List[Path]:
         py_files: ty.List[Path] = []

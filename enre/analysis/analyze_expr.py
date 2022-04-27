@@ -5,7 +5,7 @@ import time
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_file_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span
+    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
@@ -43,7 +43,7 @@ class UseAvaler:
                 for _, ent_type in avalue:
                     ret = ret.join(ent_type)
 
-        return [(Entity.get_anonymous_ent(), ret)]
+        return [(get_anonymous_ent(), ret)]
 
     def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> AbstractValue:
         lookup_res = env[name_expr.id]
@@ -75,9 +75,9 @@ class UseAvaler:
         ret: AbstractValue = []
         for caller, func_type in possible_callers:
             if isinstance(func_type, ConstructorType):
-                ret.append((Entity.get_anonymous_ent(), func_type.to_class_type()))
+                ret.append((get_anonymous_ent(), func_type.to_class_type()))
             else:
-                ret.append((Entity.get_anonymous_ent(), ValueInfo.get_any()))
+                ret.append((get_anonymous_ent(), ValueInfo.get_any()))
             env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
         for arg in call_expr.args:
             self.aval(arg, env)
@@ -117,26 +117,26 @@ class UseAvaler:
         generators = list_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(list_comp.elt, env)
-        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_SetComp(self, set_comp: ast.SetComp, env: EntEnv) -> "AbstractValue":
         generators = set_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(set_comp.elt, env)
-        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_DictComp(self, dict_comp: ast.DictComp, env: EntEnv) -> "AbstractValue":
         generators = dict_comp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(dict_comp.key, env)
         self.aval(dict_comp.value, env)
-        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_GeneratorExp(self, gen_exp: ast.GeneratorExp, env: EntEnv) -> "AbstractValue":
         generators = gen_exp.generators
         self.dummy_generator_exp(env, generators)
         self.aval(gen_exp.elt, env)
-        return [(Entity.get_anonymous_ent(), ValueInfo.get_any())]
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def dummy_generator_exp(self, env: EntEnv, generators: List[ast.comprehension]) -> None:
         from enre.analysis.assign_target import build_target, dummy_iter, unpack_semantic
