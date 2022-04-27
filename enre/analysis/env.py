@@ -6,6 +6,7 @@ from enre.ent.entity import Entity, Location
 
 if TYPE_CHECKING:
     from enre.ent.entity import AbstractValue, Class
+
     Binding = Tuple[str, AbstractValue]
     Bindings: TypeAlias = List[Binding]
 
@@ -36,20 +37,31 @@ class SubEnv(ABC):
     def __getitem__(self, name: str) -> LookupResult:
         ...
 
+    @abstractmethod
+    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
+        ...
+
 
 class BasicSubEnv(SubEnv):
     def __init__(self, pairs: "Optional[Bindings]" = None):
         super().__init__(1)
         if pairs is None:
             pairs = []
-        self._bindings = pairs
+        self._bindings_list = [pairs]
 
     def __getitem__(self, name: str) -> LookupResult:
-        ret = []
-        for n, binds in self._bindings:
-            if n == name:
-                ret.extend(binds)
-        return LookupResult([], False) if ret == [] else LookupResult(ret, True)
+        for bindings in reversed(self._bindings_list):
+            ret = []
+            for n, binds in bindings:
+                if n == name:
+                    ret.extend(binds)
+            if ret:
+                return LookupResult(ret, True)
+        return LookupResult([], False)
+
+    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
+        self._bindings_list.append(pairs)
+        return self
 
 
 class ParallelSubEnv(SubEnv):
@@ -65,9 +77,16 @@ class ParallelSubEnv(SubEnv):
         found_entities = look_up_res1.found_entities + look_up_res2.found_entities
         return LookupResult(found_entities, is_must_found)
 
+    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
+        new_sub_env = BasicSubEnv(pairs)
+        return ContinuousSubEnv(self, new_sub_env)
+
 
 class ContinuousSubEnv(SubEnv):
     def __init__(self, forward: SubEnv, backward: SubEnv) -> None:
+        """
+        find identifier in backward environment, if can't find the name, then find it in forward environment
+        """
         super().__init__(1 + max(forward.depth, backward.depth))
         # print(f"ContinuousSubEnv constructed, depth: {self.depth}")
         self._forward = forward
@@ -84,6 +103,10 @@ class ContinuousSubEnv(SubEnv):
             found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
             return LookupResult(found_entities, forward_lookup_res.must_found)
 
+    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
+        self._backward = self._backward.create_continuous_bindings(pairs)
+        return self
+
 
 class OptionalSubEnv(SubEnv):
     def __init__(self, sub_env: SubEnv) -> None:
@@ -93,6 +116,10 @@ class OptionalSubEnv(SubEnv):
     def __getitem__(self, name: str) -> LookupResult:
         optional_lookup_res = self._optional[name]
         return LookupResult(optional_lookup_res.found_entities, False)
+
+    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
+        new_sub_env = BasicSubEnv(pairs)
+        return ContinuousSubEnv(self, new_sub_env)
 
 
 class Hook:
@@ -152,8 +179,7 @@ class ScopeEnv:
         for p in pairs:
             if p not in non_duplicate:
                 non_duplicate.append(p)
-        new_sub_env = BasicSubEnv(non_duplicate)
-        continuous_env = ContinuousSubEnv(top_sub_env, new_sub_env)
+        continuous_env = top_sub_env.create_continuous_bindings(non_duplicate)
         self.add_sub_env(continuous_env)
         after = len(self)
         assert before == after

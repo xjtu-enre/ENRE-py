@@ -1,13 +1,17 @@
 from abc import ABC
+from dataclasses import dataclass
+
+from ent.EntKind import RefKind
+from ent.entity import Entity
 
 
-
+@dataclass(frozen=True)
 class Ref(ABC):
-    def __init__(self, ref_kind, target_ent, lineno, col_offset):
-        self.ref_kind = ref_kind
-        self.target_ent = target_ent
-        self.lineno = lineno
-        self.col_offset = col_offset
+    ref_kind : RefKind
+    target_ent: Entity
+    lineno: int
+
+    col_offset: int
 
     def __eq__(self, other: "Ref"):
         return isinstance(other, Ref) and \

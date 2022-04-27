@@ -1,5 +1,6 @@
 import ast
 import time
+import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
@@ -7,7 +8,8 @@ from pathlib import Path
 from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
-from enre.ref.Ref import Ref
+if typing.TYPE_CHECKING:
+    from enre.ref.Ref import Ref
 
 _EntityID = 0
 
@@ -108,14 +110,14 @@ class Entity(ABC):
         self._id = _EntityID
         # make sure the id is unique
         _EntityID += 1
-        self._refs: List[Ref] = []
+        self._refs: List["Ref"] = []
         self.longname = longname
         self.location = location
 
-    def refs(self) -> List[Ref]:
+    def refs(self) -> List["Ref"]:
         return self._refs
 
-    def set_refs(self, refs: List[Ref]) -> None:
+    def set_refs(self, refs: List["Ref"]) -> None:
         self._refs = refs
 
     @property
@@ -126,7 +128,7 @@ class Entity(ABC):
     def kind(self) -> EntKind:
         ...
 
-    def add_ref(self, ref: Ref) -> None:
+    def add_ref(self, ref: "Ref") -> None:
         # todo: should we remove reference with same representation?
         for ref_1 in self._refs:
             if ref_1 == ref:
@@ -195,7 +197,7 @@ class Package(Entity):
     def kind(self) -> EntKind:
         return EntKind.Package
 
-    def add_ref(self, ref: Ref) -> None:
+    def add_ref(self, ref: "Ref") -> None:
         if ref.ref_kind == RefKind.ContainKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Package, self).add_ref(ref)
@@ -220,7 +222,7 @@ class Module(Entity):
     def names(self) -> "NamespaceType":
         return self._names
 
-    def add_ref(self, ref: Ref) -> None:
+    def add_ref(self, ref: "Ref") -> None:
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Module, self).add_ref(ref)
@@ -290,6 +292,7 @@ class Alias(Entity):
             return ValueInfo.get_any()
 
     def _build_alias_deps(self) -> None:
+        from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
             self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line))
@@ -323,7 +326,7 @@ class Class(Entity):
                 return inherited_attrs
         return []
 
-    def add_ref(self, ref: Ref) -> None:
+    def add_ref(self, ref: "Ref") -> None:
         if ref.ref_kind == RefKind.DefineKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         elif ref.ref_kind == RefKind.InheritKind:
