@@ -1,8 +1,8 @@
 from abc import ABC
 from dataclasses import dataclass
 
-from ent.EntKind import RefKind
-from ent.entity import Entity
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Entity
 
 
 @dataclass(frozen=True)
