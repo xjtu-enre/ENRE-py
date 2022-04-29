@@ -136,10 +136,8 @@ class Entity(ABC):
 
     def add_ref(self, ref: "Ref") -> None:
         # todo: should we remove reference with same representation?
-        for ref_1 in self._refs:
-            if ref_1 == ref:
-                return
-        self._refs.append(ref)
+        if ref not in self._refs:
+            self._refs.append(ref)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
