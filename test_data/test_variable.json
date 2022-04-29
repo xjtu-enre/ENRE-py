@@ -1,0 +1,119 @@
+{
+    "Entities": [
+        {
+            "id": 28,
+            "longname": "test_variable.x",
+            "ent_type": "Variable",
+            "start_line": 1,
+            "start_col": 0
+        },
+        {
+            "id": 29,
+            "longname": "test_variable.y",
+            "ent_type": "Variable",
+            "start_line": 4,
+            "start_col": 0
+        },
+        {
+            "id": 30,
+            "longname": "test_variable.t1",
+            "ent_type": "Variable",
+            "start_line": 8,
+            "start_col": 0
+        },
+        {
+            "id": 31,
+            "longname": "test_variable.t2",
+            "ent_type": "Variable",
+            "start_line": 8,
+            "start_col": 4
+        },
+        {
+            "id": 32,
+            "longname": "test_variable.t3",
+            "ent_type": "Variable",
+            "start_line": 12,
+            "start_col": 1
+        },
+        {
+            "id": 33,
+            "longname": "test_variable.func",
+            "ent_type": "Function",
+            "start_line": 15,
+            "start_col": 0
+        },
+        {
+            "id": 34,
+            "longname": "test_variable.func.x",
+            "ent_type": "Variable",
+            "start_line": 17,
+            "start_col": 4
+        },
+        {
+            "id": 35,
+            "longname": "test_variable.func.y",
+            "ent_type": "Variable",
+            "start_line": 21,
+            "start_col": 4
+        },
+        {
+            "id": 36,
+            "longname": "test_variable.t1",
+            "ent_type": "Variable",
+            "start_line": 25,
+            "start_col": 4
+        },
+        {
+            "id": 37,
+            "longname": "test_variable.t2",
+            "ent_type": "Variable",
+            "start_line": 25,
+            "start_col": 8
+        },
+        {
+            "id": 38,
+            "longname": "test_variable.t3",
+            "ent_type": "Variable",
+            "start_line": 31,
+            "start_col": -1
+        }
+    ],
+    "Dependencies": [
+        {
+            "src": 33,
+            "src_name": "test_variable.func",
+            "dest": 34,
+            "dest_name": "test_variable.func.x",
+            "kind": "Define",
+            "lineno": 17,
+            "col_offset": 4
+        },
+        {
+            "src": 33,
+            "src_name": "test_variable.func",
+            "dest": 29,
+            "dest_name": "test_variable.y",
+            "kind": "Define",
+            "lineno": 21,
+            "col_offset": 4
+        },
+        {
+            "src": 33,
+            "src_name": "test_variable.func",
+            "dest": 36,
+            "dest_name": "test_variable.t1",
+            "kind": "Define",
+            "lineno": 25,
+            "col_offset": 4
+        },
+        {
+            "src": 33,
+            "src_name": "test_variable.func",
+            "dest": 37,
+            "dest_name": "test_variable.t2",
+            "kind": "Define",
+            "lineno": 25,
+            "col_offset": 8
+        }
+    ]
+}
