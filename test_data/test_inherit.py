@@ -1,5 +1,8 @@
+# E: Module-$ti=test_inherit@
+
 class Base:
     # E: Class-$Base=test_inherit.Base@Base
+    # D: Define-$ti->$Base@Base
     static_attr = 1
     # E: Class Attribute-$static_attr=test_inherit.Base.static_attr@static_attr
     # D: $Base->$static_attr@static_attr
@@ -13,6 +16,7 @@ class Base:
 
 class Inherit(Base):
     # E: Class-$Inherit=test_inherit.Inherit@Inherit
+    # D: Define-$Inherit->$Base@Base
     # D: Inherit-$Inherit->$Base
     def __init__(self):
         # E: Function-$I_init=test_inherit.Inherit.__init__@__init__

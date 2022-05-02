@@ -2,171 +2,248 @@
     "Entities": [
         {
             "id": 1,
-            "longname": "test_function.ClassA",
-            "ent_type": "Class",
-            "start_line": 1,
-            "start_col": 6
+            "longname": "test_function",
+            "ent_type": "Module",
+            "start_line": -1,
+            "start_col": -1
         },
         {
             "id": 2,
-            "longname": "test_function.ClassA.x",
-            "ent_type": "Class Attribute",
-            "start_line": 3,
-            "start_col": 4
+            "longname": "test_function.ClassA",
+            "ent_type": "Class",
+            "start_line": 4,
+            "start_col": 6
         },
         {
             "id": 3,
-            "longname": "test_function.ClassA.method",
-            "ent_type": "Function",
+            "longname": "test_function.ClassA.x",
+            "ent_type": "Class Attribute",
             "start_line": 7,
             "start_col": 4
         },
         {
             "id": 4,
-            "longname": "test_function.ClassB",
-            "ent_type": "Class",
-            "start_line": 13,
-            "start_col": 6
-        },
-        {
-            "id": 5,
-            "longname": "test_function.ClassB.method",
+            "longname": "test_function.ClassA.method",
             "ent_type": "Function",
-            "start_line": 16,
+            "start_line": 11,
             "start_col": 4
         },
         {
+            "id": 5,
+            "longname": "test_function.ClassB",
+            "ent_type": "Class",
+            "start_line": 17,
+            "start_col": 6
+        },
+        {
             "id": 6,
-            "longname": "test_function.func1",
+            "longname": "test_function.ClassB.method",
             "ent_type": "Function",
-            "start_line": 22,
+            "start_line": 21,
             "start_col": 4
         },
         {
             "id": 7,
-            "longname": "test_function.func1.x",
-            "ent_type": "Parameter",
-            "start_line": 22,
-            "start_col": 10
-        },
-        {
-            "id": 8,
-            "longname": "test_function.func",
+            "longname": "test_function.func1",
             "ent_type": "Function",
-            "start_line": 28,
+            "start_line": 27,
             "start_col": 4
         },
         {
+            "id": 8,
+            "longname": "test_function.func1.x",
+            "ent_type": "Parameter",
+            "start_line": 27,
+            "start_col": 10
+        },
+        {
             "id": 9,
-            "longname": "test_function.func.x",
-            "ent_type": "Variable",
-            "start_line": 30,
+            "longname": "test_function.func",
+            "ent_type": "Function",
+            "start_line": 35,
             "start_col": 4
         },
         {
             "id": 10,
-            "longname": "test_function.func.instance",
+            "longname": "test_function.func.x",
             "ent_type": "Variable",
-            "start_line": 36,
+            "start_line": 39,
             "start_col": 4
         },
         {
             "id": 11,
+            "longname": "test_function.func.instance",
+            "ent_type": "Variable",
+            "start_line": 45,
+            "start_col": 4
+        },
+        {
+            "id": 12,
             "longname": "test_function.func.inner",
             "ent_type": "Function",
-            "start_line": 41,
+            "start_line": 50,
             "start_col": 8
+        },
+        {
+            "id": 13,
+            "longname": "test_function.func.inner_inner",
+            "ent_type": "Function",
+            "start_line": 53,
+            "start_col": 12
         }
     ],
     "Dependencies": [
         {
             "src": 1,
-            "src_name": "test_function.ClassA",
+            "src_name": "test_function",
             "dest": 2,
-            "dest_name": "test_function.ClassA.x",
+            "dest_name": "test_function.ClassA",
             "kind": "Define",
-            "lineno": 3,
-            "col_offset": 4
+            "lineno": 4,
+            "col_offset": 6
         },
         {
-            "src": 1,
+            "src": 2,
             "src_name": "test_function.ClassA",
             "dest": 3,
-            "dest_name": "test_function.ClassA.method",
+            "dest_name": "test_function.ClassA.x",
             "kind": "Define",
             "lineno": 7,
             "col_offset": 4
         },
         {
-            "src": 4,
-            "src_name": "test_function.ClassB",
-            "dest": 5,
-            "dest_name": "test_function.ClassB.method",
-            "kind": "Define",
-            "lineno": 16,
-            "col_offset": 4
-        },
-        {
-            "src": 8,
-            "src_name": "test_function.func",
-            "dest": 9,
-            "dest_name": "test_function.func.x",
-            "kind": "Define",
-            "lineno": 30,
-            "col_offset": 4
-        },
-        {
-            "src": 8,
-            "src_name": "test_function.func",
-            "dest": 6,
-            "dest_name": "test_function.func1",
-            "kind": "Call",
-            "lineno": 33,
-            "col_offset": 4
-        },
-        {
-            "src": 8,
-            "src_name": "test_function.func",
-            "dest": 10,
-            "dest_name": "test_function.func.instance",
-            "kind": "Define",
-            "lineno": 36,
-            "col_offset": 4
-        },
-        {
-            "src": 8,
-            "src_name": "test_function.func",
-            "dest": 3,
+            "src": 2,
+            "src_name": "test_function.ClassA",
+            "dest": 4,
             "dest_name": "test_function.ClassA.method",
             "kind": "Define",
+            "lineno": 11,
+            "col_offset": 4
+        },
+        {
+            "src": 1,
+            "src_name": "test_function",
+            "dest": 5,
+            "dest_name": "test_function.ClassB",
+            "kind": "Define",
+            "lineno": 17,
+            "col_offset": 6
+        },
+        {
+            "src": 5,
+            "src_name": "test_function.ClassB",
+            "dest": 6,
+            "dest_name": "test_function.ClassB.method",
+            "kind": "Define",
+            "lineno": 21,
+            "col_offset": 4
+        },
+        {
+            "src": 1,
+            "src_name": "test_function",
+            "dest": 7,
+            "dest_name": "test_function.func1",
+            "kind": "Define",
+            "lineno": 27,
+            "col_offset": 4
+        },
+        {
+            "src": 1,
+            "src_name": "test_function",
+            "dest": 7,
+            "dest_name": "test_function.func1",
+            "kind": "Define",
+            "lineno": 35,
+            "col_offset": 4
+        },
+        {
+            "src": 9,
+            "src_name": "test_function.func",
+            "dest": 10,
+            "dest_name": "test_function.func.x",
+            "kind": "Define",
             "lineno": 39,
+            "col_offset": 4
+        },
+        {
+            "src": 9,
+            "src_name": "test_function.func",
+            "dest": 7,
+            "dest_name": "test_function.func1",
+            "kind": "Call",
+            "lineno": 42,
+            "col_offset": 4
+        },
+        {
+            "src": 9,
+            "src_name": "test_function.func",
+            "dest": 11,
+            "dest_name": "test_function.func.instance",
+            "kind": "Define",
+            "lineno": 45,
+            "col_offset": 4
+        },
+        {
+            "src": 9,
+            "src_name": "test_function.func",
+            "dest": 4,
+            "dest_name": "test_function.ClassA.method",
+            "kind": "Define",
+            "lineno": 48,
             "col_offset": 13
         },
         {
-            "src": 8,
+            "src": 9,
             "src_name": "test_function.func",
-            "dest": 11,
+            "dest": 12,
             "dest_name": "test_function.func.inner",
             "kind": "Define",
-            "lineno": 41,
+            "lineno": 50,
             "col_offset": 4
         },
         {
-            "src": 11,
-            "src_name": "test_function.func.inner",
-            "dest": 6,
-            "dest_name": "test_function.func1",
-            "kind": "Call",
-            "lineno": 44,
+            "src": 9,
+            "src_name": "test_function.func",
+            "dest": 13,
+            "dest_name": "test_function.func.inner_inner",
+            "kind": "Define",
+            "lineno": 53,
             "col_offset": 8
         },
         {
-            "src": 8,
+            "src": 13,
+            "src_name": "test_function.func.inner_inner",
+            "dest": 7,
+            "dest_name": "test_function.func1",
+            "kind": "Call",
+            "lineno": 56,
+            "col_offset": 12
+        },
+        {
+            "src": 12,
+            "src_name": "test_function.func.inner",
+            "dest": 7,
+            "dest_name": "test_function.func1",
+            "kind": "Call",
+            "lineno": 60,
+            "col_offset": 8
+        },
+        {
+            "src": 12,
+            "src_name": "test_function.func.inner",
+            "dest": 13,
+            "dest_name": "test_function.func.inner_inner",
+            "kind": "Call",
+            "lineno": 63,
+            "col_offset": 8
+        },
+        {
+            "src": 9,
             "src_name": "test_function.func",
-            "dest": 11,
+            "dest": 12,
             "dest_name": "test_function.func.inner",
             "kind": "Call",
-            "lineno": 48,
+            "lineno": 66,
             "col_offset": 4
         }
     ]
