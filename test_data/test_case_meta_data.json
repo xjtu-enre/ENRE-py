@@ -1,19 +1,20 @@
 {
     "Entity": {
-        "all entity": 43,
+        "all entity": 56,
         "Module": 4,
         "Class": 4,
         "Class Attribute": 3,
         "Function": 11,
-        "Parameter": 3,
-        "Variable": 16,
-        "AnonymousFunction": 1,
-        "Lambda Parameter": 1
+        "Parameter": 5,
+        "Variable": 23,
+        "AnonymousFunction": 3,
+        "Lambda Parameter": 3
     },
     "Dependency": {
-        "all dependency": 43,
-        "Define": 33,
-        "Call": 6,
-        "Use": 4
+        "all dependency": 62,
+        "Define": 42,
+        "Call": 8,
+        "Use": 11,
+        "Set": 1
     }
 }

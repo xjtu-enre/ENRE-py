@@ -44,16 +44,72 @@
         },
         {
             "id": 30,
-            "longname": "test_lambda.wrapper",
-            "ent_type": "Function",
+            "longname": "test_lambda.(17)",
+            "ent_type": "AnonymousFunction",
             "start_line": 17,
-            "start_col": 4
+            "start_col": 5
         },
         {
             "id": 31,
+            "longname": "test_lambda.l2",
+            "ent_type": "Variable",
+            "start_line": 17,
+            "start_col": 0
+        },
+        {
+            "id": 32,
+            "longname": "test_lambda.(17).a",
+            "ent_type": "Lambda Parameter",
+            "start_line": 17,
+            "start_col": 12
+        },
+        {
+            "id": 33,
+            "longname": "test_lambda.(17).y",
+            "ent_type": "Variable",
+            "start_line": 17,
+            "start_col": 26
+        },
+        {
+            "id": 34,
+            "longname": "test_lambda.(27)",
+            "ent_type": "AnonymousFunction",
+            "start_line": 27,
+            "start_col": 5
+        },
+        {
+            "id": 35,
+            "longname": "test_lambda.l3",
+            "ent_type": "Variable",
+            "start_line": 27,
+            "start_col": 0
+        },
+        {
+            "id": 36,
+            "longname": "test_lambda.(27).a",
+            "ent_type": "Lambda Parameter",
+            "start_line": 27,
+            "start_col": 12
+        },
+        {
+            "id": 37,
+            "longname": "test_lambda.(27).y",
+            "ent_type": "Variable",
+            "start_line": 27,
+            "start_col": 26
+        },
+        {
+            "id": 38,
+            "longname": "test_lambda.wrapper",
+            "ent_type": "Function",
+            "start_line": 37,
+            "start_col": 4
+        },
+        {
+            "id": 39,
             "longname": "test_lambda.and_one",
             "ent_type": "Variable",
-            "start_line": 21,
+            "start_line": 41,
             "start_col": 4
         }
     ],
@@ -106,37 +162,109 @@
         {
             "src": 24,
             "src_name": "test_lambda",
-            "dest": 30,
-            "dest_name": "test_lambda.wrapper",
+            "dest": 31,
+            "dest_name": "test_lambda.l2",
             "kind": "Define",
             "lineno": 17,
-            "col_offset": 4
+            "col_offset": -1
         },
         {
             "src": 30,
+            "src_name": "test_lambda.(17)",
+            "dest": 32,
+            "dest_name": "test_lambda.(17).a",
+            "kind": "Define",
+            "lineno": 17,
+            "col_offset": 12
+        },
+        {
+            "src": 30,
+            "src_name": "test_lambda.(17)",
+            "dest": 33,
+            "dest_name": "test_lambda.(17).y",
+            "kind": "Define",
+            "lineno": 17,
+            "col_offset": 26
+        },
+        {
+            "src": 30,
+            "src_name": "test_lambda.(17)",
+            "dest": 33,
+            "dest_name": "test_lambda.(17).y",
+            "kind": "Use",
+            "lineno": 17,
+            "col_offset": 16
+        },
+        {
+            "src": 24,
+            "src_name": "test_lambda",
+            "dest": 27,
+            "dest_name": "test_lambda.l1",
+            "kind": "Define",
+            "lineno": 27,
+            "col_offset": -1
+        },
+        {
+            "src": 34,
+            "src_name": "test_lambda.(27)",
+            "dest": 36,
+            "dest_name": "test_lambda.(27).a",
+            "kind": "Define",
+            "lineno": 27,
+            "col_offset": 12
+        },
+        {
+            "src": 34,
+            "src_name": "test_lambda.(27)",
+            "dest": 37,
+            "dest_name": "test_lambda.(27).y",
+            "kind": "Define",
+            "lineno": 27,
+            "col_offset": 26
+        },
+        {
+            "src": 34,
+            "src_name": "test_lambda.(27)",
+            "dest": 37,
+            "dest_name": "test_lambda.(27).y",
+            "kind": "Use",
+            "lineno": 27,
+            "col_offset": 16
+        },
+        {
+            "src": 24,
+            "src_name": "test_lambda",
+            "dest": 38,
+            "dest_name": "test_lambda.wrapper",
+            "kind": "Define",
+            "lineno": 37,
+            "col_offset": 4
+        },
+        {
+            "src": 38,
             "src_name": "test_lambda.wrapper",
-            "dest": 31,
+            "dest": 39,
             "dest_name": "test_lambda.and_one",
             "kind": "Define",
-            "lineno": 21,
+            "lineno": 41,
             "col_offset": 4
         },
         {
-            "src": 30,
+            "src": 38,
             "src_name": "test_lambda.wrapper",
             "dest": 26,
             "dest_name": "test_lambda.(7)",
             "kind": "Call",
-            "lineno": 21,
+            "lineno": 41,
             "col_offset": 14
         },
         {
-            "src": 30,
+            "src": 38,
             "src_name": "test_lambda.wrapper",
             "dest": 25,
             "dest_name": "test_lambda.l",
             "kind": "Use",
-            "lineno": 21,
+            "lineno": 41,
             "col_offset": 14
         }
     ]
