@@ -1,11 +1,11 @@
 import ast
-from typing import Sequence
+from typing import Sequence, Callable, TypeAlias
 from typing import Tuple, List
 import time
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_file_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent
+    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
@@ -14,6 +14,7 @@ from enre.ref.Ref import Ref
 from enre.ent.entity import AbstractValue
 
 AnonymousFakeName = "$"
+
 
 class UseAvaler:
 
@@ -64,7 +65,7 @@ class UseAvaler:
         possible_ents = self.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
+        extend_known_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
             env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
         return ret
@@ -157,8 +158,12 @@ class UseAvaler:
                 self.aval(cond_expr, env)
 
 
-def extend_possible_attribute(manager: AnalyzeManager, attribute: str, possible_ents: AbstractValue, ret: AbstractValue, package_db: RootDB,
-                              current_db: ModuleDB) -> None:
+def extend_known_possible_attribute(manager: AnalyzeManager,
+                                    attribute: str,
+                                    possible_ents: AbstractValue,
+                                    ret: AbstractValue,
+                                    package_db: RootDB,
+                                    current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
             class_attrs = ent_type.lookup_attr(attribute)
@@ -183,9 +188,39 @@ def extend_possible_attribute(manager: AnalyzeManager, attribute: str, possible_
             raise NotImplementedError("attribute receiver entity matching not implemented")
 
 
+def extend_known_or_new_possible_attribute(manager: AnalyzeManager,
+                                    attribute: str,
+                                    possible_ents: AbstractValue,
+                                    ret: SetContextValue,
+                                    package_db: RootDB,
+                                    current_db: ModuleDB) -> None:
+    for ent, ent_type in possible_ents:
+        if isinstance(ent_type, InstanceType):
+            class_attrs = ent_type.lookup_attr(attribute)
+            process_known_or_newly_created_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+        elif isinstance(ent_type, ConstructorType):
+            class_attrs = ent_type.lookup_attr(attribute)
+            process_known_or_newly_created_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+        elif isinstance(ent_type, ModuleType):
+            if isinstance(ent, Module):
+                manager.strict_analyze_module(ent)
+            module_level_ents = ent_type.namespace[attribute]
+            process_known_or_newly_created_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
+        elif isinstance(ent_type, PackageType):
+            package_level_ents = ent_type.namespace[attribute]
+            process_known_or_newly_created_attr(package_level_ents, attribute, ret, current_db, ent, ent_type)
+        elif isinstance(ent_type, AnyType):
+            location = Location.global_name(attribute)
+            referenced_attr = ReferencedAttribute(location.to_longname(), location)
+            current_db.add_ent(referenced_attr)
+            ret.append((referenced_attr, ValueInfo.get_any()))
+        else:
+            raise NotImplementedError("attribute receiver entity matching not implemented")
+
+
 def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, dep_db: ModuleDB,
                        container: Entity, receiver_type: ValueInfo) -> None:
-    if attr_ents != []:
+    if attr_ents:
         # when get attribute of another entity, presume
 
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
@@ -200,6 +235,25 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
         ret.append((unresolved, ValueInfo.get_any()))
 
 
+def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
+                                        attribute: str,
+                                        ret: SetContextValue,
+                                        dep_db: ModuleDB,
+                                        container: Entity,
+                                        receiver_type: ValueInfo) -> None:
+    if attr_ents:
+        # when get attribute of another entity, presume
+
+        ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
+    else:
+        # unresolved shouldn't be global
+        location = container.location.append(attribute, Span.get_nil())
+        unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
+        # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
+        # relation in the class entity, while in a self set context.
+        ret.append(NewlyCreated(Span.get_nil(), unresolved))
+
+
 class SetAvaler:
     def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
         self.manager = manager
@@ -207,28 +261,37 @@ class SetAvaler:
         self._current_db = current_db
         self._avaler = UseAvaler(manager, package_db, current_db)
 
-    def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
-        """Visit a node."""
+    def aval(self, expr: ast.expr, env: EntEnv) -> SetContextValue:
+        """Visit a node.
+        :rtype: object
+        """
         method = 'aval_' + expr.__class__.__name__
-        visitor = getattr(self, method, self._avaler.aval)
-        return visitor(expr, env)
+        ret: SetContextValue = []
+        try:
+            visitor = getattr(self, method)
+            ret.extend(visitor(expr, env))
+        except AttributeError:
+            visitor = self._avaler.aval
+            ret.extend(visitor(expr, env))
+        return ret
 
-    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> AbstractValue:
+    def aval_Name(self, name_expr: ast.Name, env: EntEnv) -> SetContextValue:
         # while in a set context, only entity in the current scope visible
         lookup_res = env.get_scope()[name_expr.id]
-        ent_objs = lookup_res.found_entities
-        if ent_objs != []:
+        ent_objs: SetContextValue = []
+        ent_objs.extend(lookup_res.found_entities)
+        if ent_objs:
             return ent_objs
         else:
-            unknown_var = UnknownVar.get_unknown_var(name_expr.id)
-            self._current_db.add_ent(unknown_var)
-            return [(unknown_var, ValueInfo.get_any())]
+            span = get_syntactic_span(name_expr)
+            unknown_var = UnknownVar(name_expr.id)
+            return [NewlyCreated(span, unknown_var)]
 
-    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
+    def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> SetContextValue:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
-        ret: AbstractValue = []
-        extend_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
+        ret: SetContextValue = []
+        extend_known_or_new_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret
 
 
@@ -259,5 +322,5 @@ class CallAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
+        extend_known_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
         return ret

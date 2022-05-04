@@ -7,7 +7,7 @@ from typing import List, Tuple, TypeAlias, Callable, Optional, TYPE_CHECKING, Di
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span, \
-    get_anonymous_ent
+    get_anonymous_ent, SetContextValue, NewlyCreated
 from enre.analysis.analyze_expr import UseAvaler, SetAvaler
 from enre.ent.entity import AbstractValue, MemberDistiller
 from enre.analysis.value_info import ValueInfo, InstanceType
@@ -86,7 +86,9 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
     return [(get_anonymous_ent(), ValueInfo.get_any())]
 
 
-def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
+def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
+                    value_type: ValueInfo,
+                    new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
                     ctx: "AnalyzeContext") -> None:
     """
     Depends on which kind of the context entity is, define/set/use variable entity of the environment or
@@ -97,21 +99,22 @@ def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[T
     :param new_bindings: newly created bindings by this assignment
     :param ctx: analyze context
     """
+    if isinstance(target, tuple):
+        tar_ent, _ = target
+        assign_known_target(tar_ent, value_type, new_bindings, ctx)
+    elif isinstance(target, NewlyCreated):
+        newly_define_semantic(target, value_type, new_bindings, ctx)
+
+def newly_define_semantic(newly_created: NewlyCreated,
+                          value_type: ValueInfo,
+                          new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
+                          ctx: "AnalyzeContext") -> None:
+    location = ctx.env.get_scope().get_location()
+    location = location.append(newly_created.unknown_ent.longname.name, newly_created.span)
+    ctx_ent = ctx.env.get_ctx()
     target_lineno, target_col_offset = ctx.coordinate
-    # target should be the entity which the target_expr could possibl   y eval to
-    if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
-        # if target entity is a defined variable or parameter, just add the target new type to the environment
-        # env.add(target, value_type)
-        new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
-        # add_target_var(target, value_type, env, self.dep_db)
-        # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset))
-        # record the target assign to target entity
-    elif isinstance(tar_ent, UnknownVar):
-        # if the target is a newly defined variable
-        ctx_ent = ctx.env.get_ctx()
-        location = ctx.env.get_scope().get_location()
-        location = location.append(tar_ent.longname.name, Span.get_nil())
+    tar_ent = newly_created.unknown_ent
+    if isinstance(tar_ent, UnknownVar):
         if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
             new_attr = ClassAttribute(location.to_longname(), location)
             new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
@@ -128,6 +131,32 @@ def assign_semantic(tar_ent: Entity, value_type: ValueInfo, new_bindings: List[T
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
+        if isinstance(tar_ent.receiver_type, InstanceType):
+            receiver_class = tar_ent.receiver_type.class_ent
+            new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
+            new_attr = ClassAttribute(new_location.to_longname(), new_location)
+            ctx.current_db.add_ent(new_attr)
+            receiver_class.add_ref(
+                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
+
+
+def assign_known_target(tar_ent: Entity,
+                        value_type: ValueInfo,
+                        new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
+                        ctx: "AnalyzeContext") -> None:
+    target_lineno, target_col_offset = ctx.coordinate
+    # target should be the entity which the target_expr could possibl   y eval to
+    if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
+        # if target entity is a defined variable or parameter, just add the target new type to the environment
+        # env.add(target, value_type)
+        new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
+        # add_target_var(target, value_type, env, self.dep_db)
+        # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset))
+        # record the target assign to target entity
+    elif isinstance(tar_ent, UnresolvedAttribute):
+        assert False
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
             new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
@@ -161,10 +190,10 @@ def flatten_bindings(bindings: "Bindings") -> "Bindings":
     return new_bindings
 
 
-def abstract_assign(lvalue: AbstractValue, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
+def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
     new_bindings: "Bindings" = []
     for _, value_type in rvalue:
-        for target, _ in lvalue:
+        for target in lvalue:
             assign_semantic(target, value_type, new_bindings, ctx)
     new_bindings = flatten_bindings(new_bindings)
     ctx.env.get_scope().add_continuous(new_bindings)
@@ -192,7 +221,7 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext"
     #         unpack_list([tar], distiller, ctx)
 
     if isinstance(target, LvalueTar):
-        lvalue: AbstractValue = set_avaler.aval(target.lvalue_expr, ctx.env)
+        lvalue: SetContextValue = set_avaler.aval(target.lvalue_expr, ctx.env)
         abstract_assign(lvalue, rvalue, ctx)
     elif isinstance(target, TupleTar):
         unpack_list(target.tar_list, distiller, ctx)

@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent
+from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, UnknownVar
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.ref.Ref import Ref
 

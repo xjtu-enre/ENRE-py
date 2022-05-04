@@ -1,7 +1,7 @@
 import ast
 from typing import Optional, TYPE_CHECKING
 
-from enre.ent.entity import UnknownVar, AbstractValue
+from enre.ent.entity import UnknownVar, AbstractValue, NewlyCreated, Span
 from enre.analysis.assign_target import assign_semantic, flatten_bindings
 from enre.analysis.analyze_expr import UseAvaler
 from enre.analysis.analyze_stmt import AnalyzeContext
@@ -13,12 +13,13 @@ if TYPE_CHECKING:
 def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "AnalyzeContext") -> None:
     frame_entities: AbstractValue = []
     new_bindings: "Bindings" = []
-    new_var_ent = UnknownVar.get_unknown_var(name)
+    new_var_ent = UnknownVar(name)
+    newly_create = NewlyCreated(Span.get_nil(), new_var_ent)
     for ent, ent_type in err_constructor:
         if isinstance(ent_type, ConstructorType):
-            assign_semantic(new_var_ent, ent_type.to_class_type(), new_bindings, ctx)
+            assign_semantic(newly_create, ent_type.to_class_type(), new_bindings, ctx)
         else:
-            assign_semantic(new_var_ent, ValueInfo.get_any(), new_bindings, ctx)
+            assign_semantic(newly_create, ValueInfo.get_any(), new_bindings, ctx)
     new_bindings = flatten_bindings(new_bindings)
     ctx.env.get_scope().add_continuous(new_bindings)
 
