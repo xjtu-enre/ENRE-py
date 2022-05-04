@@ -34,6 +34,7 @@ t1, t2 = 1, 2
 ```
 
 ```yaml
+name: GlobalVariableDefinition
 entities:
   exact: false
   items:
@@ -70,6 +71,7 @@ def func(p1, p2):
 ```
 
 ```yaml
+name: LocalVariableDefinition
 entities:
   exact: false
   items:
@@ -110,6 +112,7 @@ for a, b in x:
 ```
 
 ```yaml
+name: IterationVariable
 entities:
   exact: false
   items:
