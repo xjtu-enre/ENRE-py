@@ -72,7 +72,7 @@ def func(p1, p2):
 
 ```yaml
 name: LocalVariableDefinition
-entities:
+entity:
   exact: false
   items:
   - category: Function
@@ -99,6 +99,24 @@ entities:
   - category: Variable
     longname: test_local_variable.func.t3
     name: t3
+  - category: Function
+    longname: test_local_variable.func.inner
+    name: inner
+  - category: Variable
+    longname: test_local_variable.func.inner.x
+    name: x
+  - category: Variable
+    longname: test_local_variable.func.inner.y
+    name: y
+  - category: Variable
+    longname: test_local_variable.func.inner.t1
+    name: t1
+  - category: Variable
+    longname: test_local_variable.func.inner.t2
+    name: t2
+  - category: Variable
+    longname: test_local_variable.func.inner.t3
+    name: t3
 ```
 
 - Iteration Variable
@@ -109,6 +127,11 @@ x = []
 
 for a, b in x:
     ...
+
+def func():
+  for c, d in x:
+    ...
+
 ```
 
 ```yaml
@@ -122,6 +145,12 @@ entities:
   - category: Variable
     longname: test_iteration_variable.b
     name: b
+  - category: Variable
+    longname: test_iteration_variable.func.c
+    name: c
+  - category: Variable
+    longname: test_iteration_variable.func.d
+    name: d
 ```
 
 

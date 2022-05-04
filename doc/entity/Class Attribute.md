@@ -32,6 +32,9 @@ name: StaticClassAttributeDefinition
 entity:
   exact: false
   items:
+  - category: Class
+    longname: test_static_class_attribute.Base
+    name: Base
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_a
     name: attribute_a
@@ -47,6 +50,9 @@ entity:
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_x
     name: attribute_x
+  - category: Class
+    longname: test_static_class_attribute.Inherit
+    name: Inherit
   - category: Class Attribute
     longname: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e
