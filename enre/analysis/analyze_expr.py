@@ -5,7 +5,8 @@ import time
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_class_attr, get_file_level_ent
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
-    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue
+    ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue, \
+    Variable, Function
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.analysis.env import EntEnv, ScopeEnv
 # AValue stands for Abstract Value
@@ -189,11 +190,11 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
 
 
 def extend_known_or_new_possible_attribute(manager: AnalyzeManager,
-                                    attribute: str,
-                                    possible_ents: AbstractValue,
-                                    ret: SetContextValue,
-                                    package_db: RootDB,
-                                    current_db: ModuleDB) -> None:
+                                           attribute: str,
+                                           possible_ents: AbstractValue,
+                                           ret: SetContextValue,
+                                           package_db: RootDB,
+                                           current_db: ModuleDB) -> None:
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
             class_attrs = ent_type.lookup_attr(attribute)
@@ -254,6 +255,14 @@ def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
         ret.append(NewlyCreated(Span.get_nil(), unresolved))
 
 
+def filter_not_setable_entities(ent_objs: AbstractValue) -> AbstractValue:
+    ret = []
+    for e, v in ent_objs:
+        if not isinstance(e, (Class, Function, Module, ModuleAlias)):
+            ret.append((e, v))
+    return ret
+
+
 class SetAvaler:
     def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
         self.manager = manager
@@ -279,7 +288,8 @@ class SetAvaler:
         # while in a set context, only entity in the current scope visible
         lookup_res = env.get_scope()[name_expr.id]
         ent_objs: SetContextValue = []
-        ent_objs.extend(lookup_res.found_entities)
+        ent_objs.extend(filter_not_setable_entities(lookup_res.found_entities))
+
         if ent_objs:
             return ent_objs
         else:
@@ -291,7 +301,8 @@ class SetAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: SetContextValue = []
-        extend_known_or_new_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
+        extend_known_or_new_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db,
+                                               self._current_db)
         return ret
 
 
@@ -322,5 +333,6 @@ class CallAvaler:
         possible_receivers = self._avaler.aval(attr_expr.value, env)
         attribute = attr_expr.attr
         ret: AbstractValue = []
-        extend_known_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db, self._current_db)
+        extend_known_possible_attribute(self.manager, attribute, possible_receivers, ret, self._package_db,
+                                        self._current_db)
         return ret
