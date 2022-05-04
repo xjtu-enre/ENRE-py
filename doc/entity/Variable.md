@@ -106,7 +106,7 @@ entities:
 x = []
 
 for a, b in x:
-
+    ...
 ```
 
 ```yaml
