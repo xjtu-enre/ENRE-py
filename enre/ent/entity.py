@@ -346,8 +346,10 @@ class Class(Entity):
 class UnknownVar(Entity):
     _unknown_pool: Dict[str, "UnknownVar"] = dict()
 
-    def __init__(self, name: str):
-        super(UnknownVar, self).__init__(EntLongname([name]), Location())
+    def __init__(self, name: str, loc: Optional[Location]=None):
+        if loc is None:
+            loc = Location()
+        super(UnknownVar, self).__init__(EntLongname([name]), loc)
 
     def kind(self) -> EntKind:
         return EntKind.UnknownVar
@@ -425,6 +427,15 @@ class UnresolvedAttribute(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.UnresolvedAttr
+
+
+@dataclass(frozen=True)
+class NewlyCreated:
+    span: Span
+    unknown_ent: typing.Union[UnknownVar, UnresolvedAttribute]
+
+
+SetContextValue: TypeAlias = List[Tuple[Entity, ValueInfo] | NewlyCreated]
 
 
 def get_anonymous_ent() -> "Entity":
