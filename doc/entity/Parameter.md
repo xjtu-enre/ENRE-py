@@ -48,97 +48,97 @@ entity:
     longname: test_parameter.func1
     name: func1
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Parameter
     longname: test_parameter.func1.x
     name: x
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Function
     longname: test_parameter.func2
     name: func2
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Parameter
     longname: test_parameter.func2.x
     name: x
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Function
     longname: test_parameter.func3
     name: func3
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Parameter
     longname: test_parameter.func3.x
     name: x
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Parameter
     longname: test_parameter.func3.y
     name: y
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Parameter
     longname: test_parameter.func3.z
     name: z
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Function
     longname: test_parameter.func4
     name: func4
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Parameter
     longname: test_parameter.func4.x
     name: x
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: AnonymousFunction
     longname: test_parameter.func4.(32)
     name: null
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
   - category: Lambda Parameter
     longname: test_parameter.func4.(32).t
     name: t
     r:
-        d:x 
-        e:.
-        s:x
-        u:
+        d: x 
+        e: .
+        s: x
+        u: .
 
 ```

@@ -32,32 +32,32 @@ items:
     longname: test_module_a
     name: test_module_a
     r:
-        d:x 
-        e:x
-        s:.
-        u:
+        d: x 
+        e: x
+        s: .
+        u: .
   - category: Module
     longname: test_module_b
     name: test_module_b
     r:
-        d:x 
-        e:x
-        s:o/non-indexed symbol
-        u:
+        d: x 
+        e: x
+        s: o/non-indexed symbol
+        u: .
   - category: Module Alias
     longname: test_module_b.a
     name: b
     r:
-        d:x 
-        e:x
-        s:o/module
-        u:
+        d: x 
+        e: x
+        s: o/module
+        u: .
   - category: Module Alias
     longname: test_module_a.b
     name: a
     r:
-        d:x 
-        e:x
-        s:o/non-indexed symbol
-        u:
+        d: x 
+        e: x
+        s: o/non-indexed symbol
+        u: .
 ```

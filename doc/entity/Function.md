@@ -42,10 +42,10 @@ entity:
     longname: test_global_function.func1
     name: func1
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
 ```
 - Class Method Definition
 ```python
@@ -71,50 +71,50 @@ entity:
     longname: test_method_definition.ClassA
     name: ClassA
     r:
-        d:Type 
-        e:.
-        s:.
-        u:
+        d: Type 
+        e: .
+        s: .
+        u: .
   - category: Function
     longname: test_method_definition.ClassA.method
     name: method
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Class
     longname: test_method_definition.ClassB
     name: ClassB
     r:
-        d:Type 
-        e:.
-        s:.
-        u:
+        d: Type 
+        e: .
+        s: .
+        u: .
   - category: Function
     longname: test_method_definition.ClassB.method
     name: method
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Class
     longname: test_method_definition.InheritClassA
     name: InheritClassA
     r:
-        d:Type 
-        e:.
-        s:.
-        u:
+        d: Type 
+        e: .
+        s: .
+        u: .
   - category: Function
     longname: test_method_definition.InheritClassA.method
     name: method
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
 ```
 
 - Nested Function Definition
@@ -141,25 +141,24 @@ entity:
     longname: test_nested_function.func
     name: func
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Function
     longname: test_nested_function.func.inner
     name: inner
     r:
-        d:. 
-        e:.
-        s:.
-        u:
+        d: . 
+        e: .
+        s: .
+        u: .
   - category: Function
     longname: test_nested_function.func.inner.inner_inner
     name: inner_inner
     r:
-        d:.  
-        e:.
-        s:.
-        u:
-name: TBA
+        d: .  
+        e: .
+        s: .
+        u: .
 ```
