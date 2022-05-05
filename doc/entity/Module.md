@@ -2,7 +2,7 @@
 An object that serves as an organizational unit of Python code. Modules have a namespace containing arbitrary Python objects. Definition within a module can be imported by import statement.
 
 ## Syntax: Module
-```yaml
+```
 ```
 
 ### Examples

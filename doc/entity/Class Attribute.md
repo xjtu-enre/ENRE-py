@@ -6,7 +6,7 @@ name: ClassAttributeDefinition
 ```
 ## Syntax: ClassAttributeDefinition
 
-```yaml
+```
 ```
 
 ### Examples

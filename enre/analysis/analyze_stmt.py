@@ -382,7 +382,7 @@ class Analyzer:
                 self._avaler.aval(arg.annotation, env)
 
 
-# todo: if target not in the current scope, create a new Variable.md Entity to the current scope
+# todo: if target not in the current scope, create a new Variable Entity to the current scope
 # deprecated function
 @ty.no_type_check
 def add_target_var(target: Entity, ent_type: ValueInfo, env: EntEnv, dep_db: DepDB) -> None:

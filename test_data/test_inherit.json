@@ -1,130 +1,142 @@
 {
     "Entities": [
         {
-            "id": 14,
+            "id": 26,
             "longname": "test_inherit",
             "ent_type": "Module",
+            "name": "test_inherit",
             "start_line": -1,
             "start_col": -1
         },
         {
-            "id": 15,
+            "id": 27,
             "longname": "test_inherit.Base",
             "ent_type": "Class",
+            "name": "Base",
             "start_line": 3,
             "start_col": 6
         },
         {
-            "id": 16,
+            "id": 28,
             "longname": "test_inherit.Base.static_attr",
             "ent_type": "Class Attribute",
+            "name": "static_attr",
             "start_line": 6,
             "start_col": 4
         },
         {
-            "id": 17,
+            "id": 29,
             "longname": "test_inherit.Base.__init__",
             "ent_type": "Function",
+            "name": "__init__",
             "start_line": 9,
             "start_col": 8
         },
         {
-            "id": 18,
+            "id": 30,
             "longname": "test_inherit.Base.__init__.self",
             "ent_type": "Parameter",
+            "name": "self",
             "start_line": 9,
             "start_col": 17
         },
         {
-            "id": 19,
+            "id": 31,
             "longname": "test_inherit.Base.base_attribute",
             "ent_type": "Class Attribute",
+            "name": "base_attribute",
             "start_line": 13,
             "start_col": 13
         },
         {
-            "id": 20,
+            "id": 32,
             "longname": "test_inherit.Inherit",
             "ent_type": "Class",
+            "name": "Inherit",
             "start_line": 17,
             "start_col": 6
         },
         {
-            "id": 21,
+            "id": 33,
             "longname": "test_inherit.Inherit.__init__",
             "ent_type": "Function",
+            "name": "__init__",
             "start_line": 21,
             "start_col": 8
         },
         {
-            "id": 22,
+            "id": 34,
             "longname": "test_inherit.Inherit.__init__.self",
             "ent_type": "Parameter",
+            "name": "self",
             "start_line": 21,
             "start_col": 17
         },
         {
-            "id": 23,
+            "id": 35,
             "longname": "test_inherit.Inherit.use_attribute",
             "ent_type": "Function",
+            "name": "use_attribute",
             "start_line": 27,
             "start_col": 8
         }
     ],
     "Dependencies": [
         {
-            "src": 14,
+            "src": 26,
             "src_name": "test_inherit",
-            "dest": 15,
+            "dest": 27,
             "dest_name": "test_inherit.Base",
             "kind": "Define",
             "lineno": 3,
             "col_offset": 6
         },
         {
-            "src": 17,
+            "src": 29,
             "src_name": "test_inherit.Base.__init__",
-            "dest": 18,
+            "dest": 30,
             "dest_name": "test_inherit.Base.__init__.self",
             "kind": "Define",
             "lineno": 9,
             "col_offset": 17
         },
         {
-            "src": 17,
+            "src": 29,
             "src_name": "test_inherit.Base.__init__",
-            "dest": 18,
+            "dest": 30,
             "dest_name": "test_inherit.Base.__init__.self",
             "kind": "Define",
             "lineno": 13,
             "col_offset": 8
         },
         {
-            "src": 20,
+            "src": 32,
             "src_name": "test_inherit.Inherit",
-            "dest": 15,
+            "dest": 27,
             "dest_name": "test_inherit.Base",
             "kind": "Define",
             "lineno": 17,
             "col_offset": 14
         },
         {
-            "src": 23,
+            "src": 35,
             "src_name": "test_inherit.Inherit.use_attribute",
-            "dest": 19,
+            "dest": 31,
             "dest_name": "test_inherit.Base.base_attribute",
             "kind": "Use",
             "lineno": 29,
             "col_offset": 19
         },
         {
-            "src": 23,
+            "src": 35,
             "src_name": "test_inherit.Inherit.use_attribute",
-            "dest": 16,
+            "dest": 28,
             "dest_name": "test_inherit.Base.static_attr",
             "kind": "Use",
             "lineno": 32,
             "col_offset": 19
         }
-    ]
+    ],
+    "Negative Entities": [],
+    "Negative Dependencies": []
 }

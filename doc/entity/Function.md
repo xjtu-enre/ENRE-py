@@ -2,7 +2,7 @@
 A Function entity in python is a a wrapper around  executable code.
 
 ## Syntax: FunctionDefinition
-```yaml
+```
 funcdef                   : [decorators] "def" funcname "(" [parameter_list] ")"
                             ["->" expression] ":" suite
 decorators                : decorator+

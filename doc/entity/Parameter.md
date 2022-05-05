@@ -7,7 +7,7 @@ name: ParameterDefinition
 ```
 ### Syntax: ParameterDefinition
 
-```yaml
+```
 parameter_list            :  defparameter ("," defparameter)* "," "/" ["," [parameter_list_no_posonly]]
                                | parameter_list_no_posonly
 parameter_list_no_posonly :  defparameter ("," defparameter)* ["," [parameter_list_starargs]]

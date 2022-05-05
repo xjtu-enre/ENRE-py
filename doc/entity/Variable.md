@@ -7,7 +7,7 @@ name: VariableDefinition
 ```
 
 ### Syntax: VariableDefinition
-```yaml
+```
 assignment_stmt :  (target_list =)+ (starred_expression | yield_expression)
 target_list     :  target ("," target)* [","]
 target          :  identifier

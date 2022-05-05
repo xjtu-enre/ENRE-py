@@ -7,7 +7,7 @@ name: ClassDefinition
 ```
 ### Syntax: ClassDefinition
 
-```yaml
+```
 classdef    :  [decorators] "class" classname [inheritance] ":" suite
 inheritance :  "(" [argument_list] ")"
 classname   :  identifier

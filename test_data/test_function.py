@@ -50,6 +50,8 @@ def func():
     def inner():
         # E: Function-$inner=test_function.func.inner@inner
         # D: Define-$func->$inner@def
+        x = 2
+
         def inner_inner():
             # E: Function-$inner_inner=test_function.func.inner_inner@inner_inner
             # D: Define-$func->$inner_inner@def
