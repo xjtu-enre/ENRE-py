@@ -23,6 +23,7 @@ class Base:
 ```
 
 ```yaml
+name: GlobalClassDefinition
 entity:
   exact: false
   items:
