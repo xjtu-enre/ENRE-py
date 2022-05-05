@@ -23,13 +23,33 @@ items:
   - category: Module
     longname: test_module_a
     name: test_module_a
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Module
     longname: test_module_b
     name: test_module_b
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Module Alias
     longname: test_module_a.b
     name: b
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Module Alias
     longname: test_module_b.a
     name: a
+    r:
+        d: 
+        e:
+        s:.
+        u:
 ```

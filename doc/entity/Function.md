@@ -35,9 +35,19 @@ entity:
   - category: Function
     longname: test_global_function.func1
     name: func1
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Parameter
     longname: test_global_function.func1.x
     name: x
+    r:
+        d: 
+        e:
+        s:.
+        u:
 ```
 - Class Method Definition
 ```python
@@ -62,21 +72,51 @@ entity:
   - category: Class
     longname: test_method_definition.ClassA
     name: ClassA
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Function
     longname: test_method_definition.ClassA.method
     name: method
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Class
     longname: test_method_definition.ClassB
     name: ClassB
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Function
     longname: test_method_definition.ClassB.method
     name: method
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Class
-    longname: test_method_definition.ClassB
-    name: ClassB
+    longname: test_method_definition.InheritClassA
+    name: InheritClassA
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Function
     longname: test_method_definition.InheritClassA.method
     name: method
+    r:
+        d: 
+        e:
+        s:.
+        u:
 ```
 
 - Nested Function Definition
@@ -102,11 +142,26 @@ entity:
   - category: Function
     longname: test_nested_function.func
     name: func
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Function
     longname: test_nested_function.func.inner
     name: inner
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Function
-    longname: test_nested_function.func.inner_inner
+    longname: test_nested_function.func.inner.inner_inner
     name: inner_inner
+    r:
+        d: 
+        e:
+        s:.
+        u:
 name: TBA
 ```

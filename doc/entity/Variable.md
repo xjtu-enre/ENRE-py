@@ -41,18 +41,43 @@ entities:
   - category: Variable
     longname: test_global_variable.x
     name: x
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_global_variable.y
     name: y
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_global_variable.t1
     name: t1
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_global_variable.t2
     name: t2
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_global_variable.t3
     name: t3
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
 ```
 
 - Local Variable Definition
@@ -88,45 +113,115 @@ entity:
   - category: Function
     longname: test_local_variable.func
     name: func
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Parameter
     longname: test_local_variable.func.p1
     name: p1
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Parameter
     longname: test_local_variable.func.p2
     name: p2
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Variable
     longname: test_local_variable.func.x
     name: x
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.y
     name: y
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Variable
     longname: test_local_variable.func.t1
     name: t1
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Variable
     longname: test_local_variable.func.t2
     name: t2
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Variable
     longname: test_local_variable.func.t3
     name: t3
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Function
     longname: test_local_variable.func.inner
     name: inner
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.inner.x
     name: x
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.inner.y
     name: y
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.inner.t1
     name: t1
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.inner.t2
     name: t2
+    r:
+        d: 
+        e:
+        s:.
+        u:
   - category: Variable
     longname: test_local_variable.func.inner.t3
     name: t3
+    r:
+        d: 
+        e:
+        s:.
+        u:
 ```
 
 - Iteration Variable
@@ -152,15 +247,34 @@ entities:
   - category: Variable
     longname: test_iteration_variable.a
     name: a
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_iteration_variable.b
     name: b
+    r:
+        d: 
+        e:
+        s:global variable
+        u:
   - category: Variable
     longname: test_iteration_variable.func.c
     name: c
+    r:
+        d: 
+        e:
+        s:x
+        u:
   - category: Variable
     longname: test_iteration_variable.func.d
     name: d
+    r:
+        d: 
+        e:
+        s:x
+        u:
 ```
-
 
