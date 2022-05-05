@@ -1,7 +1,15 @@
 # Entity: Module
 An object that serves as an organizational unit of Python code. Modules have a namespace containing arbitrary Python objects. Definition within a module can be imported by import statement.
 
-## Syntax: Module
+## Supported pattern
+
+```yaml
+name: ModuleDefinition
+```
+
+
+
+## Syntax: ModuleDefinition
 ```
 ```
 
@@ -24,32 +32,32 @@ items:
     longname: test_module_a
     name: test_module_a
     r:
-        d: 
-        e:
+        d:x 
+        e:x
         s:.
         u:
   - category: Module
     longname: test_module_b
     name: test_module_b
     r:
-        d: 
-        e:
-        s:.
-        u:
-  - category: Module Alias
-    longname: test_module_a.b
-    name: b
-    r:
-        d: 
-        e:
-        s:.
+        d:x 
+        e:x
+        s:o/non-indexed symbol
         u:
   - category: Module Alias
     longname: test_module_b.a
+    name: b
+    r:
+        d:x 
+        e:x
+        s:o/module
+        u:
+  - category: Module Alias
+    longname: test_module_a.b
     name: a
     r:
-        d: 
-        e:
-        s:.
+        d:x 
+        e:x
+        s:o/non-indexed symbol
         u:
 ```
