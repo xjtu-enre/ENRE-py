@@ -70,8 +70,8 @@ class RootDB:
         if path.is_file() and path.name.endswith(".py"):
             py_files.append(rel_path)
             from enre.dep.DepDB import DepDB
-            module_ent = Module(path.relative_to(self.root_dir.parent))
-            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(self.root_dir, module_ent)
+            module_ent = Module(rel_path)
+            self.tree[rel_path] = ModuleDB(self.root_dir, module_ent)
         elif path.is_dir():
             sub_py_files = []
             for file in path.iterdir():
