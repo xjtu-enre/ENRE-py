@@ -19,10 +19,11 @@ AnonymousFakeName = "$"
 
 class UseAvaler:
 
-    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB):
+    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB, type_hint_ctx: bool=False):
         self.manager = manager
         self._package_db = package_db
         self._current_db = current_db
+        self._in_type_ctx = type_hint_ctx
 
     def aval(self, expr: ast.expr, env: EntEnv) -> AbstractValue:
         """Visit a node."""
@@ -52,13 +53,13 @@ class UseAvaler:
         ent_objs = lookup_res.found_entities
         ctx = env.get_ctx()
         for ent, ent_type in ent_objs:
-            ctx.add_ref(Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset))
+            ctx.add_ref(Ref(RefKind.UseKind, ent, name_expr.lineno, name_expr.col_offset, self._in_type_ctx))
         if ent_objs != []:
             return ent_objs
         else:
             unknown_var = UnknownVar.get_unknown_var(name_expr.id)
             self._current_db.add_ent(unknown_var)
-            ctx.add_ref(Ref(RefKind.UseKind, unknown_var, name_expr.lineno, name_expr.col_offset))
+            ctx.add_ref(Ref(RefKind.UseKind, unknown_var, name_expr.lineno, name_expr.col_offset, self._in_type_ctx ))
             return [(unknown_var, ValueInfo.get_any())]
 
     def aval_Attribute(self, attr_expr: ast.Attribute, env: EntEnv) -> AbstractValue:
@@ -68,7 +69,7 @@ class UseAvaler:
         ret: AbstractValue = []
         extend_known_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
-            env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.UseKind, ent, attr_expr.lineno, attr_expr.col_offset, self._in_type_ctx))
         return ret
 
     def aval_Call(self, call_expr: ast.Call, env: EntEnv) -> AbstractValue:
@@ -80,7 +81,7 @@ class UseAvaler:
                 ret.append((get_anonymous_ent(), func_type.to_class_type()))
             else:
                 ret.append((get_anonymous_ent(), ValueInfo.get_any()))
-            env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset))
+            env.get_ctx().add_ref(Ref(RefKind.CallKind, caller, call_expr.lineno, call_expr.col_offset, self._in_type_ctx))
         for arg in call_expr.args:
             self.aval(arg, env)
         for key_word_arg in call_expr.keywords:
@@ -98,7 +99,7 @@ class UseAvaler:
         # add function entity to dependency database
         self._current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, lam_expr.lineno, lam_expr.col_offset))
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, func_ent, lam_expr.lineno, lam_expr.col_offset, self._in_type_ctx))
 
         # do not add lambda entity to the current environment
         # env.get_scope().add_continuous([(func_ent, EntType.get_bot())])

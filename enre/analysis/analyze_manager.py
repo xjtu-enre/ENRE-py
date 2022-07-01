@@ -85,10 +85,10 @@ class RootDB:
                     sub_path = file.relative_to(self.root_dir.parent)
                     if sub_path in self.package_tree:
                         sub_package_ent = self.package_tree[sub_path]
-                        package_ent.add_ref(Ref(RefKind.ContainKind, sub_package_ent, 0, 0))
+                        package_ent.add_ref(Ref(RefKind.ContainKind, sub_package_ent, 0, 0, False))
                     elif sub_path in self.tree:
                         module_ent = self.tree[sub_path].module_ent
-                        package_ent.add_ref(Ref(RefKind.ContainKind, module_ent, 0, 0))
+                        package_ent.add_ref(Ref(RefKind.ContainKind, module_ent, 0, 0, False))
 
         return py_files
 
@@ -188,7 +188,7 @@ class AnalyzeManager:
             unknown_module_ent = UnknownModule(unknown_module_name)
             module_db = self.root_db[from_module_ent.module_path]
             module_db.add_ent(unknown_module_ent)
-            from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset))
+            from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset, False))
             return unknown_module_ent, unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
 
