@@ -1,6 +1,5 @@
 # -*- coding:utf-8
 import ast
-from _ast import ClassDef, FunctionDef, Raise, Name, Call
 from typing import Any
 
 abstract_class_def1 = \
@@ -42,7 +41,16 @@ class A_abstract(object):
         pass
 
 class B(A_abstract):
-    pass
+    @staticmethod
+    def __init__(self):
+        pass
+    
+    @staticmethod
+    def test_raise(self):
+        pass
+    
+    def test_decorator(self):
+        pass
 """
 
 
@@ -55,7 +63,7 @@ class Visitor(ast.NodeVisitor):
         self.abstract_method = []
         self.static_method = []
 
-    def visit_ClassDef(self, node: ClassDef) -> Any:
+    def visit_ClassDef(self, node: ast.ClassDef) -> Any:
         # todo: check whether parent is abstract class
         print(f"ClassDef: \nname: {node.name}")
         self.current_class = node.name
@@ -65,7 +73,7 @@ class Visitor(ast.NodeVisitor):
             static_method=[]
         )
         for name in node.bases:
-            if type(name) == Name:
+            if type(name) == ast.Name:
                 print(f"bases: {name.id}")
                 if name.id == 'ABC':
                     self.result[self.current_class]['is_abstract'] = True
@@ -74,10 +82,10 @@ class Visitor(ast.NodeVisitor):
         print("-----------------------------")
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node: FunctionDef) -> Any:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
         print(f"FunctionDef: \nname: {node.name}")
         for decorator in node.decorator_list:
-            if type(decorator) == Name:
+            if type(decorator) == ast.Name:
                 print(f"decorated by {decorator.id}")
                 if decorator.id == 'abstractmethod':
                     self.result[self.current_class]['is_abstract'] = True
@@ -88,10 +96,10 @@ class Visitor(ast.NodeVisitor):
         print("-----------------------------")
         self.generic_visit(node)
 
-    def visit_Raise(self, node: Raise) -> Any:
+    def visit_Raise(self, node: ast.Raise) -> Any:
         # node.exc: Call
-        if type(node.exc) == Call:
-            if type(node.exc.func) == Name and node.exc.func.id == 'NotImplementedError':
+        if type(node.exc) == ast.Call:
+            if type(node.exc.func) == ast.Name and node.exc.func.id == 'NotImplementedError':
                 print(f"Raise: \nname:{node.exc.func.id}")
                 self.result[self.current_class]['is_abstract'] = True
                 print("raise not implement error")
@@ -100,7 +108,7 @@ class Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-AST = ast.parse(abstract_class_def2)
+AST = ast.parse(abstract_class_def3)
 print(ast.dump(AST))
 visitor = Visitor()
 visitor.visit(AST)
