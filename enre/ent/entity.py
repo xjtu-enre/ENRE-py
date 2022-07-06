@@ -1,11 +1,11 @@
 import ast
-import time
 import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
+from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
+
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
@@ -152,6 +152,13 @@ class Entity(ABC):
         return hash((self.longname, self.location))
 
 
+class NameSpaceEntity(ABC):
+    @property
+    @abstractmethod
+    def names(self) -> "NamespaceType":
+        ...
+
+
 # AbstractValue instance contains all possible result of a an expression
 # A possible result is a tuple of entity and entity's type.
 # If some entity, to which an expression evaluate, maybe bound to several types,
@@ -185,7 +192,7 @@ class LambdaFunction(Function):
         return EntKind.AnonymousFunction
 
 
-class Package(Entity):
+class Package(Entity, NameSpaceEntity):
     def __init__(self, file_path: Path):
         import os
         path = os.path.normpath(str(file_path))
@@ -209,7 +216,7 @@ class Package(Entity):
         super(Package, self).add_ref(ref)
 
 
-class Module(Entity):
+class Module(Entity, NameSpaceEntity):
     def __init__(self, file_path: Path):
         # file_path: relative path to root directory's parent
         import os
@@ -300,10 +307,10 @@ class Alias(Entity):
         from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
-            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line))
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False))
 
 
-class Class(Entity):
+class Class(Entity, NameSpaceEntity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Class, self).__init__(longname, location)
         self._names: Dict[str, List[Entity]] = defaultdict(list)
@@ -346,7 +353,7 @@ class Class(Entity):
 class UnknownVar(Entity):
     _unknown_pool: Dict[str, "UnknownVar"] = dict()
 
-    def __init__(self, name: str, loc: Optional[Location]=None):
+    def __init__(self, name: str, loc: Optional[Location] = None):
         if loc is None:
             loc = Location()
         super(UnknownVar, self).__init__(EntLongname([name]), loc)

@@ -1,11 +1,11 @@
 import ast
 from typing import Optional, TYPE_CHECKING
 
-from enre.ent.entity import UnknownVar, AbstractValue, NewlyCreated, Span
-from enre.analysis.assign_target import assign_semantic, flatten_bindings
-from enre.analysis.analyze_expr import UseAvaler
+from enre.analysis.analyze_expr import ExprAnalyzer
 from enre.analysis.analyze_stmt import AnalyzeContext
+from enre.analysis.assign_target import assign_semantic, flatten_bindings
 from enre.analysis.value_info import ConstructorType, ValueInfo
+from enre.ent.entity import UnknownVar, AbstractValue, NewlyCreated, Span
 
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
@@ -25,7 +25,8 @@ def abstract_capture(name: str, err_constructor: AbstractValue, ctx: "AnalyzeCon
 
 
 def handler_semantic(name: Optional[str], error_expr: ast.Expr, ctx: "AnalyzeContext") -> None:
-    use_avaler = UseAvaler(ctx.manager, ctx.package_db, ctx.current_db)
+    return
+    use_avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db)
     err_constructor = use_avaler.aval(error_expr.value, ctx.env)
     if name is not None:
         abstract_capture(name, err_constructor, ctx)

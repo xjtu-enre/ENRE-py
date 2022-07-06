@@ -1,12 +1,11 @@
+import abc
 from collections import defaultdict
 from typing import List, Dict
 
-from enre.ent.EntKind import RefKind
-from enre.ent.entity import ReferencedAttribute, Entity, UnresolvedAttribute
-from enre.analysis.value_info import ValueInfo
 from enre.analysis.analyze_manager import RootDB
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import ReferencedAttribute, Entity
 from enre.ref.Ref import Ref
-import abc
 
 
 class DepDBPass:
@@ -41,7 +40,8 @@ class EntityPass(DepDBPass):
                 new_refs: List[Ref] = []
                 for ref in ent.refs():
                     if isinstance(ref.target_ent, ReferencedAttribute):
-                        same_name_attr_refs = [Ref(ref.ref_kind, e, ref.lineno, ref.col_offset) for e in
+                        same_name_attr_refs = [Ref(ref.ref_kind, e, ref.lineno, ref.col_offset, ref.in_type_ctx) for e
+                                               in
                                                self.attribute_dict[ref.target_ent.longname.name]]
                         # todo: make referenced attribute reference as unresolved
                         # if same_name_attr_refs == []:

@@ -2,9 +2,10 @@ import ast
 import typing as ty
 from pathlib import Path
 
-from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, UnknownVar
 from enre.analysis.env import EntEnv, ScopeEnv
+from enre.cfg.module_tree import FileSummary, SummaryBuilder, ModuleSummary, ClassSummary, FunctionSummary
+from enre.ent.EntKind import RefKind
+from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function
 from enre.ref.Ref import Ref
 
 
@@ -117,6 +118,7 @@ class AnalyzeManager:
         self.project_root = root_path
         self.root_db = RootDB(root_path)
         self.module_stack = ModuleStack()
+        self.summaries: ty.List[ModuleSummary] = []
 
     def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
         in_package = False
@@ -129,7 +131,6 @@ class AnalyzeManager:
                 if self.dir_structure_init(sub_file_path):
                     in_package = True
             if in_package:
-                from enre.ent.entity import Package
                 package_ent = Package(file_path.relative_to(self.project_root.parent))
                 # todo: create dependency tree per file
                 self.root_db.add_ent_global(package_ent)
@@ -163,13 +164,16 @@ class AnalyzeManager:
                 module_ent = self.root_db[rel_path].module_ent
                 checker = Analyzer(rel_path, self)
                 self.module_stack.push(rel_path)
-                checker.analyze_top_stmts(checker.current_db.tree.body,
-                                         EntEnv(ScopeEnv(module_ent, module_ent.location)))
+                module_summary = self.create_file_summary(module_ent)
+                builder = SummaryBuilder(module_summary)
+                checker.analyze_top_stmts(checker.current_db.tree.body, builder,
+                                          EntEnv(ScopeEnv(module_ent, module_ent.location,
+                                                          SummaryBuilder(module_summary))))
                 self.module_stack.pop()
 
     def import_module(self, from_module_ent: Module, module_identifier: str,
-                      lineno: int, col_offset: int, strict: bool) -> ty.Tuple[ty.Union[Module, Package], ty.Union[Module, Package]]:
-        from .analyze_stmt import Analyzer
+                      lineno: int, col_offset: int, strict: bool) -> ty.Tuple[
+        ty.Union[Module, Package], ty.Union[Module, Package]]:
         rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
 
@@ -202,17 +206,20 @@ class AnalyzeManager:
         self.module_stack.push(rel_path)
         print(f"importing the module {rel_path} now analyzing this module")
         with open(self.project_root.parent.joinpath(rel_path), "r", encoding="utf-8") as file:
-            checker.analyze_top_stmts(ast.parse(file.read()).body,
-                                      EntEnv(ScopeEnv(module_ent, module_ent.location)))
+            module_summary = FileSummary(module_ent)
+            builder = SummaryBuilder(module_summary)
+            module_env = EntEnv(ScopeEnv(module_ent, module_ent.location, builder))
+            checker.analyze_top_stmts(ast.parse(file.read()).body, builder, module_env)
         print(f"module {rel_path} finished")
         self.module_stack.pop()
 
     def alias2path(self, from_path: Path, alias: str) -> ty.Tuple[Path, Path]:
         def resolve_head_path(imported_path: Path, head_path: Path) -> ty.Tuple[Path, Path]:
             if str(imported_path) == str(head_path) + ".py":
-                return imported_path,imported_path
+                return imported_path, imported_path
             else:
                 return imported_path, head_path
+
         path_elems = alias.split(".")
         head_module_name = path_elems[0]
         rel_path = Path("/".join(path_elems) + ".py")
@@ -228,6 +235,24 @@ class AnalyzeManager:
             from_path = from_path.parent
         return rel_path, from_path.joinpath(head_module_name)
 
+    def add_summary(self, summary: ModuleSummary) -> None:
+        self.summaries.append(summary)
+
+    def create_file_summary(self, module_ent: Module) -> FileSummary:
+        summary = FileSummary(module_ent)
+        self.add_summary(summary)
+        return summary
+
+    def create_class_summary(self, class_ent: Class) -> ClassSummary:
+        summary = ClassSummary(class_ent)
+        self.add_summary(summary)
+        return summary
+
+    def create_function_summary(self, function_ent: Function) -> FunctionSummary:
+        summary = FunctionSummary(function_ent)
+        self.add_summary(summary)
+        return summary
+
 
 def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> ty.Optional[Path]:
     parent_dir = project_root.parent.joinpath(from_module.module_path.parent)
@@ -239,5 +264,4 @@ def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> t
     return None
 
 
-from enre.ent.entity import Entity
 from enre.dep.DepDB import DepDB

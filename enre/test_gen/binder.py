@@ -1,10 +1,11 @@
+# type: ignore
 import json
+import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias, Dict, List, Sequence, TypedDict, Tuple
-import re
 
 EntityPattern = re.compile("E: (.*)-\\$(.*)=(.*)@(.*)")
 NegEntityPattern = re.compile("NE: (.*)-\\$(.*)=(.*)@(.*)")

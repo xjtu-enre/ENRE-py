@@ -13,3 +13,4 @@ class Ref(ABC):
 
     col_offset: int
 
+    in_type_ctx: bool

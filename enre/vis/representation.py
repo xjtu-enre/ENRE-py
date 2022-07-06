@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Dict, Union, Literal, TypedDict, Any
+from typing import List, TypedDict, Any
 
-from enre.ent.entity import Entity
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
+from enre.ent.entity import Entity
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -11,7 +11,8 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "dest_name": str,
                               "kind": str,
                               "lineno": int,
-                              "col_offset": int
+                              "col_offset": int,
+                              "in_type_context": bool
                               })
 
 NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
@@ -40,6 +41,7 @@ class Edge:
     kind: str
     lineno: int
     col_offset: int
+    in_type_ctx: bool
 
 
 class DepRepr:
@@ -66,7 +68,8 @@ class DepRepr:
                                         "dest_name": e.dest_name,
                                         "kind": e.kind,
                                         "lineno": e.lineno,
-                                        "col_offset": e.col_offset})
+                                        "col_offset": e.col_offset,
+                                        "in_type_context": e.in_type_ctx})
         return ret
 
     @classmethod
@@ -74,7 +77,8 @@ class DepRepr:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col, ent.location.code_span.start_col, ent.location.code_span.end_col))
+                                   ent.location.code_span.end_col, ent.location.code_span.start_col,
+                                   ent.location.code_span.end_col))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     dep_repr._edge_list.append(Edge(src=ent.id,
@@ -82,8 +86,9 @@ class DepRepr:
                                                     dest=ref.target_ent.id,
                                                     dest_name=ref.target_ent.longname.longname,
                                                     kind=ref.ref_kind.value,
-                                                lineno=ref.lineno,
-                                                col_offset=ref.col_offset))
+                                                    in_type_ctx=ref.in_type_ctx,
+                                                    lineno=ref.lineno,
+                                                    col_offset=ref.col_offset))
 
     @classmethod
     def from_package_db(cls, package_db: RootDB) -> "DepRepr":
@@ -119,5 +124,6 @@ class DepRepr:
                                        dest_name=tar_ent.longname(),
                                        kind=ref.kind().name(),
                                        lineno=lineno,
-                                       col_offset=col_offset))
+                                       col_offset=col_offset,
+                                       in_type_ctx=ref.in_type_ctx))
         return dep_repr

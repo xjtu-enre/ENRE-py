@@ -1,11 +1,12 @@
+import argparse
 import json
 import sys
 import time
 from pathlib import Path
-import argparse
+
 from enre.analysis.analyze_manager import AnalyzeManager
 from enre.vis.representation import DepRepr
-import json
+from enre.vis.summary_repr import from_summaries
 
 
 def main() -> None:
@@ -34,6 +35,12 @@ def enre_wrapper(root_path: Path) -> AnalyzeManager:
     with open(out_path, "w") as file:
         repr = DepRepr.from_package_db(manager.root_db).to_json()
         json.dump(repr, file, indent=4)
+
+    summary_out_path = Path(f"{project_name}-report-enre-summary.txt")
+    with open(summary_out_path, "w") as file:
+        summary_repr = from_summaries(manager.summaries)
+        file.write(summary_repr)
+
     return manager
 
 

@@ -2,6 +2,7 @@ import ast
 from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING, Tuple, TypeAlias, Optional
 
+from enre.cfg.module_tree import SummaryBuilder
 from enre.ent.entity import Entity, Location
 
 if TYPE_CHECKING:
@@ -139,12 +140,17 @@ class ScopeEnv:
     def get_hooks(self) -> List[Hook]:
         return self._hooks
 
-    def __init__(self, ctx_ent: Entity, location: Location, class_ctx: "Optional[Class]" = None) -> None:
+    def __init__(self, ctx_ent: Entity, location: Location, builder: SummaryBuilder,
+                 class_ctx: "Optional[Class]" = None) -> None:
         self._ctx_ent = ctx_ent
         self._location = location
+        self._builder = builder
         self._class_ctx = class_ctx
         self._hooks: List[Hook] = []
         self._sub_envs: List[SubEnv] = [BasicSubEnv()]
+
+    def get_builder(self) -> SummaryBuilder:
+        return self._builder
 
     def add_sub_env(self, sub_env: SubEnv) -> None:
         self._sub_envs.append(sub_env)
