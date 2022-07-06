@@ -1,11 +1,11 @@
 import ast
-import time
 import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Set, Dict, TypeAlias, Tuple, Callable
+from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
+
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
@@ -300,7 +300,7 @@ class Alias(Entity):
         from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
-            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line))
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False))
 
 
 class Class(Entity):

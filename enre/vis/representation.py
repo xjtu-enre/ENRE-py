@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Dict, Union, Literal, TypedDict, Any
+from typing import List, TypedDict, Any
 
-from enre.ent.entity import Entity
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
+from enre.ent.entity import Entity
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -11,13 +11,24 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "dest_name": str,
                               "kind": str,
                               "lineno": int,
-                              "col_offset": int
+                              "col_offset": int,
+                              "in_type_context": bool,
                               })
 
 NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
                               "start_line": int, "end_line": int, "start_col": int, "end_col": int})
 
 DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
+
+Location = TypedDict("Location", {"startLine": int, "endLine": int, "startColumn": int, "endColumn": int})
+
+VarTy = TypedDict("VarTy", {"id": int, "qualifiedName": str, "category": str,
+                            "location": Location})
+
+ValueTy = TypedDict("ValueTy", {"kind": str, "in_type_context": bool})
+Cells = TypedDict("Cells", {"src": int, "dest": int, "values": ValueTy})
+
+DepTy1 = TypedDict("DepTy1", {"variables": List[VarTy], "cells": List[Cells]})
 
 
 @dataclass
@@ -40,6 +51,7 @@ class Edge:
     kind: str
     lineno: int
     col_offset: int
+    in_type_context: bool
 
 
 class DepRepr:
@@ -66,7 +78,20 @@ class DepRepr:
                                         "dest_name": e.dest_name,
                                         "kind": e.kind,
                                         "lineno": e.lineno,
-                                        "col_offset": e.col_offset})
+                                        "col_offset": e.col_offset,
+                                        "in_type_context": e.in_type_context})
+        return ret
+
+    def to_json_1(self) -> DepTy1:
+        ret: DepTy1 = {"variables": [], "cells": []}
+        for n in self._node_list:
+            ret["variables"].append({"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+                                     "location": {"startLine": n.start_line, "endLine": n.end_line,
+                                                  "startColumn": n.start_col, "endColumn": n.end_col}})
+        for e in self._edge_list:
+            ret["cells"].append({"src": e.src,
+                                 "dest": e.dest,
+                                 "values": {"kind": e.kind, "in_type_context": e.in_type_context}})
         return ret
 
     @classmethod
@@ -74,7 +99,8 @@ class DepRepr:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col, ent.location.code_span.start_col, ent.location.code_span.end_col))
+                                   ent.location.code_span.end_col, ent.location.code_span.start_col,
+                                   ent.location.code_span.end_col))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     dep_repr._edge_list.append(Edge(src=ent.id,
@@ -82,8 +108,9 @@ class DepRepr:
                                                     dest=ref.target_ent.id,
                                                     dest_name=ref.target_ent.longname.longname,
                                                     kind=ref.ref_kind.value,
-                                                lineno=ref.lineno,
-                                                col_offset=ref.col_offset))
+                                                    lineno=ref.lineno,
+                                                    col_offset=ref.col_offset,
+                                                    in_type_context=ref.in_type_ctx))
 
     @classmethod
     def from_package_db(cls, package_db: RootDB) -> "DepRepr":
@@ -119,5 +146,6 @@ class DepRepr:
                                        dest_name=tar_ent.longname(),
                                        kind=ref.kind().name(),
                                        lineno=lineno,
-                                       col_offset=col_offset))
+                                       col_offset=col_offset,
+                                       in_type_context=False))
         return dep_repr

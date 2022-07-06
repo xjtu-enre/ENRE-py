@@ -1,10 +1,10 @@
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
+from enre.analysis.analyze_manager import RootDB
 from enre.analysis.value_info import ValueInfo
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity, Class, AmbiguousAttribute, ReferencedAttribute, NamespaceType, UnresolvedAttribute
-from enre.analysis.analyze_manager import RootDB
 from enre.passes.entity_pass import DepDBPass
 from enre.ref.Ref import Ref
 
@@ -73,7 +73,7 @@ class BuildAmbiguous(DepDBPass):
             ambiguous_ents_dict[name] = ambiguous_ent
             self._package_db.global_db.add_ent(ambiguous_ent)
             for tar_ent in ents:
-                tar_ent.add_ref(Ref(RefKind.HasambiguousKind, ambiguous_ent, -1, -1))
+                tar_ent.add_ref(Ref(RefKind.HasambiguousKind, ambiguous_ent, -1, -1, False))
         return ambiguous_ents_dict
 
 
@@ -107,14 +107,13 @@ class BuildAmbiguous(DepDBPass):
         attr_name = target_ent.longname.name
         ambiguous_ent = ambiguous_ent_dict[attr_name]
         if ambiguous_ent is not None:
-            ent.add_ref(Ref(ref.ref_kind, ambiguous_ent, ref.lineno, ref.col_offset))
+            ent.add_ref(Ref(ref.ref_kind, ambiguous_ent, ref.lineno, ref.col_offset, False))
             return
         elif definite_attr := definite_attr_dict[attr_name]:
             for attr_ent in definite_attr:
-                ent.add_ref(Ref(ref.ref_kind, attr_ent, ref.lineno, ref.col_offset))
+                ent.add_ref(Ref(ref.ref_kind, attr_ent, ref.lineno, ref.col_offset, False))
         else:
             # referenced attribute is an unresolved attribute
             unresolved = UnresolvedAttribute(target_ent.longname, target_ent.location, ValueInfo.get_any())
             self.package_db.add_ent_global(unresolved)
-            ent.add_ref(Ref(ref.ref_kind, unresolved, ref.lineno, ref.col_offset))
-
+            ent.add_ref(Ref(ref.ref_kind, unresolved, ref.lineno, ref.col_offset, False))
