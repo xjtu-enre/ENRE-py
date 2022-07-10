@@ -153,13 +153,13 @@ class Visitor(ast.NodeVisitor):
         print("-----------------------------")
         self.generic_visit(node)
 
-    def visit_If(self, node: ast.If) -> None:
-        # todo: 关于对于raise NotImplementError的判断
-        for body_content in node.body:
-            if type(body_content) == ast.Raise:
-                if type(body_content.exc) == ast.Call and type(body_content.exc.func) == ast.Name:
-                    if body_content.exc.func.id == 'NotImplementedError':
-                        print("123123123123")
+    # def visit_If(self, node: ast.If) -> None:
+    #     # todo: 关于对于raise NotImplementError的判断
+    #     for body_content in node.body:
+    #         if type(body_content) == ast.Raise:
+    #             if type(body_content.exc) == ast.Call and type(body_content.exc.func) == ast.Name:
+    #                 if body_content.exc.func.id == 'NotImplementedError':
+    #                     print("123123123123")
 
 
 def print_result(class_instance: Class) -> None:
