@@ -170,10 +170,11 @@ class AbstractKind(Enum):
 
 
 class AbstractClassInfo:
-    # information about an abstract class
+    # todo: information about an abstract class
     ...
 
 def is_abstract_method(node: ast.FunctionDef) -> Optional[AbstractKind]:
+    # todo: test if the function is abstract method by decorator and its body
     return None
 
 

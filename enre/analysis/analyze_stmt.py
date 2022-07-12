@@ -126,11 +126,13 @@ class Analyzer:
         env.add_scope(body_env)
         self.analyze_top_stmts(class_stmt.body, env)
         env.pop_scope()
+        self.set_abstract_class_info(class_ent, class_stmt)
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
         # known the class's attribute
 
     def set_abstract_class_info(self, class_ent: Class, class_ast: ast.ClassDef) -> None:
+        # todo: set abstract class info if it contain abstract method or abstract constructor
         # set abstract class info of Class Entity
         for name, ent in class_ent.names.items():
             if isinstance(ent, Function) and ent.is_abstract:
