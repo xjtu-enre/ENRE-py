@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
+from enre.analysis.analyze_abstract import AbstractClassInfo, AbstractKind
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
@@ -172,6 +173,7 @@ class Variable(Entity):
 class Function(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Function, self).__init__(longname, location)
+        self.is_abstract: Optional[AbstractKind] = None
 
     def kind(self) -> EntKind:
         return EntKind.Function
@@ -308,6 +310,7 @@ class Class(Entity):
         super(Class, self).__init__(longname, location)
         self._names: Dict[str, List[Entity]] = defaultdict(list)
         self._inherits: List["Class"] = []
+        self.abstract_info: Optional[AbstractClassInfo] = None
 
     def kind(self) -> EntKind:
         return EntKind.Class

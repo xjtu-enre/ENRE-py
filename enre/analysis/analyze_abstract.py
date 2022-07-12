@@ -1,5 +1,8 @@
 # -*- coding:utf-8
 import ast
+from dataclasses import dataclass
+from enum import Enum
+from typing import List, Set, Optional
 
 abstract_class_def1 = \
 """
@@ -161,6 +164,18 @@ class Visitor(ast.NodeVisitor):
     #                 if body_content.exc.func.id == 'NotImplementedError':
     #                     print("123123123123")
 
+class AbstractKind(Enum):
+    Constructor = "Abstract Constructor"
+    AbstractMethod = "Abstract Method"
+
+
+class AbstractClassInfo:
+    # information about an abstract class
+    ...
+
+def is_abstract_method(node: ast.FunctionDef) -> Optional[AbstractKind]:
+    return None
+
 
 def print_result(class_instance: Class) -> None:
     print("-----------------------------")
@@ -184,4 +199,3 @@ visitor.visit(AST)
 print('analyze result')
 for k, v in visitor.result.items():
     print_result(v)
-
