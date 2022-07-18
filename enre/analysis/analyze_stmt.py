@@ -3,7 +3,7 @@ import typing as ty
 from dataclasses import dataclass
 from pathlib import Path
 
-from enre.analysis.analyze_abstract import is_abstract_method
+from enre.analysis.analyze_abstract import is_abstract_method, AbstractClassInfo
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
@@ -126,17 +126,28 @@ class Analyzer:
         env.add_scope(body_env)
         self.analyze_top_stmts(class_stmt.body, env)
         env.pop_scope()
+        self.set_abstract_class_info(class_ent, class_stmt)
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
         # known the class's attribute
 
     def set_abstract_class_info(self, class_ent: Class, class_ast: ast.ClassDef) -> None:
         # set abstract class info of Class Entity
-        for name, ent in class_ent.names.items():
-            if isinstance(ent, Function) and ent.is_abstract:
-                ...
-        class_ent.abstract_info = None
+        abstract_info: AbstractClassInfo = AbstractClassInfo()
+        flag = False
+        for name, ents in class_ent.names.items():
+            for entity in ents:
+                if isinstance(entity, Function) and entity.is_abstract:
+                    abstract_info.abstract_methods.append(entity)
+                    flag = True
 
+        for base in class_ast.bases:
+            if type(base) == ast.Name:
+                if base.id == 'ABC':
+                    abstract_info.inherit = "ABC"
+                    flag = True
+
+        class_ent.abstract_info = abstract_info if flag else None
 
     def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         in_len = len(env.get_scope())
