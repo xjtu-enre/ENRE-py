@@ -1,7 +1,8 @@
 from collections import defaultdict
 from typing import List, Dict, Set, Sequence, Iterable
 
-from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference
+from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
+    ClassObject
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, ClassSummary, FileSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess
 from enre.ent.entity import Class
@@ -108,6 +109,8 @@ class Resolver:
                 summary.return_slot.update(summary.namespace[p.name()])
             case FuncConst() as fc:
                 summary.return_slot.add(self.scene.summary_map[fc.func].get_object())
+            case ClassConst() as cc:
+                summary.return_slot.add(self.scene.summary_map[cc.cls].get_object())
             case _:
                 assert False
 
@@ -124,8 +127,21 @@ class Resolver:
                 for func in namespace[v.name()]:
                     lhs_slot.update(self.abstract_object_call(func, args_slot, namespace))
             case ClassConst() as cc:
+                cls_obj = self.scene.summary_map[cc.cls].get_object()
+                assert isinstance(cls_obj, ClassObject)
                 if not contain_object_of_type(lhs_slot, cc.cls):
-                    lhs_slot.add(self.abstract_class_call(cc, args_slot, namespace))
+                    lhs_slot.add(self.abstract_class_call(cls_obj, args_slot, namespace))
+                else:
+                    for obj in lhs_slot:
+                        if isinstance(obj, InstanceObject):
+                            if obj.class_obj.class_ent == cc.cls:
+                                initializer = obj.class_obj.members["__init__"]
+                                obj1: HeapObject = obj
+                                args_slots: Sequence[ObjectSlot] = [{obj1}] + list(args_slot)
+                                for obj in initializer:
+                                    if isinstance(obj, FunctionObject):
+                                        self.abstract_function_object_call(obj, args_slots, namespace)
+
             case FieldAccess() as field_access:
                 for func in self.abstract_load(field_access, namespace):
                     lhs_slot.update(self.abstract_object_call(func, args_slot, namespace))
@@ -143,6 +159,8 @@ class Resolver:
                 instance: HeapObject = ref.from_obj
                 args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
                 return self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
+            case ClassObject() as c:
+                return {self.abstract_class_call(c, args, namespace)}
             case InstanceObject(i):
                 # todo: call __call__
                 return []
@@ -176,12 +194,11 @@ class Resolver:
                     target_summary.namespace[parameter_name].add(self.get_const_object(fc))
         return target_summary.return_slot
 
-    def abstract_class_call(self, cls: ClassConst, args: Sequence[ObjectSlot], namespace: NameSpace) -> HeapObject:
-        target_summary = self.scene.summary_map[cls.cls]
+    def abstract_class_call(self, cls: ClassObject, args: Sequence[ObjectSlot], namespace: NameSpace) -> HeapObject:
+        target_summary = self.scene.summary_map[cls.class_ent]
         assert isinstance(target_summary, ClassSummary)
         cls_obj = target_summary.get_object()
         instance: HeapObject = InstanceObject(cls_obj,defaultdict(set))
-        # todo: call class initializer instance here
         initializer = cls_obj.members["__init__"]
 
         args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
