@@ -141,7 +141,7 @@ class ExprAnalyzer:
         return field_accesses, ret
 
     def aval_Call(self, call_expr: ast.Call) -> Tuple[StoreAbles, AbstractValue]:
-        call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._exp_ctx, self._builder,
+        call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, CallContext(), self._builder,
                                    self._env)
         caller_stores, possible_callers = call_avaler.aval(call_expr.func)
         ret: AbstractValue = []
@@ -184,7 +184,7 @@ class ExprAnalyzer:
         # do not add lambda entity to the scope environment corresponding to the function
         # body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
-        process_parameters(lam_expr.args, body_env, self._current_db, self._env.get_class_ctx())
+        process_parameters(lam_expr.args, body_env, self._current_db, func_summary, self._env.get_class_ctx())
         hook_scope = self._env.get_scope(1) if in_class_env else self._env.get_scope()
         # type error due to member in ast node is, but due to any member in our structure is only readable,
         # this type error is safety
@@ -373,7 +373,7 @@ def create_ref_by_ctx(target_ent: Entity,
             ref_kind = RefKind.CallKind
         case SetContext():
             in_type_ctx = False
-            ref_kind = RefKind.DefineKind
+            ref_kind = RefKind.SetKind
         case _:
             assert False, "unexpected context"
     return Ref(ref_kind, target_ent, lineno, col_offset, in_type_ctx)

@@ -38,7 +38,7 @@ def enre_wrapper(root_path: Path) -> AnalyzeManager:
 
     summary_out_path = Path(f"{project_name}-report-enre-summary.txt")
     with open(summary_out_path, "w") as file:
-        summary_repr = from_summaries(manager.summaries)
+        summary_repr = from_summaries(manager.scene.summaries)
         file.write(summary_repr)
 
     return manager

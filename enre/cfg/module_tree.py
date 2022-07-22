@@ -1,18 +1,22 @@
 import itertools
 from abc import abstractmethod, ABC
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
 from typing import TypeAlias, Set, Dict, Optional, Sequence
 
+from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace, ObjectSlot
 from enre.cfg.AbstractObject import AbstractObject
 from enre.ent.entity import Class, Entity, Parameter, Module, NameSpaceEntity, UnknownVar, \
     ClassAttribute, Package, Alias, ModuleAlias
 from enre.ent.entity import Function, Variable
 
-ObjectSlot: TypeAlias = Set[AbstractObject]
 
 
-class ModuleSummary(ABC):
+class ModuleSummary:
+    namespace: NameSpace
+
+
     @property
     @abstractmethod
     def rules(self) -> "List[Rule]":
@@ -21,6 +25,14 @@ class ModuleSummary(ABC):
     @property
     @abstractmethod
     def module_head(self) -> "str":
+        ...
+
+    @abstractmethod
+    def add_child(self, child: "ModuleSummary") -> None:
+        ...
+
+    @abstractmethod
+    def name(self) -> str:
         ...
 
     def __str__(self) -> str:
@@ -29,19 +41,40 @@ class ModuleSummary(ABC):
             ret += "\t{}\n".format(str(rule))
         return ret
 
+    @abstractmethod
+    def get_object(self) -> HeapObject:
+        pass
+
 
 class FileSummary(ModuleSummary):
     def __init__(self, module_ent: Module):
         self.module = module_ent
         self._rules: "List[Rule]" = []
+        self._children: "List[ModuleSummary]" = []
+        self.namespace: NameSpace = defaultdict(set)
+        self._correspond_obj: Optional[HeapObject] = None
 
     @property
     def module_head(self) -> "str":
         return f"File Summary of {self.module.longname.longname}"
 
+    def name(self) -> str:
+        return self.module.longname.name
+
     @property
     def rules(self) -> "List[Rule]":
         return self._rules
+
+    def add_child(self, child: "ModuleSummary") -> None:
+        self._children.append(child)
+
+    def get_object(self) -> HeapObject:
+        if self._correspond_obj:
+            return self._correspond_obj
+        else:
+            new_obj = ModuleObject(self.module, dict())
+            self._correspond_obj = new_obj
+            return new_obj
 
 
 class ClassSummary(ModuleSummary):
@@ -49,23 +82,60 @@ class ClassSummary(ModuleSummary):
     def module_head(self) -> "str":
         return f"Class Summary of {self.cls.longname.longname}"
 
+    def name(self) -> str:
+        return self.cls.longname.name
+
     def __init__(self, cls: Class):
         self.cls = cls
         self._rules: "List[Rule]" = []
+        self._children: "List[ModuleSummary]" = []
+        self.namespace: NameSpace = defaultdict(set)
+        self._correspond_obj: Optional[ClassObject] = None
 
     @property
     def rules(self) -> "List[Rule]":
         return self._rules
 
+    def add_child(self, child: "ModuleSummary") -> None:
+        self._children.append(child)
+
+    def get_object(self) -> ClassObject:
+        if self._correspond_obj:
+            return self._correspond_obj
+        else:
+            namespace = defaultdict(set)
+            for child in self._children:
+                namespace[child.name()].add(child.get_object())
+            new_obj = ClassObject(self.cls, namespace)
+            self._correspond_obj = new_obj
+            return new_obj
+
 
 class FunctionSummary(ModuleSummary):
-    variable_slots: Dict[str, ObjectSlot]
-
-    parameter_slots: Dict[str, ObjectSlot]
 
     def __init__(self, func: Function) -> None:
         self.func = func
         self._rules: List[Rule] = []
+        self.namespace: NameSpace = defaultdict(set)
+        self.parameter_slots: Dict[int, ObjectSlot] = defaultdict(set)
+        self.parameter_list: List[str] = list()
+        self.return_slot: ObjectSlot = set()
+        self._correspond_obj: Optional[HeapObject] = None
+
+    def get_object(self) -> HeapObject:
+        if self._correspond_obj:
+            return self._correspond_obj
+        else:
+            new_obj = FunctionObject(self.func, self)
+            self._correspond_obj = new_obj
+            return new_obj
+
+    def add_child(self, child: "ModuleSummary") -> None:
+        return
+        # todo: remove this method in the future
+
+    def name(self) -> str:
+        return self.func.longname.name
 
     @property
     def module_head(self) -> "str":
@@ -74,6 +144,13 @@ class FunctionSummary(ModuleSummary):
     @property
     def rules(self) -> "List[Rule]":
         return self._rules
+
+
+class Scene:
+
+    def __init__(self) -> None:
+        self.summaries: List[ModuleSummary] = []
+        self.summary_map: Dict[Entity, ModuleSummary] = dict()
 
 
 class StoreAble(object):
@@ -87,9 +164,10 @@ class Temporary(StoreAble):
     """
     Temporary is not corresponding to any variable entity of source code, just a temporary
     """
+    __match_args__ = ("_name",)
 
     def __init__(self, name: str) -> None:
-        self._name = name
+        self._name: str = name
 
     def name(self) -> str:
         return self._name
@@ -99,6 +177,8 @@ class Temporary(StoreAble):
 
 
 class VariableLocal(StoreAble):
+    __match_args__ = ("_variable",)
+
     def __init__(self, variable: Variable) -> None:
         self._variable = variable
         self._parent_func = None
@@ -111,6 +191,8 @@ class VariableLocal(StoreAble):
 
 
 class ParameterLocal(StoreAble):
+    __match_args__ = ("_parameter",)
+
     def __init__(self, parameter: Parameter) -> None:
         self._parameter = parameter
 
@@ -122,11 +204,11 @@ class ParameterLocal(StoreAble):
 
 
 class VariableOuter(StoreAble):
-    def __init__(self, parameter: Parameter) -> None:
-        self._parameter = parameter
+    def __init__(self, variable: VariableLocal, func: FunctionSummary) -> None:
+        self._varialbe = variable
 
     def name(self) -> str:
-        return self._parameter.longname.name
+        return self._varialbe.name()
 
     def __str__(self) -> str:
         return self.name()
@@ -149,7 +231,10 @@ class FuncConst(StoreAble):
     func: Function
 
     def __str__(self) -> str:
-        return f"functional value {self.func.longname}"
+        return f"functional value {self.func.longname.longname}"
+
+    def name(self) -> str:
+        return self.func.longname.name
 
 
 @dataclass(frozen=True)
@@ -159,6 +244,9 @@ class ClassConst(StoreAble):
     def __str__(self) -> str:
         return f"class value {self.cls.longname.longname}"
 
+    def name(self) -> str:
+        return self.cls.longname.name
+
 
 @dataclass(frozen=True)
 class ModuleConst(StoreAble):
@@ -167,6 +255,9 @@ class ModuleConst(StoreAble):
     def __str__(self) -> str:
         return f"module {self.mod.longname}"
 
+    def name(self) -> str:
+        return self.mod.longname.name
+
 
 @dataclass(frozen=True)
 class PackageConst(StoreAble):
@@ -174,6 +265,9 @@ class PackageConst(StoreAble):
 
     def __str__(self) -> str:
         return f"package {self.package.longname}"
+
+    def name(self) -> str:
+        return self.package.longname.name
 
 
 @dataclass(frozen=True)
@@ -263,6 +357,7 @@ class SummaryBuilder(object):
             match fa:
                 case (VariableLocal() | Temporary() | VariableOuter() | ParameterLocal()) as v:
                     ret.append(FieldAccess(v, field))
+                    # we have to return a field access here, because only this can resolve set behavior correctly
                 case NameSpaceEntity() as mod:
                     all_member_store_able = []
                     for m in mod.names[field]:
@@ -274,6 +369,9 @@ class SummaryBuilder(object):
     def add_return(self, return_stores: StoreAbles) -> None:
         for return_store in return_stores:
             self._rules.append(Return(return_store))
+
+    def add_child(self, summary: ModuleSummary) -> None:
+        self.mod.add_child(summary)
 
 
 def get_named_store_able(ent: Entity) -> Optional[StoreAble]:

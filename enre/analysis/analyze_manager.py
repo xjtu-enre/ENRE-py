@@ -3,7 +3,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.analysis.env import EntEnv, ScopeEnv
-from enre.cfg.module_tree import FileSummary, SummaryBuilder, ModuleSummary, ClassSummary, FunctionSummary
+from enre.cfg.module_tree import FileSummary, SummaryBuilder, ModuleSummary, ClassSummary, FunctionSummary, Scene
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function
 from enre.ref.Ref import Ref
@@ -118,7 +118,7 @@ class AnalyzeManager:
         self.project_root = root_path
         self.root_db = RootDB(root_path)
         self.module_stack = ModuleStack()
-        self.summaries: ty.List[ModuleSummary] = []
+        self.scene: Scene = Scene()
 
     def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
         in_package = False
@@ -236,20 +236,24 @@ class AnalyzeManager:
         return rel_path, from_path.joinpath(head_module_name)
 
     def add_summary(self, summary: ModuleSummary) -> None:
-        self.summaries.append(summary)
+        self.scene.summaries.append(summary)
+
 
     def create_file_summary(self, module_ent: Module) -> FileSummary:
         summary = FileSummary(module_ent)
+        self.scene.summary_map[module_ent] = summary
         self.add_summary(summary)
         return summary
 
     def create_class_summary(self, class_ent: Class) -> ClassSummary:
         summary = ClassSummary(class_ent)
+        self.scene.summary_map[class_ent] = summary
         self.add_summary(summary)
         return summary
 
     def create_function_summary(self, function_ent: Function) -> FunctionSummary:
         summary = FunctionSummary(function_ent)
+        self.scene.summary_map[function_ent] = summary
         self.add_summary(summary)
         return summary
 

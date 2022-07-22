@@ -10,7 +10,7 @@ from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.analysis.assign_target import dummy_iter_store
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 from enre.analysis.value_info import ValueInfo, PackageType
-from enre.cfg.module_tree import SummaryBuilder, ModuleSummary
+from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Function, Module, Location, UnknownVar, Parameter, Class, ModuleAlias, \
@@ -84,6 +84,7 @@ class Analyzer:
         current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset, False))
         # create a function summary
         fun_summary = self.manager.create_function_summary(func_ent)
+        env.get_scope().get_builder().add_child(fun_summary)
         # and corresponding summary builder
         builder = SummaryBuilder(fun_summary)
         # add function entity to the current environment
@@ -95,7 +96,7 @@ class Analyzer:
         if not isinstance(current_ctx, Class):
             body_env.add_continuous(new_binding)
         # add parameters to the scope environment
-        process_parameters(def_stmt.args, body_env, self.current_db, env.get_class_ctx())
+        process_parameters(def_stmt.args, body_env, self.current_db, fun_summary, env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
 
         hook_scope.add_hook(def_stmt.body, body_env)
@@ -387,7 +388,7 @@ class Analyzer:
                             env.get_scope().get_builder(), env)
 
 
-def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
+def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB, summary: FunctionSummary,
                        class_ctx: ty.Optional[Class] = None) -> None:
     location_base = env.get_location()
     ctx_fun = env.get_ctx()
@@ -400,6 +401,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
+        summary.parameter_list.append(a.arg)
         ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, False))
 
     args_binding: "Bindings" = []
