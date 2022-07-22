@@ -1,4 +1,5 @@
 import itertools
+import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
@@ -10,7 +11,8 @@ from enre.cfg.AbstractObject import AbstractObject
 from enre.ent.entity import Class, Entity, Parameter, Module, NameSpaceEntity, UnknownVar, \
     ClassAttribute, Package, Alias, ModuleAlias
 from enre.ent.entity import Function, Variable
-
+if typing.TYPE_CHECKING:
+    from enre.analysis.analyze_expr import ExpressionContext
 
 
 class ModuleSummary:
@@ -117,7 +119,6 @@ class FunctionSummary(ModuleSummary):
         self.func = func
         self._rules: List[Rule] = []
         self.namespace: NameSpace = defaultdict(set)
-        self.parameter_slots: Dict[int, ObjectSlot] = defaultdict(set)
         self.parameter_list: List[str] = list()
         self.return_slot: ObjectSlot = set()
         self._correspond_obj: Optional[HeapObject] = None
@@ -351,12 +352,16 @@ class SummaryBuilder(object):
             ret.append(self.add_move_temp(invoke))
         return ret
 
-    def load_field(self, field_accesses: StoreAbles, field: str) -> StoreAbles:
+    def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext" ) -> StoreAbles:
+        from enre.analysis.analyze_expr import SetContext
         ret: List[StoreAble] = []
         for fa in field_accesses:
             match fa:
                 case (VariableLocal() | Temporary() | VariableOuter() | ParameterLocal()) as v:
-                    ret.append(FieldAccess(v, field))
+                    if isinstance(context, SetContext):
+                        ret.append(FieldAccess(v, field))
+                    else:
+                        ret.append(self.add_move_temp(FieldAccess(v, field)))
                     # we have to return a field access here, because only this can resolve set behavior correctly
                 case NameSpaceEntity() as mod:
                     all_member_store_able = []

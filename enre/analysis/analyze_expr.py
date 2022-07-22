@@ -137,7 +137,7 @@ class ExprAnalyzer:
         for ent, _ in ret:
             self._env.get_ctx().add_ref(
                 create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset, self._exp_ctx))
-        field_accesses = self._builder.load_field(possible_store_ables, attribute)
+        field_accesses = self._builder.load_field(possible_store_ables, attribute, self._exp_ctx)
         return field_accesses, ret
 
     def aval_Call(self, call_expr: ast.Call) -> Tuple[StoreAbles, AbstractValue]:

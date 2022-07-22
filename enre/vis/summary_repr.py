@@ -10,9 +10,5 @@ def from_summaries(summaries: Sequence[ModuleSummary]) -> str:
         for name, objs in summary.namespace.items():
             ret += f"\t{name}: {objs}\n"
 
-        if isinstance(summary, FunctionSummary):
-            for index, s in summary.parameter_slots.items():
-                ret += f"\t{index}: {str(s)}\n"
-            ret += f"\treturn: {str(summary.return_slot)}\n"
 
     return ret
