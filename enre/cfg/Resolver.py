@@ -3,7 +3,7 @@ from typing import Dict, Set, Sequence, Iterable
 
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
     ClassObject, NameSpaceObject
-from enre.cfg.module_tree import ModuleSummary, FunctionSummary, ClassSummary, Rule, NameSpace, ValueFlow, \
+from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess
 from enre.ent.entity import Class
 
@@ -158,11 +158,10 @@ class Resolver:
                                       func_obj: FunctionObject,
                                       args: Sequence[ObjectSlot],
                                       namespace: NameSpace) -> Iterable[HeapObject]:
-        target_summary = self.scene.summary_map[func_obj.func_ent]
-        assert isinstance(target_summary, FunctionSummary)
+        target_summary = func_obj.summary
         for index, arg in enumerate(args):
             parameter_name = target_summary.parameter_list[index]
-            target_summary.get_namespace()[parameter_name].update(arg)
+            func_obj.namespace[parameter_name].update(arg)
         return func_obj.return_slot
 
     def abstract_direct_function_call(self,
@@ -182,8 +181,7 @@ class Resolver:
         return target_summary.get_object().return_slot
 
     def abstract_class_call(self, cls: ClassObject, args: Sequence[ObjectSlot], namespace: NameSpace) -> HeapObject:
-        target_summary = self.scene.summary_map[cls.class_ent]
-        assert isinstance(target_summary, ClassSummary)
+        target_summary = cls.summary
         cls_obj = target_summary.get_object()
         instance: HeapObject = InstanceObject(cls_obj, defaultdict(set))
         initializer = cls_obj.members["__init__"]
