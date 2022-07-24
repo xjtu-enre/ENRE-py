@@ -4,20 +4,21 @@ from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
-from typing import TypeAlias, Set, Dict, Optional, Sequence
+from typing import TypeAlias, Dict, Optional, Sequence
 
-from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace, ObjectSlot
-from enre.cfg.AbstractObject import AbstractObject
+from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
 from enre.ent.entity import Class, Entity, Parameter, Module, NameSpaceEntity, UnknownVar, \
     ClassAttribute, Package, Alias, ModuleAlias
 from enre.ent.entity import Function, Variable
+
 if typing.TYPE_CHECKING:
     from enre.analysis.analyze_expr import ExpressionContext
 
 
 class ModuleSummary:
-    namespace: NameSpace
-
+    @abstractmethod
+    def get_namespace(self) -> NameSpace:
+        ...
 
     @property
     @abstractmethod
@@ -54,7 +55,7 @@ class FileSummary(ModuleSummary):
         self._rules: "List[Rule]" = []
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
-        self._correspond_obj: Optional[HeapObject] = None
+        self._correspond_obj: Optional[ModuleObject] = None
 
     @property
     def module_head(self) -> "str":
@@ -70,13 +71,16 @@ class FileSummary(ModuleSummary):
     def add_child(self, child: "ModuleSummary") -> None:
         self._children.append(child)
 
-    def get_object(self) -> HeapObject:
+    def get_object(self) -> ModuleObject:
         if self._correspond_obj:
             return self._correspond_obj
         else:
-            new_obj = ModuleObject(self.module, dict())
+            new_obj = ModuleObject(self.module, self, defaultdict(set))
             self._correspond_obj = new_obj
             return new_obj
+
+    def get_namespace(self) -> NameSpace:
+        return self.get_object().get_namespace()
 
 
 class ClassSummary(ModuleSummary):
@@ -108,9 +112,12 @@ class ClassSummary(ModuleSummary):
             namespace = defaultdict(set)
             for child in self._children:
                 namespace[child.name()].add(child.get_object())
-            new_obj = ClassObject(self.cls, namespace)
+            new_obj = ClassObject(self.cls, self, namespace)
             self._correspond_obj = new_obj
             return new_obj
+
+    def get_namespace(self) -> NameSpace:
+        return self.get_object().get_namespace()
 
 
 class FunctionSummary(ModuleSummary):
@@ -118,16 +125,14 @@ class FunctionSummary(ModuleSummary):
     def __init__(self, func: Function) -> None:
         self.func = func
         self._rules: List[Rule] = []
-        self.namespace: NameSpace = defaultdict(set)
         self.parameter_list: List[str] = list()
-        self.return_slot: ObjectSlot = set()
-        self._correspond_obj: Optional[HeapObject] = None
+        self._correspond_obj: Optional[FunctionObject] = None
 
-    def get_object(self) -> HeapObject:
+    def get_object(self) -> FunctionObject:
         if self._correspond_obj:
             return self._correspond_obj
         else:
-            new_obj = FunctionObject(self.func, self)
+            new_obj = FunctionObject(self.func, self, defaultdict(set), set())
             self._correspond_obj = new_obj
             return new_obj
 
@@ -137,6 +142,9 @@ class FunctionSummary(ModuleSummary):
 
     def name(self) -> str:
         return self.func.longname.name
+
+    def get_namespace(self) -> NameSpace:
+        return self.get_object().get_namespace()
 
     @property
     def module_head(self) -> "str":

@@ -1,9 +1,9 @@
 from collections import defaultdict
-from typing import List, Dict, Set, Sequence, Iterable
+from typing import Dict, Set, Sequence, Iterable
 
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject
-from enre.cfg.module_tree import ModuleSummary, FunctionSummary, ClassSummary, FileSummary, Rule, NameSpace, ValueFlow, \
+    ClassObject, NameSpaceObject
+from enre.cfg.module_tree import ModuleSummary, FunctionSummary, ClassSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess
 from enre.ent.entity import Class
 
@@ -32,33 +32,21 @@ class Resolver:
                 self.resolve_module(module)
 
     def resolve_module(self, module: ModuleSummary) -> None:
-        if isinstance(module, FunctionSummary):
-            self.resolve_function(module)
-        elif isinstance(module, ClassSummary):
-            self.resolve_class(module)
-        elif isinstance(module, FileSummary):
-            self.resolve_file(module)
+        for rule in module.rules:
+            singleton = module.get_object()
+            self.resolve_rules_in_singleton_object(rule, singleton)
 
     def resolve_function(self, summary: FunctionSummary) -> None:
         for rule in summary.rules:
-            self.resolve_rule_by_summary(rule, summary)
+            self.resolve_rules_in_singleton_object(rule, summary.get_object())
 
-    def resolve_class(self, summary: ClassSummary) -> None:
-        for rule in summary.rules:
-            self.resolve_rule_by_summary(rule, summary)
+    def resolve_rules_in_singleton_object(self, rule: Rule, obj: HeapObject) -> None:
+        if isinstance(rule, ValueFlow) and isinstance(obj, NameSpaceObject):
+            self.resolve_value_flow_namespace(rule, obj.get_namespace())
+        elif isinstance(rule, Return) and isinstance(obj, FunctionObject):
+            self.resolve_return(rule, obj)
 
-    def resolve_file(self, summary: FileSummary) -> None:
-        for rule in summary.rules:
-            self.resolve_rule_by_summary(rule, summary)
-
-    def resolve_rule_by_summary(self, rule: Rule, summary: ModuleSummary) -> None:
-        if isinstance(rule, ValueFlow):
-            self.resolve_value_flow(rule, summary)
-        elif isinstance(rule, Return) and isinstance(summary, FunctionSummary):
-            self.resolve_return(rule, summary)
-
-    def resolve_value_flow(self, rule: ValueFlow, summary: ModuleSummary) -> None:
-        namespace = summary.namespace
+    def resolve_value_flow_namespace(self, rule: ValueFlow, namespace: NameSpace) -> None:
         match rule.lhs, rule.rhs:
             case VariableLocal() | Temporary() | ParameterLocal() as lhs, \
                  VariableLocal() | Temporary() | ParameterLocal() as rhs:
@@ -89,7 +77,6 @@ class Resolver:
         for obj in objs:
             obj.write_field(field, rhs_slot)
 
-
     def get_const_object(self, store: StoreAble) -> HeapObject:
         match store:
             case FuncConst() as fc:
@@ -99,7 +86,7 @@ class Resolver:
             case _:
                 raise NotImplementedError
 
-    def resolve_return(self, rule: Return, summary: FunctionSummary) -> None:
+    def resolve_return(self, rule: Return, summary: FunctionObject) -> None:
         match rule.ret_value:
             case VariableLocal(v):
                 summary.return_slot.update(summary.namespace[v.longname.name])
@@ -175,8 +162,8 @@ class Resolver:
         assert isinstance(target_summary, FunctionSummary)
         for index, arg in enumerate(args):
             parameter_name = target_summary.parameter_list[index]
-            target_summary.namespace[parameter_name].update(arg)
-        return target_summary.return_slot
+            target_summary.get_namespace()[parameter_name].update(arg)
+        return func_obj.return_slot
 
     def abstract_direct_function_call(self,
                                       func: FuncConst,
@@ -188,17 +175,17 @@ class Resolver:
             match arg:
                 case VariableLocal() | Temporary() as v:
                     parameter_name = target_summary.parameter_list[index]
-                    target_summary.namespace[parameter_name].update(namespace[v.name()])
+                    target_summary.get_namespace()[parameter_name].update(namespace[v.name()])
                 case FuncConst() as fc:
                     parameter_name = target_summary.parameter_list[index]
-                    target_summary.namespace[parameter_name].add(self.get_const_object(fc))
-        return target_summary.return_slot
+                    target_summary.get_namespace()[parameter_name].add(self.get_const_object(fc))
+        return target_summary.get_object().return_slot
 
     def abstract_class_call(self, cls: ClassObject, args: Sequence[ObjectSlot], namespace: NameSpace) -> HeapObject:
         target_summary = self.scene.summary_map[cls.class_ent]
         assert isinstance(target_summary, ClassSummary)
         cls_obj = target_summary.get_object()
-        instance: HeapObject = InstanceObject(cls_obj,defaultdict(set))
+        instance: HeapObject = InstanceObject(cls_obj, defaultdict(set))
         initializer = cls_obj.members["__init__"]
 
         args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)

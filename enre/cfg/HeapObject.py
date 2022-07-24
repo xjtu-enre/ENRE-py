@@ -1,12 +1,12 @@
 import typing
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Dict, TypeAlias, Set, Iterable
+from typing import Dict, TypeAlias, Set
 
 from enre.ent.entity import Class, Function, Module
 
 if typing.TYPE_CHECKING:
-    from enre.cfg.module_tree import FunctionSummary
+    from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary
 
 
 class HeapObject:
@@ -19,9 +19,36 @@ class HeapObject:
         ...
 
 
+class NameSpaceObject:
+    @abstractmethod
+    def get_namespace(self) -> "NameSpace":
+        ...
+
+
+class SingletonObject:
+    @abstractmethod
+    def get_summary(self) -> "ModuleSummary":
+        ...
+
+
+class SingletonObjectProtocol(typing.Protocol):
+    def get_summary(self) -> "ModuleSummary":
+        ...
+
+    def get_namespace(self) -> "NameSpace":
+        ...
+
+    def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
+        ...
+
+    def write_field(self, name: str, objs: "ObjectSlot") -> None:
+        ...
+
+
 @dataclass(frozen=True)
-class ModuleObject(HeapObject):
+class ModuleObject(HeapObject, NameSpaceObject):
     module_ent: Module
+    summary: "ModuleSummary"
     members: "NameSpace"
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
@@ -30,14 +57,21 @@ class ModuleObject(HeapObject):
     def write_field(self, name: str, objs: "ObjectSlot") -> None:
         self.members[name].update(objs)
 
+    def get_namespace(self) -> "NameSpace":
+        return self.members
+
     def __hash__(self) -> int:
         return id(self)
 
 
 @dataclass(frozen=True)
-class ClassObject(HeapObject):
+class ClassObject(HeapObject, NameSpaceObject):
     class_ent: Class
+    summary: "ClassSummary"
     members: "NameSpace"
+
+    def get_namespace(self) -> "NameSpace":
+        return self.members
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         obj_slot.update(self.members[name])
@@ -50,9 +84,12 @@ class ClassObject(HeapObject):
 
 
 @dataclass(frozen=True)
-class InstanceObject(HeapObject):
+class InstanceObject(HeapObject, NameSpaceObject):
     class_obj: ClassObject
     members: "NameSpace"
+
+    def get_namespace(self) -> "NameSpace":
+        return self.members
 
     def __hash__(self) -> int:
         return id(self)
@@ -78,15 +115,24 @@ class InstanceObject(HeapObject):
 
 
 @dataclass(frozen=True)
-class FunctionObject(HeapObject):
+class FunctionObject(HeapObject, NameSpaceObject):
     func_ent: Function
     summary: "FunctionSummary"
+    namespace: "NameSpace"
+    return_slot: "ObjectSlot"
+
+    def get_namespace(self) -> "NameSpace":
+        return self.namespace
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         return
 
     def write_field(self, name: str, objs: "ObjectSlot") -> None:
         return
+
+    def __hash__(self) -> int:
+        return id(self)
+
 
 @dataclass(frozen=True)
 class InstanceMethodReference(HeapObject):
@@ -95,6 +141,7 @@ class InstanceMethodReference(HeapObject):
 
     def write_field(self, name: str, objs: "ObjectSlot") -> None:
         return
+
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         return
 
