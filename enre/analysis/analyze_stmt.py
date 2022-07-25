@@ -3,7 +3,7 @@ import typing as ty
 from dataclasses import dataclass
 from pathlib import Path
 
-from enre.analysis.analyze_abstract import is_abstract_method, AbstractClassInfo
+from enre.analysis.analyze_abstract import MethodVisitor
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
@@ -94,7 +94,15 @@ class Analyzer:
 
         hook_scope.add_hook(def_stmt.body, body_env)
         self.process_annotations(def_stmt.args, env)
-        func_ent.is_abstract = is_abstract_method(def_stmt)
+        self.set_method_info(def_stmt, func_ent)
+
+    def set_method_info(self, def_stmt: ast.FunctionDef, func_ent: Function) -> None:
+        method_visitor = MethodVisitor()
+        method_visitor.visit(def_stmt)
+        func_ent.abstract_kind = method_visitor.abstract_kind
+        func_ent.static_kind = method_visitor.static_kind
+        func_ent.readonly_property_name = method_visitor.readonly_property_name
+
 
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = UseAvaler(self.manager, self.package_db, self.current_db)
@@ -126,29 +134,10 @@ class Analyzer:
         env.add_scope(body_env)
         self.analyze_top_stmts(class_stmt.body, env)
         env.pop_scope()
-        self.set_abstract_class_info(class_ent, class_stmt)
+        # self.set_class_info(class_ent, class_stmt)
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
         # known the class's attribute
-
-    def set_abstract_class_info(self, class_ent: Class, class_ast: ast.ClassDef) -> None:
-        # todo: set abstract class info if it contain abstract method or abstract constructor
-        # set abstract class info of Class Entity
-        abstract_info: AbstractClassInfo = AbstractClassInfo()
-        flag = False
-        for name, ents in class_ent.names.items():
-            for entity in ents:
-                if isinstance(entity, Function) and entity.is_abstract:
-                    abstract_info.abstract_methods.append(entity)
-                    flag = True
-
-        for base in class_ast.bases:
-            if type(base) == ast.Name:
-                if base.id == 'ABC':
-                    abstract_info.inherit = "ABC"
-                    flag = True
-
-        class_ent.abstract_info = abstract_info if flag else None
 
     def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         in_len = len(env.get_scope())

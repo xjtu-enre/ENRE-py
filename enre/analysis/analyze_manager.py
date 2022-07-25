@@ -142,11 +142,14 @@ class AnalyzeManager:
     def work_flow(self) -> None:
         from enre.passes.entity_pass import EntityPass
         from enre.passes.build_ambiguous import BuildAmbiguous
+        from enre.passes.build_visibility import BuildVisibility
+
         self.iter_dir(self.project_root)
         entity_pass = EntityPass(self.root_db)
         build_ambiguous_pass = BuildAmbiguous(self.root_db)
         build_ambiguous_pass.execute_pass()
-        # entity_pass.execute_pass()
+        build_visibility_pass = BuildVisibility(self.root_db)
+        build_visibility_pass.work_flow()
 
     def iter_dir(self, path: Path) -> None:
         from .analyze_stmt import Analyzer

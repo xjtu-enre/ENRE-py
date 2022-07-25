@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
-from enre.analysis.analyze_abstract import AbstractClassInfo, AbstractKind
+from enre.analysis.analyze_abstract import AbstractClassInfo, FunctionKind
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
@@ -173,7 +173,9 @@ class Variable(Entity):
 class Function(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Function, self).__init__(longname, location)
-        self.is_abstract: Optional[AbstractKind] = None
+        self.abstract_kind: Optional[FunctionKind] = None
+        self.static_kind: Optional[FunctionKind] = None
+        self.readonly_property_name: Optional[str] = None
 
     def kind(self) -> EntKind:
         return EntKind.Function
@@ -311,6 +313,8 @@ class Class(Entity):
         self._names: Dict[str, List[Entity]] = defaultdict(list)
         self._inherits: List["Class"] = []
         self.abstract_info: Optional[AbstractClassInfo] = None
+        self.readonly_attribute: NamespaceType = defaultdict(list)
+        self.private_attribute: NamespaceType = defaultdict(list)
 
     def kind(self) -> EntKind:
         return EntKind.Class
@@ -344,6 +348,18 @@ class Class(Entity):
 
     def direct_type(self) -> "ValueInfo":
         return ConstructorType(self)
+
+    def implement_method(self, longname: EntLongname) -> bool:
+        method_name = longname.name
+        for name, ents in self._names.items():
+            if name == method_name:
+                for entity in ents:
+                    if isinstance(entity, Function):
+                        if entity.abstract_kind:
+                            return False
+                        else:
+                            return True
+        return False
 
 
 class UnknownVar(Entity):
