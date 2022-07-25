@@ -1,8 +1,8 @@
 # -*- coding:utf-8
 import ast
+import typing
 from enum import Enum
 from typing import List, Optional
-import typing
 
 if typing.TYPE_CHECKING:
     from enre.ent.entity import Function
@@ -34,9 +34,9 @@ class MethodVisitor(ast.NodeVisitor):
                         self.method_kind = AbstractKind.Constructor
                     else:
                         self.method_kind = AbstractKind.AbstractMethod
-        self.generic_visit(node)
         # 如果普通函数的函数体中只有raise NotImplementError的话也算是抽象函数
         if self.have_raise_NotImplementedError and len(node.body) == 1 and type(node.body[0]) == ast.Raise:
+            self.generic_visit(node)
             self.method_kind = AbstractKind.AbstractMethod
 
     def visit_Raise(self, node: ast.Raise) -> None:

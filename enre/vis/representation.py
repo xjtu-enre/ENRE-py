@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from typing import List, TypedDict, Any
+from enum import Enum
+from typing import List, TypedDict, Any, TypeAlias, Dict
 
+from enre.analysis.analyze_abstract import AbstractKind
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
-from enre.ent.entity import Entity
+from enre.ent.entity import Entity, Class, Function
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -22,13 +24,14 @@ DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeT
 
 Location = TypedDict("Location", {"startLine": int, "endLine": int, "startColumn": int, "endColumn": int})
 
-VarTy = TypedDict("VarTy", {"id": int, "qualifiedName": str, "category": str,
-                            "location": Location})
 
-ValueTy = TypedDict("ValueTy", {"kind": str, "in_type_context": bool})
-Cells = TypedDict("Cells", {"src": int, "dest": int, "values": ValueTy})
+class Modifiers(Enum):
+    abstract = "abstract"
+    private = "private"
+    readonly = "readonly"
 
-DepTy1 = TypedDict("DepTy1", {"variables": List[VarTy], "cells": List[Cells]})
+
+JsonDict: TypeAlias = Dict[str, Any]
 
 
 @dataclass
@@ -40,6 +43,7 @@ class Node:
     end_line: int
     start_col: int
     end_col: int
+    modifiers: List[str]
 
 
 @dataclass
@@ -82,10 +86,11 @@ class DepRepr:
                                         "in_type_context": e.in_type_context})
         return ret
 
-    def to_json_1(self) -> DepTy1:
-        ret: DepTy1 = {"variables": [], "cells": []}
+    def to_json_1(self) -> JsonDict:
+        ret: JsonDict = {"variables": [], "cells": []}
         for n in self._node_list:
             ret["variables"].append({"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+                                     "modifiers": n.modifiers,
                                      "location": {"startLine": n.start_line, "endLine": n.end_line,
                                                   "startColumn": n.start_col, "endColumn": n.end_col}})
         for e in self._edge_list:
@@ -98,9 +103,10 @@ class DepRepr:
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
+            modifiers = cls.get_modifiers(ent)
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col))
+                                   ent.location.code_span.end_col, modifiers))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     dep_repr._edge_list.append(Edge(src=ent.id,
@@ -132,7 +138,7 @@ class DepRepr:
                                    start_line=-1,
                                    end_line=-1,
                                    start_col=-1,
-                                   end_col=-1))
+                                   end_col=-1, modifiers=[]))
 
             for ref in ent.refs():
                 if not ref.isforward():
@@ -149,3 +155,12 @@ class DepRepr:
                                        col_offset=col_offset,
                                        in_type_context=False))
         return dep_repr
+
+    @classmethod
+    def get_modifiers(cls, ent: Entity) -> List[str]:
+        ret = []
+        if isinstance(ent, Class) and ent.abstract_info:
+            ret.append("abstract")
+        elif isinstance(ent, Function) and ent.is_abstract == AbstractKind.AbstractMethod:
+            ret.append("abstract")
+        return ret
