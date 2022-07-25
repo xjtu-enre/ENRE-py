@@ -206,7 +206,7 @@ class AnalyzeManager:
         self.module_stack.push(rel_path)
         print(f"importing the module {rel_path} now analyzing this module")
         with open(self.project_root.parent.joinpath(rel_path), "r", encoding="utf-8") as file:
-            module_summary = FileSummary(module_ent)
+            module_summary = self.create_file_summary(module_ent)
             builder = SummaryBuilder(module_summary)
             module_env = EntEnv(ScopeEnv(module_ent, module_ent.location, builder))
             checker.analyze_top_stmts(ast.parse(file.read()).body, builder, module_env)

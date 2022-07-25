@@ -16,6 +16,11 @@ if typing.TYPE_CHECKING:
 
 
 class ModuleSummary:
+
+    @abstractmethod
+    def depend_by(self) -> List["ModuleSummary"]:
+        ...
+
     @abstractmethod
     def get_namespace(self) -> NameSpace:
         ...
@@ -56,6 +61,10 @@ class FileSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ModuleObject] = None
+        self._depend_by: "List[ModuleSummary]" = []
+
+    def depend_by(self) -> List["ModuleSummary"]:
+        return self._depend_by
 
     @property
     def module_head(self) -> "str":
@@ -82,6 +91,9 @@ class FileSummary(ModuleSummary):
     def get_namespace(self) -> NameSpace:
         return self.get_object().get_namespace()
 
+    def __hash__(self) -> int:
+        return id(self)
+
 
 class ClassSummary(ModuleSummary):
     @property
@@ -97,6 +109,10 @@ class ClassSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ClassObject] = None
+        self._depend_by: "List[ModuleSummary]" = []
+
+    def depend_by(self) -> List["ModuleSummary"]:
+        return self._depend_by
 
     @property
     def rules(self) -> "List[Rule]":
@@ -119,6 +135,9 @@ class ClassSummary(ModuleSummary):
     def get_namespace(self) -> NameSpace:
         return self.get_object().get_namespace()
 
+    def __hash__(self) -> int:
+        return id(self)
+
 
 class FunctionSummary(ModuleSummary):
 
@@ -127,6 +146,10 @@ class FunctionSummary(ModuleSummary):
         self._rules: List[Rule] = []
         self.parameter_list: List[str] = list()
         self._correspond_obj: Optional[FunctionObject] = None
+        self._depend_by: List[ModuleSummary] = []
+
+    def depend_by(self) -> List["ModuleSummary"]:
+        return self._depend_by
 
     def get_object(self) -> FunctionObject:
         if self._correspond_obj:
@@ -153,6 +176,9 @@ class FunctionSummary(ModuleSummary):
     @property
     def rules(self) -> "List[Rule]":
         return self._rules
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 class Scene:
@@ -360,7 +386,7 @@ class SummaryBuilder(object):
             ret.append(self.add_move_temp(invoke))
         return ret
 
-    def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext" ) -> StoreAbles:
+    def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext") -> StoreAbles:
         from enre.analysis.analyze_expr import SetContext
         ret: List[StoreAble] = []
         for fa in field_accesses:
