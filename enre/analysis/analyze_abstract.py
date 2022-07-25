@@ -49,7 +49,7 @@ class MethodVisitor(ast.NodeVisitor):
             self.abstract_kind = FunctionKind.AbstractMethod
 
         if self.have_property_decorator and len(node.body) == 1:
-            if type(node.body[0]) == ast.Return:
+            if type(node.body[0]) == ast.Return and type(node.body[0].value) == ast.Attribute:
                 self.readonly_property_name = node.body[0].value.attr
 
     def visit_Raise(self, node: ast.Raise) -> None:

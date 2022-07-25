@@ -11,7 +11,7 @@ class BuildVisibility:
     def __init__(self, package_db: RootDB):
         self._package_db = package_db
 
-    def work_flow(self):
+    def work_flow(self) -> None:
         for _, module_db in self._package_db.tree.items():
             for ent in module_db.dep_db.ents:
                 if isinstance(ent, Class):
