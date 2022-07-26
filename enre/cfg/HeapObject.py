@@ -1,6 +1,6 @@
 import typing
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, TypeAlias, Set
 
 from enre.ent.entity import Class, Function, Module
@@ -10,6 +10,8 @@ if typing.TYPE_CHECKING:
 
 
 class HeapObject:
+    depend_by: Set["ModuleSummary"]
+
     @abstractmethod
     def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
         pass
@@ -25,31 +27,12 @@ class NameSpaceObject:
         ...
 
 
-class SingletonObject:
-    @abstractmethod
-    def get_summary(self) -> "ModuleSummary":
-        ...
-
-
-class SingletonObjectProtocol(typing.Protocol):
-    def get_summary(self) -> "ModuleSummary":
-        ...
-
-    def get_namespace(self) -> "NameSpace":
-        ...
-
-    def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
-        ...
-
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        ...
-
-
 @dataclass(frozen=True)
 class ModuleObject(HeapObject, NameSpaceObject):
     module_ent: Module
     summary: "ModuleSummary"
     members: "NameSpace"
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         obj_slot.update(self.members[name])
@@ -69,6 +52,7 @@ class ClassObject(HeapObject, NameSpaceObject):
     class_ent: Class
     summary: "ClassSummary"
     members: "NameSpace"
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
         return self.members
@@ -87,6 +71,7 @@ class ClassObject(HeapObject, NameSpaceObject):
 class InstanceObject(HeapObject, NameSpaceObject):
     class_obj: ClassObject
     members: "NameSpace"
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
         return self.members
@@ -120,6 +105,7 @@ class FunctionObject(HeapObject, NameSpaceObject):
     summary: "FunctionSummary"
     namespace: "NameSpace"
     return_slot: "ObjectSlot"
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
         return self.namespace
@@ -138,12 +124,16 @@ class FunctionObject(HeapObject, NameSpaceObject):
 class InstanceMethodReference(HeapObject):
     func_obj: FunctionObject
     from_obj: InstanceObject
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def write_field(self, name: str, objs: "ObjectSlot") -> None:
         return
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         return
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 ObjectSlot: TypeAlias = Set[HeapObject]

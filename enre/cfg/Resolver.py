@@ -239,6 +239,6 @@ class Resolver:
                 raise NotImplementedError(f"{store.__class__.__name__}")
 
     def add_all_dependencies(self, module: ModuleSummary) -> None:
-        for dep in module.depend_by():
+        for dep in module.get_object().depend_by:
             if dep not in self.work_list:
                 self.work_list.append(dep)

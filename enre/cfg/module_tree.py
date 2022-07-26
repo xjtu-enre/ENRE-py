@@ -18,10 +18,6 @@ if typing.TYPE_CHECKING:
 class ModuleSummary:
 
     @abstractmethod
-    def depend_by(self) -> List["ModuleSummary"]:
-        ...
-
-    @abstractmethod
     def get_namespace(self) -> NameSpace:
         ...
 
@@ -61,10 +57,6 @@ class FileSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ModuleObject] = None
-        self._depend_by: "List[ModuleSummary]" = []
-
-    def depend_by(self) -> List["ModuleSummary"]:
-        return self._depend_by
 
     @property
     def module_head(self) -> "str":
@@ -109,10 +101,6 @@ class ClassSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ClassObject] = None
-        self._depend_by: "List[ModuleSummary]" = []
-
-    def depend_by(self) -> List["ModuleSummary"]:
-        return self._depend_by
 
     @property
     def rules(self) -> "List[Rule]":
@@ -146,10 +134,6 @@ class FunctionSummary(ModuleSummary):
         self._rules: List[Rule] = []
         self.parameter_list: List[str] = list()
         self._correspond_obj: Optional[FunctionObject] = None
-        self._depend_by: List[ModuleSummary] = []
-
-    def depend_by(self) -> List["ModuleSummary"]:
-        return self._depend_by
 
     def get_object(self) -> FunctionObject:
         if self._correspond_obj:
