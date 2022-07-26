@@ -139,7 +139,7 @@ class FunctionSummary(ModuleSummary):
         if self._correspond_obj:
             return self._correspond_obj
         else:
-            new_obj = FunctionObject(self.func, self, defaultdict(set), set())
+            new_obj = FunctionObject(self.func, self)
             self._correspond_obj = new_obj
             return new_obj
 
@@ -318,17 +318,6 @@ class ValueFlow(Rule):
     def __str__(self) -> str:
         return "{} <- {}".format(str(self.lhs), str(self.rhs))
 
-
-@dataclass(frozen=True)
-class HasParameter(Rule):
-    parameter: Parameter
-
-
-@dataclass(frozen=True)
-class HasInherit(Rule):
-    base: StoreAble
-
-
 @dataclass(frozen=True)
 class Return(Rule):
     ret_value: StoreAble
@@ -340,7 +329,7 @@ class Return(Rule):
 @dataclass(frozen=True)
 class AddBase(Rule):
     cls: ClassConst
-    base: Sequence[StoreAble]
+    bases: Sequence[StoreAble]
 
 
 class SummaryBuilder(object):

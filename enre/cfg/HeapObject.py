@@ -1,5 +1,6 @@
 import typing
 from abc import abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, TypeAlias, Set
 
@@ -9,15 +10,28 @@ if typing.TYPE_CHECKING:
     from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary
 
 
+def update_if_not_contain_all(lhs: Set["HeapObject"], rhs: typing.Iterable["HeapObject"]) -> bool:
+    if lhs.issuperset(rhs):
+        return True
+    else:
+        lhs.update(rhs)
+        return False
+
+
 class HeapObject:
     depend_by: Set["ModuleSummary"]
+    namespace: "NameSpace"
 
     @abstractmethod
     def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
         pass
 
     @abstractmethod
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        ...
+
+    @abstractmethod
+    def representation(self) -> str:
         ...
 
 
@@ -31,20 +45,23 @@ class NameSpaceObject:
 class ModuleObject(HeapObject, NameSpaceObject):
     module_ent: Module
     summary: "ModuleSummary"
-    members: "NameSpace"
+    namespace: "NameSpace"
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
-        obj_slot.update(self.members[name])
+        obj_slot.update(self.namespace[name])
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        self.members[name].update(objs)
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_namespace(self) -> "NameSpace":
-        return self.members
+        return self.namespace
 
     def __hash__(self) -> int:
         return id(self)
+
+    def representation(self) -> str:
+        return f"ModuleObject: {self.module_ent.longname.longname}"
 
 
 @dataclass(frozen=True)
@@ -61,11 +78,21 @@ class ClassObject(HeapObject, NameSpaceObject):
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         obj_slot.update(self.members[name])
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        self.members[name].update(objs)
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.members[name], objs)
 
     def __hash__(self) -> int:
         return id(self)
+
+    def add_base(self, obj: "ClassObject") -> bool:
+        if obj in self.inherits:
+            return True
+        else:
+            self.inherits.add(obj)
+            return False
+
+    def representation(self) -> str:
+        return f"ClassObject: {self.class_ent.longname.longname}"
 
 
 @dataclass(frozen=True)
@@ -78,10 +105,13 @@ class InstanceObject(HeapObject, NameSpaceObject):
         return self.members
 
     def __hash__(self) -> int:
-        return id(self)
+        return hash(self.class_obj)
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        self.members[name].update(objs)
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, InstanceObject) and self.class_obj == other.class_obj
+
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.members[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         def extend_method_ref_is_not_exist(obj: "HeapObject", slot: "ObjectSlot") -> None:
@@ -99,13 +129,16 @@ class InstanceObject(HeapObject, NameSpaceObject):
             for obj in cls_member:
                 extend_method_ref_is_not_exist(obj, obj_slot)
 
+    def representation(self) -> str:
+        return f"InstanceObject: instance of {self.class_obj.class_ent.longname.longname}"
+
 
 @dataclass(frozen=True)
 class FunctionObject(HeapObject, NameSpaceObject):
     func_ent: Function
     summary: "FunctionSummary"
-    namespace: "NameSpace"
-    return_slot: "ObjectSlot"
+    namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
+    return_slot: "ObjectSlot" = field(default_factory=set)
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
@@ -114,27 +147,38 @@ class FunctionObject(HeapObject, NameSpaceObject):
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         return
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        return
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.namespace[name], objs)
 
     def __hash__(self) -> int:
         return id(self)
+
+    def representation(self) -> str:
+        return f"FunctionObject: {self.func_ent.longname.longname}"
 
 
 @dataclass(frozen=True)
 class InstanceMethodReference(HeapObject):
     func_obj: FunctionObject
     from_obj: InstanceObject
+    namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> None:
-        return
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
-        return
+        obj_slot.update(self.namespace[name])
 
     def __hash__(self) -> int:
-        return id(self)
+        return hash((self.func_obj, self.from_obj))
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other,
+                          InstanceMethodReference) and self.func_obj == other.func_obj and self.from_obj == other.from_obj
+
+    def representation(self) -> str:
+        return f"MethodReference: {self.func_obj.func_ent.longname.longname}"
 
 
 ObjectSlot: TypeAlias = Set[HeapObject]

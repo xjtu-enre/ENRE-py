@@ -8,7 +8,9 @@ def from_summaries(summaries: Sequence[ModuleSummary]) -> str:
     for summary in summaries:
         ret += f"{str(summary)}\n"
         for name, objs in summary.get_namespace().items():
-            ret += f"\t{name}: {objs}\n"
+            ret += f"\t{name}: "
+            ret += ",".join(str(obj.representation()) for obj in objs)
+            ret += "\n"
 
 
     return ret
