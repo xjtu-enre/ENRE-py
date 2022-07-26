@@ -337,6 +337,12 @@ class Return(Rule):
         return "return {}".format(str(self.ret_value))
 
 
+@dataclass(frozen=True)
+class AddBase(Rule):
+    cls: ClassConst
+    base: Sequence[StoreAble]
+
+
 class SummaryBuilder(object):
     _rules: List[Rule]
 
@@ -369,6 +375,12 @@ class SummaryBuilder(object):
             invoke = Invoke(func_store, args_stores)
             ret.append(self.add_move_temp(invoke))
         return ret
+
+    def add_inherit(self, cls: Class, args: List[StoreAbles]) -> None:
+        cls_store = ClassConst(cls)
+        for args_stores in list(itertools.product(*(args))):
+            add_base = AddBase(cls_store, args_stores)
+            self._rules.append(add_base)
 
     def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext") -> StoreAbles:
         from enre.analysis.analyze_expr import SetContext
@@ -422,5 +434,6 @@ def get_named_store_able(ent: Entity) -> Optional[StoreAble]:
         case ModuleAlias() as ma:
             ret = get_named_store_able(ma.module_ent)
         case _ as e:
+            return None
             raise NotImplementedError(f"{e} not implemented yet")
     return ret

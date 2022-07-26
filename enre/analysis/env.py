@@ -2,6 +2,7 @@ import ast
 from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING, Tuple, TypeAlias, Optional
 
+from enre.analysis.value_info import ValueInfo
 from enre.cfg.module_tree import SummaryBuilder
 from enre.ent.entity import Entity, Location
 
@@ -190,6 +191,8 @@ class ScopeEnv:
         after = len(self)
         assert before == after
 
+
+List[Tuple[Entity, ValueInfo]]
 
 class EntEnv:
 

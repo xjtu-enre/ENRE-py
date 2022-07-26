@@ -52,6 +52,7 @@ class ClassObject(HeapObject, NameSpaceObject):
     class_ent: Class
     summary: "ClassSummary"
     members: "NameSpace"
+    inherits: Set["ClassObject"] = field(default_factory=set)
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":

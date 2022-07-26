@@ -1,11 +1,11 @@
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, List
+from abc import abstractmethod
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from enre.ent.entity import Class, Entity, NamespaceType
 
 
-class ValueInfo(ABC):
+class ValueInfo:
     """ValueInfo contain the part of analyze result of an expression.
 
     ValueInfo of an expression could be changed during analyzing,

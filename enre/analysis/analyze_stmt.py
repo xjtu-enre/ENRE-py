@@ -111,8 +111,10 @@ class Analyzer:
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
         env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset, False))
+        bases = []
         for base_expr in class_stmt.bases:
             store_ables, avalue = avaler.aval(base_expr)
+            bases.append(store_ables)
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ConstructorType):
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
@@ -121,7 +123,7 @@ class Analyzer:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
                                           class_stmt.col_offset, False))
                     # todo: handle unknown class
-
+        env.get_scope().get_builder().add_inherit(class_ent, bases)
         # add class to current environment
         new_binding: Bindings = [(class_name, [(class_ent, ConstructorType(class_ent))])]
         env.get_scope().add_continuous(new_binding)
