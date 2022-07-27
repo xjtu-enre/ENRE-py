@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
-from enre.analysis.analyze_abstract import AbstractClassInfo, FunctionKind
+from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 

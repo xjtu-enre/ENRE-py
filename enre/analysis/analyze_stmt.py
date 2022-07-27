@@ -3,7 +3,7 @@ import typing as ty
 from dataclasses import dataclass
 from pathlib import Path
 
-from enre.analysis.analyze_abstract import MethodVisitor
+from enre.analysis.analyze_method import MethodVisitor
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent

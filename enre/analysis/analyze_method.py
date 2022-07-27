@@ -26,7 +26,6 @@ class MethodVisitor(ast.NodeVisitor):
         self.abstract_kind: Optional[FunctionKind] = None
         self.static_kind: Optional[FunctionKind] = None
         self.have_raise_NotImplementedError: bool = False
-        self.have_property_decorator: bool = False
         self.current_func_name: str = ''
         self.readonly_property_name: Optional[str] = None
 
@@ -42,15 +41,16 @@ class MethodVisitor(ast.NodeVisitor):
                 elif decorator.id == 'staticmethod':
                     self.static_kind = FunctionKind.StaticMethod
                 elif decorator.id == 'property':
-                    self.have_property_decorator = True
+                    self.readonly_property_name = node.name
         self.generic_visit(node)
         # 如果普通函数的函数体中只有raise NotImplementError的话也算是抽象函数
         if self.have_raise_NotImplementedError and len(node.body) == 1 and type(node.body[0]) == ast.Raise:
             self.abstract_kind = FunctionKind.AbstractMethod
 
-        if self.have_property_decorator and len(node.body) == 1:
-            if type(node.body[0]) == ast.Return and type(node.body[0].value) == ast.Attribute:
-                self.readonly_property_name = node.body[0].value.attr
+        # 这里是根据return返回属性判断的，判断逻辑不全，已舍弃
+        # if self.have_property_decorator and len(node.body) == 1:
+        #     if type(node.body[0]) == ast.Return and type(node.body[0].value) == ast.Attribute:
+        #         self.readonly_property_name = node.body[0].value.attr
 
     def visit_Raise(self, node: ast.Raise) -> None:
         if type(node.exc) == ast.Call:
