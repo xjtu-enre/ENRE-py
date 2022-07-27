@@ -30,7 +30,7 @@ class BuildVisibility:
                                     # handle readonly property
                                     if entity.readonly_property_name in ent.names:
                                         for attr_ent in ent.get_attribute(entity.readonly_property_name):
-                                            if isinstance(attr_ent, ClassAttribute):
+                                            if isinstance(attr_ent, Function):
                                                 ent.readonly_attribute[entity.readonly_property_name].append(
                                                     attr_ent)
                             elif isinstance(entity, ClassAttribute) and private_attr_regular.match(name):
