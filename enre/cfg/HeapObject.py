@@ -7,7 +7,7 @@ from typing import Dict, TypeAlias, Set
 from enre.ent.entity import Class, Function, Module
 
 if typing.TYPE_CHECKING:
-    from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary
+    from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary, Invoke
 
 
 def update_if_not_contain_all(lhs: Set["HeapObject"], rhs: typing.Iterable["HeapObject"]) -> bool:
@@ -99,16 +99,17 @@ class ClassObject(HeapObject, NameSpaceObject):
 class InstanceObject(HeapObject, NameSpaceObject):
     class_obj: ClassObject
     members: "NameSpace"
+    invoke: "Invoke"
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
         return self.members
 
     def __hash__(self) -> int:
-        return hash(self.class_obj)
+        return hash((self.class_obj, self.invoke))
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, InstanceObject) and self.class_obj == other.class_obj
+        return isinstance(other, InstanceObject) and self.class_obj == other.class_obj and self.invoke == other.invoke
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.members[name], objs)

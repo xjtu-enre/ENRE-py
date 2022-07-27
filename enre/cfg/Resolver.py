@@ -94,7 +94,8 @@ class Resolver:
                 l_name = lhs.name()
                 target = invoke.target
                 args = invoke.args
-                already_satisfied = already_satisfied and self.abstract_call(target, args, namespace, namespace[l_name])
+                already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, namespace,
+                                                                             namespace[l_name])
             case (FieldAccess() as field_access, VariableLocal() | Temporary() | ParameterLocal() as rhs):
                 already_satisfied = already_satisfied and self.abstract_store(field_access, namespace,
                                                                               namespace[rhs.name()])
@@ -171,6 +172,7 @@ class Resolver:
                 raise NotImplementedError(f"{rule.ret_value}")
 
     def abstract_call(self,
+                      invoke: Invoke,
                       target: StoreAble,
                       args: Sequence[StoreAble],
                       namespace: NameSpace,
@@ -187,7 +189,8 @@ class Resolver:
                 for func in namespace[v.name()]:
                     all_satisfied = all_satisfied and \
                                     update_if_not_contain_all(lhs_slot,
-                                                              self.abstract_object_call(func, args_slot, namespace))
+                                                              self.abstract_object_call(invoke, func, args_slot,
+                                                                                        namespace))
                 return all_satisfied
             case ClassConst() as cc:
                 cls_obj = self.scene.summary_map[cc.cls].get_object()
@@ -195,7 +198,7 @@ class Resolver:
                 if not contain_object_of_type(lhs_slot, cc.cls):
                     # if not contain instance of class, create new instance
                     return update_if_not_contain_all(lhs_slot,
-                                                     {self.abstract_class_call(cls_obj, args_slot, namespace)})
+                                                     {self.abstract_class_call(invoke, cls_obj, args_slot, namespace)})
                 else:
                     # if already contain instance of class, call initializer
                     # return True because no new instance is created, if an object is changed, the function changing the
@@ -211,12 +214,14 @@ class Resolver:
                 for func in self.abstract_load(field_access, namespace):
                     all_satisfied = all_satisfied and \
                                     update_if_not_contain_all(lhs_slot,
-                                                              self.abstract_object_call(func, args_slot, namespace))
+                                                              self.abstract_object_call(invoke, func, args_slot,
+                                                                                        namespace))
                 return all_satisfied
             case _:
                 raise NotImplementedError(target.__class__.__name__)
 
     def abstract_object_call(self,
+                             invoke: Invoke,
                              func: HeapObject,
                              args: Sequence[ObjectSlot],
                              namespace: NameSpace) -> Iterable[HeapObject]:
@@ -228,7 +233,7 @@ class Resolver:
                 args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
                 return self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
             case ClassObject() as c:
-                return {self.abstract_class_call(c, args, namespace)}
+                return {self.abstract_class_call(invoke, c, args, namespace)}
             case InstanceObject(i):
                 # todo: call __call__
                 return []
@@ -248,10 +253,11 @@ class Resolver:
             update_if_not_contain_all(func_obj.namespace[parameter_name], arg)
         return func_obj.return_slot
 
-    def abstract_class_call(self, cls: ClassObject, args: Sequence[ObjectSlot], namespace: NameSpace) -> HeapObject:
+    def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ObjectSlot],
+                            namespace: NameSpace) -> HeapObject:
         target_summary = cls.summary
         cls_obj = target_summary.get_object()
-        instance: HeapObject = InstanceObject(cls_obj, defaultdict(set))
+        instance: HeapObject = InstanceObject(cls_obj, defaultdict(set), invoke)
         self.call_initializer_on_instance(cls_obj, instance, args, namespace)
         return instance
 
