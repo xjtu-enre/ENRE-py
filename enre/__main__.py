@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 
 from enre.analysis.analyze_manager import AnalyzeManager
+from enre.cfg.Resolver import Resolver
+from enre.cfg.module_tree import Scene
 from enre.vis.representation import DepRepr
 from enre.vis.summary_repr import from_summaries
 
@@ -14,11 +16,15 @@ def main() -> None:
     parser.add_argument("root path", type=str,
                         help="root package path")
     parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
+    parser.add_argument("--cfg", action="store_true",
+                        help="output consumed time of control flow analysis in json format")
     args = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
     manager = enre_wrapper(root_path)
     end = time.time()
+    if args.cfg:
+        cfg_wrapper(root_path, manager.scene)
     if args.profile:
         time_in_json = json.dumps({
             "analyzed files": len(manager.root_db.tree),
@@ -42,6 +48,15 @@ def enre_wrapper(root_path: Path) -> AnalyzeManager:
         file.write(summary_repr)
 
     return manager
+
+
+def cfg_wrapper(root_path: Path, scene: Scene) -> None:
+    resolver = Resolver(scene)
+    resolver.resolve_all()
+    out_path = Path(f"{root_path.name}-report-cfg.txt")
+    with open(out_path, "w") as file:
+        summary_repr = from_summaries(scene.summaries)
+        file.write(summary_repr)
 
 
 if __name__ == '__main__':
