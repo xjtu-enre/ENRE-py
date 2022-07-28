@@ -9,12 +9,14 @@ from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace
 from enre.ent.entity import Class, UnknownModule
 
 
-def contain_object_of_type(lhs_slot: ObjectSlot, cls: Class) -> bool:
+def distill_object_of_type_and_invoke_site(lhs_slot: ObjectSlot,
+                                           cls: Class,
+                                           invoke: Invoke) -> Iterable[InstanceObject]:
+    ret = []
     for obj in lhs_slot:
-        if isinstance(obj, InstanceObject):
-            if obj.class_obj.class_ent == cls:
-                return True
-    return False
+        if isinstance(obj, InstanceObject) and obj.class_obj == cls and obj.invoke == invoke:
+            ret.append(obj)
+    return ret
 
 
 class Resolver:
@@ -193,7 +195,7 @@ class Resolver:
             case ClassConst() as cc:
                 cls_obj = self.scene.summary_map[cc.cls].get_object()
                 assert isinstance(cls_obj, ClassObject)
-                if not contain_object_of_type(lhs_slot, cc.cls):
+                if not distill_object_of_type_and_invoke_site(lhs_slot, cc.cls, invoke):
                     # if not contain instance of class, create new instance
                     return update_if_not_contain_all(lhs_slot,
                                                      {self.abstract_class_call(invoke, cls_obj, args_slot, namespace)})
@@ -231,7 +233,14 @@ class Resolver:
                 args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
                 return_values = self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
             case ClassObject() as c:
-                return_values = {self.abstract_class_call(invoke, c, args, namespace)}
+                if objs := distill_object_of_type_and_invoke_site(return_slot, c.class_ent, invoke):
+                    # create new object if the return slot doesn't contain object of same type and invoke site
+                    return_values = {self.abstract_class_call(invoke, c, args, namespace)}
+                else:
+                    # just invoke initializer on the object with same type and invoke site
+                    for obj in objs:
+                        self.call_initializer_on_instance(obj.class_obj, obj, args, namespace)
+                    return_values = {}
             case InstanceObject(i):
                 # todo: call __call__
                 return_values = []
