@@ -187,10 +187,8 @@ class Resolver:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 all_satisfied = True
                 for func in namespace[v.name()]:
-                    all_satisfied = all_satisfied and \
-                                    update_if_not_contain_all(lhs_slot,
-                                                              self.abstract_object_call(invoke, func, args_slot,
-                                                                                        namespace))
+                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func, args_slot,
+                                                                                namespace)
                 return all_satisfied
             case ClassConst() as cc:
                 cls_obj = self.scene.summary_map[cc.cls].get_object()
@@ -213,32 +211,33 @@ class Resolver:
                 all_satisfied = True
                 for func in self.abstract_load(field_access, namespace):
                     all_satisfied = all_satisfied and \
-                                    update_if_not_contain_all(lhs_slot,
-                                                              self.abstract_object_call(invoke, func, args_slot,
-                                                                                        namespace))
+                                    self.abstract_object_call(lhs_slot, invoke, func, args_slot, namespace)
                 return all_satisfied
             case _:
                 raise NotImplementedError(target.__class__.__name__)
 
     def abstract_object_call(self,
+                             return_slot: ObjectSlot,
                              invoke: Invoke,
                              func: HeapObject,
                              args: Sequence[ObjectSlot],
-                             namespace: NameSpace) -> Iterable[HeapObject]:
+                             namespace: NameSpace) -> bool:
+        return_values: Iterable[HeapObject]
         match func:
             case FunctionObject() as f:
-                return self.abstract_function_object_call(f, args, namespace)
+                return_values = self.abstract_function_object_call(f, args, namespace)
             case InstanceMethodReference() as ref:
                 instance: HeapObject = ref.from_obj
                 args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
-                return self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
+                return_values = self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
             case ClassObject() as c:
-                return {self.abstract_class_call(invoke, c, args, namespace)}
+                return_values = {self.abstract_class_call(invoke, c, args, namespace)}
             case InstanceObject(i):
                 # todo: call __call__
-                return []
+                return_values = []
             case _:
                 raise NotImplementedError(func.__class__.__name__)
+        return update_if_not_contain_all(return_slot, return_values)
 
     def abstract_function_object_call(self,
                                       func_obj: FunctionObject,
