@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List
 
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject, NameSpaceObject, update_if_not_contain_all
+    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess
@@ -179,7 +179,7 @@ class Resolver:
                       args: Sequence[StoreAble],
                       namespace: NameSpace,
                       lhs_slot: ObjectSlot) -> bool:
-        args_slot: Sequence[ObjectSlot] = list(map(lambda x: self.get_store_able_value(x, namespace), args))
+        args_slot: Sequence[ReadOnlyObjectSlot] = list(map(lambda x: self.get_store_able_value(x, namespace), args))
         match target:
             case FuncConst() as fc:
                 func_obj = self.scene.summary_map[fc.func].get_object()
@@ -232,7 +232,7 @@ class Resolver:
                              return_slot: ObjectSlot,
                              invoke: Invoke,
                              func: HeapObject,
-                             args: Sequence[ObjectSlot],
+                             args: Sequence[ReadOnlyObjectSlot],
                              namespace: NameSpace) -> bool:
         return_values: Iterable[HeapObject]
         match func:
@@ -240,7 +240,8 @@ class Resolver:
                 return_values = self.abstract_function_object_call(f, args, namespace)
             case InstanceMethodReference() as ref:
                 instance: HeapObject = ref.from_obj
-                args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
+                first_arg: List[ReadOnlyObjectSlot] = [{instance}]
+                args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
                 return_values = self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
             case ClassObject() as c:
                 if not (objs := distill_object_of_type_and_invoke_site(return_slot, c.class_ent, invoke)):
@@ -260,7 +261,7 @@ class Resolver:
 
     def abstract_function_object_call(self,
                                       func_obj: FunctionObject,
-                                      args: Sequence[ObjectSlot],
+                                      args: Sequence[ReadOnlyObjectSlot],
                                       namespace: NameSpace) -> Iterable[HeapObject]:
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
@@ -271,7 +272,7 @@ class Resolver:
             update_if_not_contain_all(func_obj.namespace[parameter_name], arg)
         return func_obj.return_slot
 
-    def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ObjectSlot],
+    def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ReadOnlyObjectSlot],
                             namespace: NameSpace) -> HeapObject:
         target_summary = cls.summary
         cls_obj = target_summary.get_object()
@@ -280,9 +281,10 @@ class Resolver:
         return instance
 
     def call_initializer_on_instance(self, cls_obj: ClassObject, instance: HeapObject,
-                                     args: Sequence[ObjectSlot], namespace: NameSpace) -> None:
+                                     args: Sequence[ReadOnlyObjectSlot], namespace: NameSpace) -> None:
         initializer = cls_obj.members["__init__"]
-        args_slots: Sequence[ObjectSlot] = [{instance}] + list(args)
+        first_arg: List[ReadOnlyObjectSlot] = [{instance}]
+        args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
         for obj in initializer:
             if isinstance(obj, FunctionObject):
                 self.abstract_function_object_call(obj, args_slots, namespace)
@@ -299,10 +301,32 @@ class Resolver:
                 ret = set()
                 self.scene.summary_map[cc.cls].get_object().get_member(field, ret)
                 return ret
+            case ModuleConst() as mod:
+                if not isinstance(mod.mod, UnknownModule):
+                    ret = set()
+                    self.scene.summary_map[mod.mod].get_object().get_member(field, ret)
+                    return ret
+                else:
+                    # todo: handle unknown module
+                    return []
+            case PackageConst() as p:
+                # todo: handle package const
+                return []
+            case ClassAttributeAccess() as class_attribute_access:
+                ret = set()
+                class_ent = class_attribute_access.class_attribute.class_ent
+                class_obj = self.scene.summary_map[class_ent].get_object()
+                assert isinstance(class_obj, ClassObject)
+                class_namespace = class_obj.get_namespace()
+                for obj in class_namespace[class_attribute_access.class_attribute.longname.name]:
+                    obj.get_member(field, ret)
+                return ret
+            case FuncConst() as f:
+                return set()
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(f"{field_access.target.__class__.__name__}")
 
-    def get_store_able_value(self, store: StoreAble, namespace: NameSpace) -> Set[HeapObject]:
+    def get_store_able_value(self, store: StoreAble, namespace: NameSpace) -> Iterable[HeapObject]:
         match store:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 return namespace[v.name()]
@@ -322,6 +346,8 @@ class Resolver:
                 return set()
                 # todo: implement package object
                 return {self.get_const_object(p)}
+            case ClassAttributeAccess() as class_attribute_access:
+                return self.get_class_attribute(class_attribute_access)
             case _:
                 raise NotImplementedError(f"{store.__class__.__name__}")
 
@@ -329,3 +355,11 @@ class Resolver:
         for dep in module.get_object().depend_by:
             if dep not in self.work_list:
                 self.work_list.append(dep)
+
+    def get_class_attribute(self, class_attribute_access: ClassAttributeAccess) -> Iterable[HeapObject]:
+        class_ent = class_attribute_access.class_attribute.class_ent
+        class_obj = self.scene.summary_map[class_ent].get_object()
+        attribute_name = class_attribute_access.class_attribute.longname.name
+        assert isinstance(class_obj, ClassObject)
+        class_namespace = class_obj.get_namespace()
+        return class_namespace[attribute_name]

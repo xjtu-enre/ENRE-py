@@ -8,7 +8,7 @@ from typing import List
 from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
-from enre.ent.entity import Class, Entity, Parameter, Module, NameSpaceEntity, UnknownVar, \
+from enre.ent.entity import Class, Entity, Parameter, Module, UnknownVar, \
     ClassAttribute, Package, Alias, ModuleAlias, PackageAlias
 from enre.ent.entity import Function, Variable
 
@@ -377,19 +377,11 @@ class SummaryBuilder(object):
         from enre.analysis.analyze_expr import SetContext
         ret: List[StoreAble] = []
         for fa in field_accesses:
-            match fa:
-                case (VariableLocal() | Temporary() | VariableOuter() | ParameterLocal()) as v:
-                    if isinstance(context, SetContext):
-                        ret.append(FieldAccess(v, field))
-                    else:
-                        ret.append(self.add_move_temp(FieldAccess(v, field)))
-                    # we have to return a field access here, because only this can resolve set behavior correctly
-                case NameSpaceEntity() as mod:
-                    all_member_store_able = []
-                    for m in mod.names[field]:
-                        if store_able := get_named_store_able(m):
-                            all_member_store_able.append(store_able)
-                    ret.extend(all_member_store_able)
+            if isinstance(context, SetContext):
+                ret.append(FieldAccess(fa, field))
+            else:
+                ret.append(self.add_move_temp(FieldAccess(fa, field)))
+            # we have to return a field access here, because only this can resolve set behavior correctly
         return ret
 
     def add_return(self, return_stores: StoreAbles, expr: ast.expr) -> None:

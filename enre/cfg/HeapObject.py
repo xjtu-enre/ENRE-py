@@ -2,7 +2,7 @@ import typing
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, TypeAlias, Set
+from typing import Dict, TypeAlias, Set, Iterable
 
 from enre.ent.entity import Class, Function, Module
 
@@ -183,6 +183,7 @@ class InstanceMethodReference(HeapObject):
 
 
 ObjectSlot: TypeAlias = Set[HeapObject]
+ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]
 NameSpace: TypeAlias = Dict[str, ObjectSlot]
 
 
