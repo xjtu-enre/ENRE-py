@@ -186,8 +186,9 @@ class Temporary(StoreAble):
     """
     __match_args__ = ("_name",)
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, expr: ast.expr) -> None:
         self._name: str = name
+        self._expr: ast.expr = expr
 
     def name(self) -> str:
         return self._name
@@ -346,14 +347,14 @@ class SummaryBuilder(object):
         self._rules.append(ValueFlow(lhs, rhs))
         return lhs
 
-    def add_move_temp(self, rhs: StoreAble) -> Temporary:
+    def add_move_temp(self, rhs: StoreAble, expr: ast.expr) -> Temporary:
         index = self._temporary_index
         self._temporary_index += 1
-        temp = Temporary(f"___t_{index}")
+        temp = Temporary(f"___t_{index}", expr)
         self.add_move(temp, rhs)
         return temp
 
-    def add_invoke(self, func: StoreAbles, args: List[StoreAbles]) -> StoreAbles:
+    def add_invoke(self, func: StoreAbles, args: List[StoreAbles], expr: ast.expr) -> StoreAbles:
         ret: List[StoreAble] = []
         args_stores: Sequence[StoreAble]
         func_store: StoreAble
@@ -364,7 +365,7 @@ class SummaryBuilder(object):
             func_store = l[0]
             args_stores = l[1:]
             invoke = Invoke(func_store, args_stores)
-            ret.append(self.add_move_temp(invoke))
+            ret.append(self.add_move_temp(invoke, expr))
         return ret
 
     def add_inherit(self, cls: Class, args: List[StoreAbles]) -> None:
@@ -373,14 +374,15 @@ class SummaryBuilder(object):
             add_base = AddBase(cls_store, args_stores)
             self._rules.append(add_base)
 
-    def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext") -> StoreAbles:
+    def load_field(self, field_accesses: StoreAbles, field: str, context: "ExpressionContext",
+                   expr: ast.expr) -> StoreAbles:
         from enre.analysis.analyze_expr import SetContext
         ret: List[StoreAble] = []
         for fa in field_accesses:
             if isinstance(context, SetContext):
                 ret.append(FieldAccess(fa, field))
             else:
-                ret.append(self.add_move_temp(FieldAccess(fa, field)))
+                ret.append(self.add_move_temp(FieldAccess(fa, field), expr))
             # we have to return a field access here, because only this can resolve set behavior correctly
         return ret
 
