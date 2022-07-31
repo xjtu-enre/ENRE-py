@@ -122,7 +122,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
     tar_ent = newly_created.unknown_ent
     if isinstance(tar_ent, UnknownVar):
         if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
-            new_attr = ClassAttribute(location.to_longname(), location)
+            new_attr = ClassAttribute(ctx_ent, location.to_longname(), location)
             new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
             ctx.current_db.add_ent(new_attr)
             ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))
@@ -140,7 +140,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
             new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
-            new_attr = ClassAttribute(new_location.to_longname(), new_location)
+            new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
             ctx.current_db.add_ent(new_attr)
             receiver_class.add_ref(
                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))

@@ -404,7 +404,8 @@ class Anonymous(Entity):
 
 
 class ClassAttribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
+    def __init__(self, class_ent: Class, longname: EntLongname, location: Location):
+        self.class_ent: Class = class_ent
         super(ClassAttribute, self).__init__(longname, location)
 
     def kind(self) -> EntKind:

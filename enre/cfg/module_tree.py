@@ -8,7 +8,7 @@ from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
 from enre.ent.entity import Class, Entity, Parameter, Module, NameSpaceEntity, UnknownVar, \
-    ClassAttribute, Package, Alias, ModuleAlias
+    ClassAttribute, Package, Alias, ModuleAlias, PackageAlias
 from enre.ent.entity import Function, Variable
 
 if typing.TYPE_CHECKING:
@@ -391,6 +391,7 @@ class SummaryBuilder(object):
         return ret
 
     def add_return(self, return_stores: StoreAbles) -> None:
+        assert isinstance(self.mod, FunctionSummary)
         for return_store in return_stores:
             self._rules.append(Return(return_store))
 
@@ -422,7 +423,8 @@ def get_named_store_able(ent: Entity) -> Optional[StoreAble]:
             # todo: handle alias case here
         case ModuleAlias() as ma:
             ret = get_named_store_able(ma.module_ent)
+        case PackageAlias() as pa:
+            ret = get_named_store_able(pa.package_ent)
         case _ as e:
-            return None
             raise NotImplementedError(f"{e} not implemented yet")
     return ret

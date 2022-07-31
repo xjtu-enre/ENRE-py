@@ -102,6 +102,9 @@ class Analyzer:
         hook_scope.add_hook(def_stmt.body, body_env)
         self.process_annotations(def_stmt.args, env)
 
+    def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
+        ...
+
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
         now_scope = env.get_scope().get_location()

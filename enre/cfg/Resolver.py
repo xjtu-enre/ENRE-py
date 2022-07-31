@@ -5,7 +5,7 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
     ClassObject, NameSpaceObject, update_if_not_contain_all
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
-    ModuleConst, AddBase
+    ModuleConst, AddBase, PackageConst, ClassAttributeAccess
 from enre.ent.entity import Class, UnknownModule
 
 
@@ -73,7 +73,7 @@ class Resolver:
         elif isinstance(rule, AddBase):
             return self.resolve_add_base(obj, rule.cls, rule.bases)
         else:
-            assert False, "unsupported rule type"
+            assert False, f"unsupported rule type {rule.__class__}, object type {obj.__class__}"
 
     def resolve_function(self, summary: FunctionSummary) -> None:
         for rule in summary.rules:
@@ -171,7 +171,6 @@ class Resolver:
                 else:
                     return True
             case _:
-                return True
                 raise NotImplementedError(f"{rule.ret_value}")
 
     def abstract_call(self,
@@ -216,8 +215,17 @@ class Resolver:
                     all_satisfied = all_satisfied and \
                                     self.abstract_object_call(lhs_slot, invoke, func, args_slot, namespace)
                 return all_satisfied
+            case ClassAttributeAccess() as class_attribute_access:
+                class_ent = class_attribute_access.class_attribute.class_ent
+                class_obj = self.scene.summary_map[class_ent].get_object()
+                assert isinstance(class_obj, ClassObject)
+                class_namespace = class_obj.get_namespace()
+                all_satisfied = True
+                for func in class_namespace[class_attribute_access.class_attribute.longname.name]:
+                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func, args_slot,
+                                                                                namespace)
+                return all_satisfied
             case _:
-                return True
                 raise NotImplementedError(target.__class__.__name__)
 
     def abstract_object_call(self,
@@ -247,7 +255,6 @@ class Resolver:
                 # todo: call __call__
                 return_values = []
             case _:
-                return True
                 raise NotImplementedError(func.__class__.__name__)
         return update_if_not_contain_all(return_slot, return_values)
 
@@ -293,7 +300,6 @@ class Resolver:
                 self.scene.summary_map[cc.cls].get_object().get_member(field, ret)
                 return ret
             case _:
-                return []
                 raise NotImplementedError
 
     def get_store_able_value(self, store: StoreAble, namespace: NameSpace) -> Set[HeapObject]:
@@ -312,8 +318,11 @@ class Resolver:
                     return {self.get_const_object(m)}
                 else:
                     return set()
-            case _:
+            case PackageConst() as p:
                 return set()
+                # todo: implement package object
+                return {self.get_const_object(p)}
+            case _:
                 raise NotImplementedError(f"{store.__class__.__name__}")
 
     def add_all_dependencies(self, module: ModuleSummary) -> None:
