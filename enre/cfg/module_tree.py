@@ -1,3 +1,4 @@
+import ast
 import itertools
 import typing
 from abc import abstractmethod, ABC
@@ -321,6 +322,7 @@ class ValueFlow(Rule):
 @dataclass(frozen=True)
 class Return(Rule):
     ret_value: StoreAble
+    expr: ast.expr
 
     def __str__(self) -> str:
         return "return {}".format(str(self.ret_value))
@@ -390,10 +392,10 @@ class SummaryBuilder(object):
                     ret.extend(all_member_store_able)
         return ret
 
-    def add_return(self, return_stores: StoreAbles) -> None:
+    def add_return(self, return_stores: StoreAbles, expr: ast.expr) -> None:
         assert isinstance(self.mod, FunctionSummary)
         for return_store in return_stores:
-            self._rules.append(Return(return_store))
+            self._rules.append(Return(return_store, expr))
 
     def add_child(self, summary: ModuleSummary) -> None:
         self.mod.add_child(summary)

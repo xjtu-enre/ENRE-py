@@ -370,9 +370,10 @@ class Analyzer:
     def analyze_Return(self, return_stmt: ast.Return, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
         builder = env.get_scope().get_builder()
-        if return_stmt.value is not None:
-            return_store_ables, _ = avaler.aval(return_stmt.value)
-            builder.add_return(return_store_ables)
+        value = return_stmt.value
+        if value is not None:
+            return_store_ables, _ = avaler.aval(value)
+            builder.add_return(return_store_ables, value)
 
     def analyze_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
         for stmt in stmts:
