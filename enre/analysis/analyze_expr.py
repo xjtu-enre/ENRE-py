@@ -98,7 +98,7 @@ class ExprAnalyzer:
         ent_objs = lookup_res.found_entities
         ctx = self._env.get_ctx()
         for ent, ent_type in ent_objs:
-            ctx.add_ref(create_ref_by_ctx(ent, name_expr.lineno, name_expr.col_offset, self._exp_ctx))
+            ctx.add_ref(create_ref_by_ctx(ent, name_expr.lineno, name_expr.col_offset, self._exp_ctx, name_expr))
 
         if not isinstance(self._exp_ctx, SetContext):
             if ent_objs:
@@ -112,7 +112,7 @@ class ExprAnalyzer:
                 unknown_var = UnknownVar.get_unknown_var(name_expr.id)
                 self._current_db.add_ent(unknown_var)
                 ctx.add_ref(create_ref_by_ctx(unknown_var, name_expr.lineno,
-                                              name_expr.col_offset, self._exp_ctx))
+                                              name_expr.col_offset, self._exp_ctx, name_expr))
                 return [], [(unknown_var, ValueInfo.get_any())]
         else:
             lhs_objs: SetContextValue = []
@@ -136,22 +136,23 @@ class ExprAnalyzer:
         extend_known_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
             self._env.get_ctx().add_ref(
-                create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset, self._exp_ctx))
+                create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset, self._exp_ctx, attr_expr))
         field_accesses = self._builder.load_field(possible_store_ables, attribute, self._exp_ctx, attr_expr)
         return field_accesses, ret
 
     def aval_Call(self, call_expr: ast.Call) -> Tuple[StoreAbles, AbstractValue]:
         call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, CallContext(), self._builder,
                                    self._env)
-        caller_stores, possible_callers = call_avaler.aval(call_expr.func)
+        caller_stores, possible_callees = call_avaler.aval(call_expr.func)
         ret: AbstractValue = []
-        for caller, func_type in possible_callers:
+        for callee, func_type in possible_callees:
             if isinstance(func_type, ConstructorType):
                 ret.append((get_anonymous_ent(), func_type.to_class_type()))
             else:
                 ret.append((get_anonymous_ent(), ValueInfo.get_any()))
-            self._env.get_ctx().add_ref(
-                create_ref_by_ctx(caller, call_expr.lineno, call_expr.col_offset, self._exp_ctx))
+            # self._env.get_ctx().add_ref(
+            #     create_ref_by_ctx(callee, call_expr.lineno, call_expr.col_offset, CallContext(), call_expr))
+            # we don't need create call dependency here, because we will create dependencies by context in the
         args = []
         for arg in call_expr.args:
             a, _ = self.aval(arg)
@@ -171,9 +172,9 @@ class ExprAnalyzer:
 
         # add function entity to dependency database
         self._current_db.add_ent(func_ent)
-        # add reference of current contest to the function entity
+        # add reference of current context to the function entity
         self._env.get_ctx().add_ref(
-            create_ref_by_ctx(func_ent, lam_expr.lineno, lam_expr.col_offset, self._exp_ctx))
+            create_ref_by_ctx(func_ent, lam_expr.lineno, lam_expr.col_offset, self._exp_ctx, lam_expr))
 
         # do not add lambda entity to the current environment
         # env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
@@ -358,7 +359,10 @@ def filter_not_setable_entities(ent_objs: AbstractValue) -> AbstractValue:
 
 
 def create_ref_by_ctx(target_ent: Entity,
-                      lineno: int, col_offset: int, ctx: ExpressionContext) -> Ref:
+                      lineno: int, col_offset: int, ctx: ExpressionContext, expr: ast.expr) -> Ref:
+    """
+    Create a reference to the given entity by the expression's context.
+    """
     in_type_ctx: bool
     ref_kind: RefKind
     match ctx:
@@ -376,4 +380,4 @@ def create_ref_by_ctx(target_ent: Entity,
             ref_kind = RefKind.SetKind
         case _:
             assert False, "unexpected context"
-    return Ref(ref_kind, target_ent, lineno, col_offset, in_type_ctx)
+    return Ref(ref_kind, target_ent, lineno, col_offset, in_type_ctx, expr)

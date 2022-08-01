@@ -125,15 +125,15 @@ def newly_define_semantic(newly_created: NewlyCreated,
             new_attr = ClassAttribute(ctx_ent, location.to_longname(), location)
             new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
             ctx.current_db.add_ent(new_attr)
-            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))
-            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False))
+            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
+            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
         else:
             # newly defined variable
             new_var = Variable(location.to_longname(), location)
             new_bindings.append((new_var.longname.name, [(new_var, value_type)]))
             ctx.current_db.add_ent(new_var)
-            ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False, None))
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
@@ -143,8 +143,8 @@ def newly_define_semantic(newly_created: NewlyCreated,
             new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
             ctx.current_db.add_ent(new_attr)
             receiver_class.add_ref(
-                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False))
+                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
 
 
 def assign_known_target(tar_ent: Entity,
@@ -159,7 +159,7 @@ def assign_known_target(tar_ent: Entity,
         new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
         # add_target_var(target, value_type, env, self.dep_db)
         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False))
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
         # record the target assign to target entity
     elif isinstance(tar_ent, UnresolvedAttribute):
         assert False
@@ -172,7 +172,7 @@ def assign_known_target(tar_ent: Entity,
                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
     else:
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False))
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
 
 
 def compress_abstract_value(entities: AbstractValue) -> AbstractValue:
@@ -245,7 +245,6 @@ def assign2target(target: ast.expr, rvalue_expr: Optional[ast.expr], builder: Su
         avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, UseContext(), builder, ctx.env)
         r_store_ables, rvalue = avaler.aval(rvalue_expr)
     unpack_semantic(target, rvalue, r_store_ables, builder, ctx)
-
 
 
 if __name__ == '__main__':

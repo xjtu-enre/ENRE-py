@@ -81,7 +81,7 @@ class Analyzer:
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset, False))
+        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset, False, None))
         # create a function summary
         fun_summary = self.manager.create_function_summary(func_ent)
         env.get_scope().get_builder().add_child(fun_summary)
@@ -113,7 +113,7 @@ class Analyzer:
         class_ent = Class(new_scope.to_longname(), new_scope)
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset, False))
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset, False, None))
         bases = []
         for base_expr in class_stmt.bases:
             store_ables, avalue = avaler.aval(base_expr)
@@ -121,10 +121,10 @@ class Analyzer:
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ConstructorType):
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False))
+                                          class_stmt.col_offset, False, base_expr))
                 else:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False))
+                                          class_stmt.col_offset, False, base_expr))
                     # todo: handle unknown class
         env.get_scope().get_builder().add_inherit(class_ent, bases)
         # add class to current environment
@@ -248,7 +248,7 @@ class Analyzer:
                 alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
                 env.get_scope().add_continuous(alias_binding)
             env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, import_stmt.lineno,
-                                      import_stmt.col_offset, False))
+                                      import_stmt.col_offset, False, None))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
         # todo: import from statement
@@ -259,7 +259,7 @@ class Analyzer:
         file_ent, bound_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                          import_stmt.col_offset, True)
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.ImportKind, file_ent, import_stmt.lineno, import_stmt.col_offset, False))
+        current_ctx.add_ref(Ref(RefKind.ImportKind, file_ent, import_stmt.lineno, import_stmt.col_offset, False, None))
         new_bindings: "Bindings"
         if not isinstance(file_ent, UnknownModule):
             # if the imported module can found in package
@@ -289,7 +289,7 @@ class Analyzer:
                 location = file_ent.location.append(alias.name, alias_code_span)
                 unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
-                file_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0, False))
+                file_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0, False, None))
                 if alias.asname is not None:
                     as_location = env.get_scope().get_location().append(alias.asname, alias_code_span)
                     alias_ent = Alias(as_location.to_longname(), location, [unknown_var])
@@ -408,7 +408,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
         summary.parameter_list.append(a.arg)
-        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, False))
+        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, False, None))
 
     args_binding: "Bindings" = []
 

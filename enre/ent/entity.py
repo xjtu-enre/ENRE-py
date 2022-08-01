@@ -307,7 +307,7 @@ class Alias(Entity):
         from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
-            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False))
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False, None))
 
 
 class Class(Entity, NameSpaceEntity):
