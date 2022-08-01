@@ -196,7 +196,7 @@ def flatten_bindings(bindings: "Bindings") -> "Bindings":
     return new_bindings
 
 
-def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue,
+def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_expr: ast.expr,
                     r_store_ables: StoreAbles,
                     builder: SummaryBuilder,
                     ctx: "AnalyzeContext") -> StoreAbles:
@@ -208,7 +208,7 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue,
     lhs_store_ables = []
     for n, target_ents in new_bindings:
         for tar, _ in target_ents:
-            lhs_store_able = get_named_store_able(tar)
+            lhs_store_able = get_named_store_able(tar, assigned_expr)
             if lhs_store_able:
                 lhs_store_ables.append(lhs_store_able)
     ctx.env.get_scope().add_continuous(new_bindings)

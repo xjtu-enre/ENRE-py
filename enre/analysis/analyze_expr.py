@@ -104,7 +104,7 @@ class ExprAnalyzer:
             if ent_objs:
                 store_ables: List[StoreAble] = []
                 for ent, _ in ent_objs:
-                    s = get_named_store_able(ent)
+                    s = get_named_store_able(ent, name_expr)
                     if s:
                         store_ables.append(s)
                 return store_ables, ent_objs
@@ -120,7 +120,8 @@ class ExprAnalyzer:
                 lhs_objs.extend(ent_objs)
             else:
                 lhs_objs.extend([NewlyCreated(get_syntactic_span(name_expr), UnknownVar(name_expr.id))])
-            lhs_store_ables = abstract_assign(lhs_objs, self._exp_ctx.rhs_value, self._exp_ctx.rhs_store_ables,
+            lhs_store_ables = abstract_assign(lhs_objs, self._exp_ctx.rhs_value, name_expr,
+                                              self._exp_ctx.rhs_store_ables,
                                               self._builder,
                                               AnalyzeContext(self._env, self.manager, self._package_db,
                                                              self._current_db,

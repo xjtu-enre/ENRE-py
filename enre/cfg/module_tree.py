@@ -15,6 +15,8 @@ from enre.ent.entity import Function, Variable
 if typing.TYPE_CHECKING:
     from enre.analysis.analyze_expr import ExpressionContext
 
+SyntaxNameSpace: TypeAlias = Dict[str, typing.Set[ast.expr]]
+
 
 class ModuleSummary:
 
@@ -39,6 +41,10 @@ class ModuleSummary:
     @abstractmethod
     def name(self) -> str:
         ...
+
+    # @abstractmethod
+    # def get_syntax_namespace(self) -> SyntaxNameSpace:
+    #     ...
 
     def __str__(self) -> str:
         ret = "{}\n".format(self.module_head)
@@ -177,10 +183,16 @@ class StoreAble(object):
     ...
 
 
+class NonConstStoreAble(object):
+    @abstractmethod
+    def get_syntax_location(self) -> ast.expr:
+        ...
+
+
 StoreAbles: TypeAlias = Sequence[StoreAble]
 
 
-class Temporary(StoreAble):
+class Temporary(StoreAble, NonConstStoreAble):
     """
     Temporary is not corresponding to any variable entity of source code, just a temporary
     """
@@ -196,13 +208,17 @@ class Temporary(StoreAble):
     def __str__(self) -> str:
         return f"temporary: {self._name}"
 
+    def get_syntax_location(self) -> ast.expr:
+        return self._expr
 
-class VariableLocal(StoreAble):
+
+class VariableLocal(StoreAble, NonConstStoreAble):
     __match_args__ = ("_variable",)
 
-    def __init__(self, variable: Variable) -> None:
+    def __init__(self, variable: Variable, expr: ast.expr) -> None:
         self._variable = variable
         self._parent_func = None
+        self._expr = expr
 
     def name(self) -> str:
         return self._variable.longname.name
@@ -210,12 +226,16 @@ class VariableLocal(StoreAble):
     def __str__(self) -> str:
         return f"local variable: {self.name()}"
 
+    def get_syntax_location(self) -> ast.expr:
+        return self._expr
 
-class ParameterLocal(StoreAble):
+
+class ParameterLocal(StoreAble, NonConstStoreAble):
     __match_args__ = ("_parameter",)
 
-    def __init__(self, parameter: Parameter) -> None:
+    def __init__(self, parameter: Parameter, expr: ast.expr) -> None:
         self._parameter = parameter
+        self._expr = expr
 
     def name(self) -> str:
         return self._parameter.longname.name
@@ -223,6 +243,8 @@ class ParameterLocal(StoreAble):
     def __str__(self) -> str:
         return f"parameter: {self.name()}"
 
+    def get_syntax_location(self) -> ast.expr:
+        return self._expr
 
 class VariableOuter(StoreAble):
     def __init__(self, variable: VariableLocal, func: FunctionSummary) -> None:
@@ -236,9 +258,10 @@ class VariableOuter(StoreAble):
 
 
 @dataclass(frozen=True)
-class FieldAccess(StoreAble):
+class FieldAccess(StoreAble, NonConstStoreAble):
     target: StoreAble
     field: str
+    expr: ast.expr
 
     def name(self) -> str:
         return "attribute {} of {}".format(self.field, self.target)
@@ -246,6 +269,8 @@ class FieldAccess(StoreAble):
     def __str__(self) -> str:
         return self.name()
 
+    def get_syntax_location(self) -> ast.expr:
+        return self.expr
 
 @dataclass(frozen=True)
 class FuncConst(StoreAble):
@@ -292,12 +317,16 @@ class PackageConst(StoreAble):
 
 
 @dataclass(frozen=True)
-class Invoke(StoreAble):
+class Invoke(StoreAble, NonConstStoreAble):
     target: StoreAble
     args: Sequence[StoreAble]
+    expr: ast.expr
 
     def __str__(self) -> str:
         return f"function invoke: {self.target}({', '.join(str(arg) for arg in self.args)})"
+
+    def get_syntax_location(self) -> ast.expr:
+        return self.expr
 
 
 @dataclass(frozen=True)
@@ -319,6 +348,7 @@ class ValueFlow(Rule):
 
     def __str__(self) -> str:
         return "{} <- {}".format(str(self.lhs), str(self.rhs))
+
 
 @dataclass(frozen=True)
 class Return(Rule):
@@ -354,7 +384,7 @@ class SummaryBuilder(object):
         self.add_move(temp, rhs)
         return temp
 
-    def add_invoke(self, func: StoreAbles, args: List[StoreAbles], expr: ast.expr) -> StoreAbles:
+    def add_invoke(self, func: StoreAbles, args: List[StoreAbles], invoke_expr: ast.expr) -> StoreAbles:
         ret: List[StoreAble] = []
         args_stores: Sequence[StoreAble]
         func_store: StoreAble
@@ -364,8 +394,8 @@ class SummaryBuilder(object):
         for l in list(itertools.product(*([func] + args))):
             func_store = l[0]
             args_stores = l[1:]
-            invoke = Invoke(func_store, args_stores)
-            ret.append(self.add_move_temp(invoke, expr))
+            invoke = Invoke(func_store, args_stores, invoke_expr)
+            ret.append(self.add_move_temp(invoke, invoke_expr))
         return ret
 
     def add_inherit(self, cls: Class, args: List[StoreAbles]) -> None:
@@ -380,9 +410,9 @@ class SummaryBuilder(object):
         ret: List[StoreAble] = []
         for fa in field_accesses:
             if isinstance(context, SetContext):
-                ret.append(FieldAccess(fa, field))
+                ret.append(FieldAccess(fa, field, expr))
             else:
-                ret.append(self.add_move_temp(FieldAccess(fa, field), expr))
+                ret.append(self.add_move_temp(FieldAccess(fa, field, expr), expr))
             # we have to return a field access here, because only this can resolve set behavior correctly
         return ret
 
@@ -395,17 +425,17 @@ class SummaryBuilder(object):
         self.mod.add_child(summary)
 
 
-def get_named_store_able(ent: Entity) -> Optional[StoreAble]:
+def get_named_store_able(ent: Entity, named_node: ast.expr) -> Optional[StoreAble]:
     ret: Optional[StoreAble] = None
     match ent:
         case Variable() as v:
-            ret = VariableLocal(v)
+            ret = VariableLocal(v, named_node)
         case Class() as cls:
             ret = ClassConst(cls)
         case Module() as mod:
             ret = ModuleConst(mod)
         case Parameter() as p:
-            ret = ParameterLocal(p)
+            ret = ParameterLocal(p, named_node)
         case Function() as f:
             ret = FuncConst(f)
         case UnknownVar() as v:
@@ -418,9 +448,9 @@ def get_named_store_able(ent: Entity) -> Optional[StoreAble]:
             ret = None
             # todo: handle alias case here
         case ModuleAlias() as ma:
-            ret = get_named_store_able(ma.module_ent)
+            ret = get_named_store_able(ma.module_ent, named_node)
         case PackageAlias() as pa:
-            ret = get_named_store_able(pa.package_ent)
+            ret = get_named_store_able(pa.package_ent, named_node)
         case _ as e:
             raise NotImplementedError(f"{e} not implemented yet")
     return ret
