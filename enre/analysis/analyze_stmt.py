@@ -4,17 +4,17 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from enre.analysis.analyze_abstract import is_abstract_method, AbstractClassInfo
+# Avaler stand for Abstract evaluation
+from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
+from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
+from enre.analysis.value_info import ValueInfo, PackageType
 from enre.dep.DepDB import DepDB
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Variable, Function, Module, Location, UnknownVar, Parameter, Class, ClassAttribute, \
     ModuleAlias, \
-    Entity, UnresolvedAttribute, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
+    Entity, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
     Package, PackageAlias
-from enre.analysis.value_info import ValueInfo, PackageType
-from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
-# Avaler stand for Abstract evaluation
-from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.ref.Ref import Ref
 
 if ty.TYPE_CHECKING:
@@ -400,9 +400,10 @@ class Analyzer:
         raise NotImplementedError("not implemented yet")
 
     def process_annotations(self, args: ast.arguments, env: EntEnv) -> None:
+        avaler = UseAvaler(self.manager, self.package_db, self.current_db, True)
         for arg in args.args:
             if arg.annotation is not None:
-                self._avaler.aval(arg.annotation, env)
+                avaler.aval(arg.annotation, env)
 
 
 # todo: if target not in the current scope, create a new Variable Entity to the current scope
