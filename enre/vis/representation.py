@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, TypedDict, Any, TypeAlias, Dict
 
-from enre.analysis.analyze_abstract import AbstractKind
+from enre.analysis.analyze_method import FunctionKind
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
 from enre.ent.entity import Entity, Class, Function
@@ -43,7 +43,7 @@ class Node:
     end_line: int
     start_col: int
     end_col: int
-    modifiers: List[str]
+    modifiers: Dict[str, List[str]]
 
 
 @dataclass
@@ -138,7 +138,7 @@ class DepRepr:
                                    start_line=-1,
                                    end_line=-1,
                                    start_col=-1,
-                                   end_col=-1, modifiers=[]))
+                                   end_col=-1, modifiers={}))
 
             for ref in ent.refs():
                 if not ref.isforward():
@@ -157,10 +157,26 @@ class DepRepr:
         return dep_repr
 
     @classmethod
-    def get_modifiers(cls, ent: Entity) -> List[str]:
-        ret = []
-        if isinstance(ent, Class) and ent.abstract_info:
-            ret.append("abstract")
-        elif isinstance(ent, Function) and ent.is_abstract == AbstractKind.AbstractMethod:
-            ret.append("abstract")
+    def get_modifiers(cls, ent: Entity) -> Dict[str, list[str]]:
+        ret: Dict[str, List[str]] = {}
+        if isinstance(ent, Class):
+            ret = {
+                'modifier': [],
+                'readonlyProperty': [],
+                'privateProperty': []
+            }
+            if ent.abstract_info:
+                ret['modifier'].append('abstract class')
+            for name, _ in ent.readonly_attribute.items():
+                ret['readonlyProperty'].append(name)
+            for name, _ in ent.private_attribute.items():
+                ret['privateProperty'].append(name)
+        elif isinstance(ent, Function):
+            ret = {
+                'modifier': []
+            }
+            if ent.abstract_kind == FunctionKind.AbstractMethod:
+                ret['modifier'].append('abstract method')
+            if ent.static_kind == FunctionKind.StaticMethod:
+                ret['modifier'].append('static method')
         return ret
