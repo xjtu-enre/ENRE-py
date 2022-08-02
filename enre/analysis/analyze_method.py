@@ -1,8 +1,8 @@
 # -*- coding:utf-8
 import ast
+import typing
 from enum import Enum
 from typing import List, Optional
-import typing
 
 if typing.TYPE_CHECKING:
     from enre.ent.entity import Function
@@ -42,10 +42,11 @@ class MethodVisitor(ast.NodeVisitor):
                     self.static_kind = FunctionKind.StaticMethod
                 elif decorator.id == 'property':
                     self.readonly_property_name = node.name
-        self.generic_visit(node)
         # 如果普通函数的函数体中只有raise NotImplementError的话也算是抽象函数
-        if self.have_raise_NotImplementedError and len(node.body) == 1 and type(node.body[0]) == ast.Raise:
-            self.abstract_kind = FunctionKind.AbstractMethod
+        if len(node.body) == 1 and type(node.body[0]) == ast.Raise:
+            self.visit_Raise(node.body[0])
+            if self.have_raise_NotImplementedError:
+                self.abstract_kind = FunctionKind.AbstractMethod
 
         # 这里是根据return返回属性判断的，判断逻辑不全，已舍弃
         # if self.have_property_decorator and len(node.body) == 1:
