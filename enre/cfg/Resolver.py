@@ -282,7 +282,7 @@ class Resolver:
 
     def call_initializer_on_instance(self, cls_obj: ClassObject, instance: HeapObject,
                                      args: Sequence[ReadOnlyObjectSlot], namespace: NameSpace) -> None:
-        initializer = cls_obj.members["__init__"]
+        initializer = cls_obj.namespace["__init__"]
         first_arg: List[ReadOnlyObjectSlot] = [{instance}]
         args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
         for obj in initializer:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, TypedDict, Any
+from typing import List, TypedDict, Any, TypeAlias, Dict, Iterable
 
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind
@@ -42,6 +42,10 @@ class Edge:
     lineno: int
     col_offset: int
     in_type_ctx: bool
+    resolved_targets: Iterable[int]
+
+
+JsonDict: TypeAlias = Dict[str, Any]
 
 
 class DepRepr:
@@ -81,6 +85,7 @@ class DepRepr:
                                    ent.location.code_span.end_col))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
+                    resolved_targets = [t.id for t in ref.resolved_targets]
                     dep_repr._edge_list.append(Edge(src=ent.id,
                                                     src_name=ent.longname.longname,
                                                     dest=ref.target_ent.id,
@@ -88,7 +93,23 @@ class DepRepr:
                                                     kind=ref.ref_kind.value,
                                                     in_type_ctx=ref.in_type_ctx,
                                                     lineno=ref.lineno,
-                                                    col_offset=ref.col_offset))
+                                                    col_offset=ref.col_offset,
+                                                    resolved_targets=resolved_targets))
+
+    def to_json_1(self) -> JsonDict:
+        ret: JsonDict = {"variables": [], "cells": []}
+        for n in self._node_list:
+            ret["variables"].append({"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+                                     "location": {"startLine": n.start_line, "endLine": n.end_line,
+                                                  "startColumn": n.start_col, "endColumn": n.end_col}})
+        for e in self._edge_list:
+            values: JsonDict = {"kind": e.kind}
+            if e.resolved_targets:
+                values["resolved"] = e.resolved_targets
+            ret["cells"].append({"src": e.src,
+                                 "dest": e.dest,
+                                 "values": values})
+        return ret
 
     @classmethod
     def from_package_db(cls, package_db: RootDB) -> "DepRepr":
@@ -125,5 +146,6 @@ class DepRepr:
                                        kind=ref.kind().name(),
                                        lineno=lineno,
                                        col_offset=col_offset,
-                                       in_type_ctx=ref.in_type_ctx))
+                                       in_type_ctx=False,
+                                       resolved_targets=[]))
         return dep_repr

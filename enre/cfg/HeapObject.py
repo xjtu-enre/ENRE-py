@@ -68,18 +68,18 @@ class ModuleObject(HeapObject, NameSpaceObject):
 class ClassObject(HeapObject, NameSpaceObject):
     class_ent: Class
     summary: "ClassSummary"
-    members: "NameSpace"
+    namespace: "NameSpace"
     inherits: Set["ClassObject"] = field(default_factory=set)
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
-        return self.members
+        return self.namespace
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
-        obj_slot.update(self.members[name])
+        obj_slot.update(self.namespace[name])
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
-        return update_if_not_contain_all(self.members[name], objs)
+        return update_if_not_contain_all(self.namespace[name], objs)
 
     def __hash__(self) -> int:
         return id(self)
@@ -98,12 +98,12 @@ class ClassObject(HeapObject, NameSpaceObject):
 @dataclass(frozen=True)
 class InstanceObject(HeapObject, NameSpaceObject):
     class_obj: ClassObject
-    members: "NameSpace"
+    namespace: "NameSpace"
     invoke: "Invoke"
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_namespace(self) -> "NameSpace":
-        return self.members
+        return self.namespace
 
     def __hash__(self) -> int:
         return hash((self.class_obj, self.invoke))
@@ -112,7 +112,7 @@ class InstanceObject(HeapObject, NameSpaceObject):
         return isinstance(other, InstanceObject) and self.class_obj == other.class_obj and self.invoke == other.invoke
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
-        return update_if_not_contain_all(self.members[name], objs)
+        return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         def extend_method_ref_is_not_exist(obj: "HeapObject", slot: "ObjectSlot") -> None:
@@ -122,8 +122,8 @@ class InstanceObject(HeapObject, NameSpaceObject):
             else:
                 slot.add(obj)
 
-        if name in self.members:
-            obj_slot.update(self.members[name])
+        if name in self.namespace:
+            obj_slot.update(self.namespace[name])
         else:
             cls_member: ObjectSlot = set()
             self.class_obj.get_member(name, cls_member)

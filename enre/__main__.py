@@ -7,6 +7,7 @@ from pathlib import Path
 from enre.analysis.analyze_manager import AnalyzeManager
 from enre.cfg.Resolver import Resolver
 from enre.cfg.module_tree import Scene
+from enre.passes.aggregate_control_flow_info import aggregate_cfg_info
 from enre.vis.representation import DepRepr
 from enre.vis.summary_repr import from_summaries
 
@@ -17,14 +18,14 @@ def main() -> None:
                         help="root package path")
     parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
     parser.add_argument("--cfg", action="store_true",
-                        help="output consumed time of control flow analysis in json format")
+                        help="run control flow analysis and output module summaries")
+    parser.add_argument("--compatible", action="store_true")
     args = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
-    manager = enre_wrapper(root_path)
+    manager = enre_wrapper(root_path, args.compatible, args.cfg)
     end = time.time()
-    if args.cfg:
-        cfg_wrapper(root_path, manager.scene)
+
     if args.profile:
         time_in_json = json.dumps({
             "analyzed files": len(manager.root_db.tree),
@@ -33,14 +34,22 @@ def main() -> None:
         # print(f"analysing time: {end - start}s")
 
 
-def enre_wrapper(root_path: Path) -> AnalyzeManager:
+def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> AnalyzeManager:
     project_name = root_path.name
     manager = AnalyzeManager(root_path)
     manager.work_flow()
     out_path = Path(f"{project_name}-report-enre.json")
+    if need_cfg:
+        print("dependency analysis finished, now running control flow analysis")
+        cfg_wrapper(root_path, manager.scene)
+        aggregate_cfg_info(manager.root_db, manager.scene)
+
     with open(out_path, "w") as file:
-        repr = DepRepr.from_package_db(manager.root_db).to_json()
-        json.dump(repr, file, indent=4)
+        if not compatible_format:
+            json.dump(DepRepr.from_package_db(manager.root_db).to_json_1(), file, indent=4)
+        else:
+            repr = DepRepr.from_package_db(manager.root_db).to_json()
+            json.dump(repr, file, indent=4)
 
     summary_out_path = Path(f"{project_name}-report-enre-summary.txt")
     with open(summary_out_path, "w") as file:

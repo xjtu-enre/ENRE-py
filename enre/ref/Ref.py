@@ -1,7 +1,7 @@
 import ast
 from abc import ABC
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, Set
 
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Entity
@@ -19,4 +19,6 @@ class Ref(ABC):
     in_type_ctx: bool
 
     expr: Optional[ast.expr]
+
+    resolved_targets: Set[Entity] = field(default_factory=set)
     # not none if a reference's target entity is created by an evaluation

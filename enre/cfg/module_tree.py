@@ -15,7 +15,7 @@ from enre.ent.entity import Function, Variable
 if typing.TYPE_CHECKING:
     from enre.analysis.analyze_expr import ExpressionContext
 
-SyntaxNameSpace: TypeAlias = Dict[str, typing.Set[ast.expr]]
+SyntaxNameSpace: TypeAlias = Dict[ast.expr, str]
 
 
 class ModuleSummary:
@@ -42,9 +42,9 @@ class ModuleSummary:
     def name(self) -> str:
         ...
 
-    # @abstractmethod
-    # def get_syntax_namespace(self) -> SyntaxNameSpace:
-    #     ...
+    @abstractmethod
+    def get_syntax_namespace(self) -> SyntaxNameSpace:
+        ...
 
     def __str__(self) -> str:
         ret = "{}\n".format(self.module_head)
@@ -64,6 +64,7 @@ class FileSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ModuleObject] = None
+        self._syntax_namespace: SyntaxNameSpace = dict()
 
     @property
     def module_head(self) -> "str":
@@ -90,6 +91,9 @@ class FileSummary(ModuleSummary):
     def get_namespace(self) -> NameSpace:
         return self.get_object().get_namespace()
 
+    def get_syntax_namespace(self) -> SyntaxNameSpace:
+        return self._syntax_namespace
+
     def __hash__(self) -> int:
         return id(self)
 
@@ -108,6 +112,7 @@ class ClassSummary(ModuleSummary):
         self._children: "List[ModuleSummary]" = []
         self.namespace: NameSpace = defaultdict(set)
         self._correspond_obj: Optional[ClassObject] = None
+        self._syntax_namespace: SyntaxNameSpace = dict()
 
     @property
     def rules(self) -> "List[Rule]":
@@ -130,6 +135,9 @@ class ClassSummary(ModuleSummary):
     def get_namespace(self) -> NameSpace:
         return self.get_object().get_namespace()
 
+    def get_syntax_namespace(self) -> SyntaxNameSpace:
+        return self._syntax_namespace
+
     def __hash__(self) -> int:
         return id(self)
 
@@ -141,6 +149,7 @@ class FunctionSummary(ModuleSummary):
         self._rules: List[Rule] = []
         self.parameter_list: List[str] = list()
         self._correspond_obj: Optional[FunctionObject] = None
+        self._syntax_namespace: SyntaxNameSpace = dict()
 
     def get_object(self) -> FunctionObject:
         if self._correspond_obj:
@@ -167,6 +176,9 @@ class FunctionSummary(ModuleSummary):
     @property
     def rules(self) -> "List[Rule]":
         return self._rules
+
+    def get_syntax_namespace(self) -> SyntaxNameSpace:
+        return self._syntax_namespace
 
     def __hash__(self) -> int:
         return id(self)
@@ -246,6 +258,7 @@ class ParameterLocal(StoreAble, NonConstStoreAble):
     def get_syntax_location(self) -> ast.expr:
         return self._expr
 
+
 class VariableOuter(StoreAble):
     def __init__(self, variable: VariableLocal, func: FunctionSummary) -> None:
         self._varialbe = variable
@@ -271,6 +284,7 @@ class FieldAccess(StoreAble, NonConstStoreAble):
 
     def get_syntax_location(self) -> ast.expr:
         return self.expr
+
 
 @dataclass(frozen=True)
 class FuncConst(StoreAble):
@@ -364,6 +378,9 @@ class AddBase(Rule):
     cls: ClassConst
     bases: Sequence[StoreAble]
 
+    def __str__(self) -> str:
+        return f"{self.cls} is derived from [{', '.join(str(base) for base in self.bases)}]"
+
 
 class SummaryBuilder(object):
     _rules: List[Rule]
@@ -372,16 +389,26 @@ class SummaryBuilder(object):
         self.mod = mod
         self._rules = mod.rules
         self._temporary_index = 0
+        self._syntax_name_map = mod.get_syntax_namespace()
+
+    def add_store_able(self, store_able: StoreAble) -> None:
+        match store_able:
+            case ParameterLocal() | VariableLocal() | Temporary() as t:
+                self._syntax_name_map[t.get_syntax_location()] = t.name()
 
     def add_move(self, lhs: StoreAble, rhs: StoreAble) -> StoreAble:
+        self.add_store_able(lhs)
+        self.add_store_able(rhs)
         self._rules.append(ValueFlow(lhs, rhs))
         return lhs
 
     def add_move_temp(self, rhs: StoreAble, expr: ast.expr) -> Temporary:
+        self.add_store_able(rhs)
         index = self._temporary_index
         self._temporary_index += 1
         temp = Temporary(f"___t_{index}", expr)
         self.add_move(temp, rhs)
+        self.add_store_able(temp)
         return temp
 
     def add_invoke(self, func: StoreAbles, args: List[StoreAbles], invoke_expr: ast.expr) -> StoreAbles:
@@ -409,16 +436,19 @@ class SummaryBuilder(object):
         from enre.analysis.analyze_expr import SetContext
         ret: List[StoreAble] = []
         for fa in field_accesses:
+            field_access = FieldAccess(fa, field, expr)
             if isinstance(context, SetContext):
-                ret.append(FieldAccess(fa, field, expr))
+                self.add_move_temp(field_access, expr)
+                ret.append(field_access)
             else:
-                ret.append(self.add_move_temp(FieldAccess(fa, field, expr), expr))
+                ret.append(self.add_move_temp(field_access, expr))
             # we have to return a field access here, because only this can resolve set behavior correctly
         return ret
 
     def add_return(self, return_stores: StoreAbles, expr: ast.expr) -> None:
         assert isinstance(self.mod, FunctionSummary)
         for return_store in return_stores:
+            self.add_store_able(return_store)
             self._rules.append(Return(return_store, expr))
 
     def add_child(self, summary: ModuleSummary) -> None:
