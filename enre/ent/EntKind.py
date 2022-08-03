@@ -11,6 +11,7 @@ class RefKind(Enum):
     ImportKind = "Import"
     HasambiguousKind = "Hasambiguous"
     AliasTo = "Alias"
+    Annotate = "Annotate"
 
 
 class EntKind(Enum):

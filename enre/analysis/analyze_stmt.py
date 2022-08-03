@@ -3,7 +3,7 @@ import typing as ty
 from dataclasses import dataclass
 from pathlib import Path
 
-from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorType, ModuleType, TypingContext, \
+from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorType, ModuleType, \
     UseContext
 # Avaler stand for Abstract evaluation
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
@@ -70,19 +70,20 @@ class Analyzer:
             elif isinstance(value, ast.AST):
                 self.analyze(value, env)
 
-    def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
+    def analyze_function(self, name: str, args: ast.arguments, body: ty.List[ast.stmt], span: Span,
+                         env: EntEnv) -> Function:
         in_class_env = isinstance(env.get_ctx(), Class)
-        fun_code_span = get_syntactic_span(def_stmt)
+        fun_code_span = span
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(def_stmt.name, fun_code_span)
+        new_scope = now_scope.append(name, fun_code_span)
         func_ent = Function(new_scope.to_longname(), new_scope)
-        func_name = def_stmt.name
+        func_name = name
 
         # add function entity to dependency database
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, def_stmt.lineno, def_stmt.col_offset, False, None))
+        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, span.start_line, span.start_col, False, None))
         # create a function summary
         fun_summary = self.manager.create_function_summary(func_ent)
         env.get_scope().get_builder().add_child(fun_summary)
@@ -97,12 +98,18 @@ class Analyzer:
         if not isinstance(current_ctx, Class):
             body_env.add_continuous(new_binding)
         # add parameters to the scope environment
-        process_parameters(def_stmt.args, body_env, self.current_db, fun_summary, env.get_class_ctx())
+        process_parameters(args, body_env, env, self.manager, self.package_db, self.current_db, fun_summary,
+                           env.get_class_ctx())
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
+        hook_scope.add_hook(body, body_env)
+        return func_ent
 
-        hook_scope.add_hook(def_stmt.body, body_env)
-        self.process_annotations(def_stmt.args, env)
+    def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
+        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, get_syntactic_span(def_stmt), env)
         self.set_method_info(def_stmt, func_ent)
+
+    def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
+        self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, get_syntactic_span(def_stmt), env)
 
     def set_method_info(self, def_stmt: ast.FunctionDef, func_ent: Function) -> None:
         method_visitor = MethodVisitor()
@@ -110,9 +117,6 @@ class Analyzer:
         func_ent.abstract_kind = method_visitor.abstract_kind
         func_ent.static_kind = method_visitor.static_kind
         func_ent.readonly_property_name = method_visitor.readonly_property_name
-
-    def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
-        ...
 
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
@@ -199,42 +203,45 @@ class Analyzer:
     def analyze_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
         rvalue_expr = assign_stmt.value
-        self.process_assign_helper(rvalue_expr, target_exprs, env)
+        self.process_assign_helper(rvalue_expr, target_exprs, env, None)
 
     def analyze_AugAssign(self, aug_stmt: ast.AugAssign, env: EntEnv) -> None:
         target_expr = aug_stmt.target
         rvalue_expr = aug_stmt.value
         if rvalue_expr is not None:
-            self.process_assign_helper(rvalue_expr, [target_expr], env)
+            self.process_assign_helper(rvalue_expr, [target_expr], env, None)
         else:
             self.declare_semantic(target_expr, env)
 
     def analyze_AnnAssign(self, ann_stmt: ast.AnnAssign, env: EntEnv) -> None:
         target_expr = ann_stmt.target
         rvalue_expr = ann_stmt.value
-        type_ctx_avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db,
-                                       TypingContext(), env.get_scope().get_builder(), env)
-        type_ctx_avaler.aval(ann_stmt.annotation)
-        self.process_assign_helper(rvalue_expr, [target_expr], env)
+        self.process_assign_helper(rvalue_expr, [target_expr], env, ann_stmt.annotation)
 
     def analyze_Expr(self, expr_stmt: ast.Expr, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
         avaler.aval(expr_stmt.value)
 
     def process_assign_helper(self, rvalue_expr: ty.Optional[ast.expr], target_exprs: ty.List[ast.expr],
-                              env: EntEnv) -> None:
+                              env: EntEnv, annotation: ty.Optional[ast.expr]) -> None:
         from enre.analysis.assign_target import assign2target
         frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
+        lhs_ents: ty.Set[Entity] = set()
         for target_expr in target_exprs:
             target_lineno = target_expr.lineno
             target_col_offset = target_expr.col_offset
-            assign2target(target_expr, rvalue_expr, env.get_scope().get_builder(),
-                          AnalyzeContext(env,
-                                         self.manager,
-                                         self.package_db,
-                                         self.current_db,
-                                         (target_lineno, target_col_offset),
-                                         False))
+            sub_lhs_ents = assign2target(target_expr, rvalue_expr, env.get_scope().get_builder(),
+                                         AnalyzeContext(env,
+                                                        self.manager,
+                                                        self.package_db,
+                                                        self.current_db,
+                                                        (target_lineno, target_col_offset),
+                                                        False))
+            lhs_ents.update(sub_lhs_ents)
+        if annotation is not None:
+            annotation_avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, lhs_ents,
+                                             UseContext(), env.get_scope().get_builder(), env)
+            annotation_avaler.aval(annotation)
 
     def analyze_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:
         def create_proper_alias(file_ent: ty.Union[Module, Package], location: Location) -> Entity:
@@ -313,7 +320,7 @@ class Analyzer:
         for with_item in with_stmt.items:
             context_expr = with_item.context_expr
             optional_var = with_item.optional_vars
-            avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, UseContext(),
+            avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, None, UseContext(),
                                   env.get_scope().get_builder(), env)
             with_store_ables, with_value = avaler.aval(context_expr)
             if optional_var is not None:
@@ -391,23 +398,24 @@ class Analyzer:
     def declare_semantic(self, target_expr: ast.expr, env: EntEnv) -> None:
         raise NotImplementedError("not implemented yet")
 
-    def process_annotations(self, args: ast.arguments, env: EntEnv) -> None:
-        for arg in args.args:
-            if arg.annotation is not None:
-                avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db,
-                                      TypingContext(), env.get_scope().get_builder(), env)
-                avaler.aval(arg.annotation)
-
     def get_default_avaler(self, env: EntEnv) -> ExprAnalyzer:
-        return ExprAnalyzer(self.manager, self.package_db, self.current_db, UseContext(),
+        return ExprAnalyzer(self.manager, self.package_db, self.current_db, None, UseContext(),
                             env.get_scope().get_builder(), env)
 
 
-def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB, summary: FunctionSummary,
-                       class_ctx: ty.Optional[Class] = None) -> None:
-    location_base = env.get_location()
-    ctx_fun = env.get_ctx()
-    para_constructor = LambdaParameter if isinstance(env.get_ctx(), LambdaFunction) else Parameter
+def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB,
+                       annotation: ty.Optional[ast.expr], env: EntEnv) -> None:
+    if annotation is not None:
+        avaler = ExprAnalyzer(manager, package_db, current_db, [typing_ent],
+                              UseContext(), env.get_scope().get_builder(), env)
+        avaler.aval(annotation)
+
+
+def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manager: AnalyzeManager, package_db: RootDB,
+                       current_db: ModuleDB, summary: FunctionSummary, class_ctx: ty.Optional[Class] = None) -> None:
+    location_base = scope.get_location()
+    ctx_fun = scope.get_ctx()
+    para_constructor = LambdaParameter if isinstance(scope.get_ctx(), LambdaFunction) else Parameter
 
     def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings") -> None:
         para_code_span = get_syntactic_span(a)
@@ -417,7 +425,9 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
         summary.parameter_list.append(a.arg)
-        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
+        ctx_fun.add_ref(
+            Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
+        process_annotation(parameter_ent, manager, package_db, current_db, a.annotation, env)
 
     args_binding: "Bindings" = []
 
@@ -450,4 +460,4 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
     if args.kwarg is not None:
         process_helper(args.kwarg, ValueInfo.get_any(), args_binding)
 
-    env.add_continuous(args_binding)
+    scope.add_continuous(args_binding)

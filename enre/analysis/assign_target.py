@@ -2,9 +2,8 @@ import ast
 from abc import ABC
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Tuple, Callable, Optional, TYPE_CHECKING, Dict, Set
+from typing import List, Tuple, Callable, Optional, TYPE_CHECKING, Dict, Set, Iterable
 
-from enre.analysis.analyze_expr import ExprAnalyzer, SetContext, UseContext
 from enre.analysis.value_info import ValueInfo, InstanceType
 from enre.cfg.module_tree import StoreAbles, SummaryBuilder, get_named_store_able
 from enre.ent.EntKind import RefKind
@@ -216,8 +215,9 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_exp
 
 
 def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: StoreAbles, builder: SummaryBuilder,
-                    ctx: "AnalyzeContext") -> None:
-    set_avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db,
+                    ctx: "AnalyzeContext") -> Iterable[Entity]:
+    from enre.analysis.analyze_expr import ExprAnalyzer, SetContext
+    set_avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, None,
                               SetContext(False, rvalue, r_store_ables), builder, ctx.env)
     # replace pattern match to use mypy
     # match target:
@@ -231,20 +231,21 @@ def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: Stor
     #     case StarTar(tar):
     #         unpack_list([tar], distiller, ctx)
 
-    set_avaler.aval(target)
+    return map(lambda v: v[0], set_avaler.aval(target)[1])
 
 
 def assign2target(target: ast.expr, rvalue_expr: Optional[ast.expr], builder: SummaryBuilder,
-                  ctx: "AnalyzeContext") -> None:
+                  ctx: "AnalyzeContext") -> Iterable[Entity]:
+    from enre.analysis.analyze_expr import ExprAnalyzer, UseContext
     rvalue: AbstractValue
     r_store_ables: StoreAbles
     if rvalue_expr is None:
         rvalue = [(get_anonymous_ent(), ValueInfo.get_any())]
         r_store_ables = []
     else:
-        avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, UseContext(), builder, ctx.env)
+        avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, None, UseContext(), builder, ctx.env)
         r_store_ables, rvalue = avaler.aval(rvalue_expr)
-    unpack_semantic(target, rvalue, r_store_ables, builder, ctx)
+    return unpack_semantic(target, rvalue, r_store_ables, builder, ctx)
 
 
 if __name__ == '__main__':

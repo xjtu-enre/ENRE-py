@@ -2,11 +2,12 @@ import ast
 import itertools
 from abc import ABC
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Sequence, Optional, Iterable
 from typing import Tuple, List
 
-# AValue stands for Abstract Value
 from enre.analysis.analyze_manager import RootDB, ModuleDB, AnalyzeManager
+# AValue stands for Abstract Value
+from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
@@ -31,11 +32,6 @@ class UseContext(ExpressionContext):
 
 
 @dataclass
-class TypingContext(ExpressionContext):
-    ...
-
-
-@dataclass
 class SetContext(ExpressionContext):
     is_define: bool
     rhs_value: AbstractValue
@@ -49,8 +45,9 @@ class CallContext(ExpressionContext):
 
 class ExprAnalyzer:
 
-    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB, exp_ctx: ExpressionContext,
-                 builder: SummaryBuilder, env: EntEnv):
+    def __init__(self, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB,
+                 typing_entities: Optional[Iterable[Entity]],
+                 exp_ctx: ExpressionContext, builder: SummaryBuilder, env: EntEnv):
         self.manager = manager
         self._package_db = package_db
         self._current_db = current_db
@@ -58,6 +55,7 @@ class ExprAnalyzer:
         self._builder: SummaryBuilder = builder
         self._env = env
         self._new_builders: List[ModuleSummary] = []
+        self._typing_entities = typing_entities
 
     def aval(self, expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
         """Visit a node."""
@@ -71,7 +69,7 @@ class ExprAnalyzer:
         """Called if no explicit visitor function exists for a node."""
         ret: ValueInfo = ValueInfo.get_any()
         all_store_ables: List[StoreAble] = []
-        use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, UseContext(),
+        use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities, UseContext(),
                                   self._builder, self._env)
         for field, value in ast.iter_fields(expr):
             if isinstance(value, list):
@@ -98,7 +96,8 @@ class ExprAnalyzer:
         ent_objs = lookup_res.found_entities
         ctx = self._env.get_ctx()
         for ent, ent_type in ent_objs:
-            ctx.add_ref(create_ref_by_ctx(ent, name_expr.lineno, name_expr.col_offset, self._exp_ctx, name_expr))
+            ctx.add_ref(self.create_ref_by_ctx(ent, name_expr.lineno, name_expr.col_offset, self._typing_entities,
+                                               self._exp_ctx, name_expr))
 
         if not isinstance(self._exp_ctx, SetContext):
             if ent_objs:
@@ -111,8 +110,9 @@ class ExprAnalyzer:
             else:
                 unknown_var = UnknownVar.get_unknown_var(name_expr.id)
                 self._current_db.add_ent(unknown_var)
-                ctx.add_ref(create_ref_by_ctx(unknown_var, name_expr.lineno,
-                                              name_expr.col_offset, self._exp_ctx, name_expr))
+                ctx.add_ref(
+                    self.create_ref_by_ctx(unknown_var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
+                                           self._exp_ctx, name_expr))
                 return [], [(unknown_var, ValueInfo.get_any())]
         else:
             lhs_objs: SetContextValue = []
@@ -130,20 +130,21 @@ class ExprAnalyzer:
 
     def aval_Attribute(self, attr_expr: ast.Attribute) -> Tuple[StoreAbles, AbstractValue]:
         use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db,
-                                  UseContext(), self._builder, self._env)
+                                  self._typing_entities, UseContext(), self._builder, self._env)
         possible_store_ables, possible_ents = use_avaler.aval(attr_expr.value)
         attribute = attr_expr.attr
         ret: AbstractValue = []
         extend_known_possible_attribute(self.manager, attribute, possible_ents, ret, self._package_db, self._current_db)
         for ent, _ in ret:
             self._env.get_ctx().add_ref(
-                create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset, self._exp_ctx, attr_expr))
+                self.create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset,
+                                       self._typing_entities, self._exp_ctx, attr_expr))
         field_accesses = self._builder.load_field(possible_store_ables, attribute, self._exp_ctx, attr_expr)
         return field_accesses, ret
 
     def aval_Call(self, call_expr: ast.Call) -> Tuple[StoreAbles, AbstractValue]:
-        call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, CallContext(), self._builder,
-                                   self._env)
+        call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities,
+                                   CallContext(), self._builder, self._env)
         caller_stores, possible_callees = call_avaler.aval(call_expr.func)
         ret: AbstractValue = []
         for callee, func_type in possible_callees:
@@ -175,7 +176,8 @@ class ExprAnalyzer:
         self._current_db.add_ent(func_ent)
         # add reference of current context to the function entity
         self._env.get_ctx().add_ref(
-            create_ref_by_ctx(func_ent, lam_expr.lineno, lam_expr.col_offset, self._exp_ctx, lam_expr))
+            self.create_ref_by_ctx(func_ent, lam_expr.lineno, lam_expr.col_offset, self._typing_entities, self._exp_ctx,
+                                   lam_expr))
 
         # do not add lambda entity to the current environment
         # env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
@@ -186,7 +188,8 @@ class ExprAnalyzer:
         # do not add lambda entity to the scope environment corresponding to the function
         # body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
-        process_parameters(lam_expr.args, body_env, self._current_db, func_summary, self._env.get_class_ctx())
+        process_parameters(lam_expr.args, body_env, self._env, self.manager, self._package_db, self._current_db,
+                           func_summary, self._env.get_class_ctx())
         hook_scope = self._env.get_scope(1) if in_class_env else self._env.get_scope()
         # type error due to member in ast node is, but due to any member in our structure is only readable,
         # this type error is safety
@@ -221,7 +224,7 @@ class ExprAnalyzer:
         return [], [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_BinOp(self, bin_exp: ast.BinOp) -> Tuple[StoreAbles, AbstractValue]:
-        use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, UseContext(), self._builder,
+        use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, None, UseContext(), self._builder,
                                   self._env)
         left_store_ables, _ = use_avaler.aval(bin_exp.left)
         right_store_ables, _ = use_avaler.aval(bin_exp.right)
@@ -253,6 +256,48 @@ class ExprAnalyzer:
             case SetContext() as ctx:
                 for lhs, rhs in itertools.product(stores, ctx.rhs_store_ables):
                     self._builder.add_move(lhs, rhs)
+
+    def create_ref_by_ctx(self, target_ent: Entity, lineno: int, col_offset: int,
+                          typing_entities: Optional[Iterable[Entity]],
+                          ctx: ExpressionContext, expr: ast.expr) -> Ref:
+        """
+        Create a reference to the given entity by the expression's context.
+        """
+        ref_kind: RefKind
+        match ctx:
+            case UseContext():
+                ref_kind = RefKind.UseKind
+            case CallContext():
+                ref_kind = RefKind.CallKind
+            case SetContext():
+                ref_kind = RefKind.SetKind
+            case _:
+                assert False, "unexpected context"
+        if typing_entities is not None:
+            for ent in typing_entities:
+                ent.add_ref(Ref(RefKind.Annotate, target_ent, lineno, col_offset, True, expr))
+        return Ref(ref_kind, target_ent, lineno, col_offset, typing_entities is not None, expr)
+
+    def aval_Tuple(self, tuple_exp: ast.Tuple) -> Tuple[StoreAbles, AbstractValue]:
+        stores: List[StoreAble] = []
+        abstract_value: AbstractValue = []
+        context = self._exp_ctx
+        for index, elt in enumerate(tuple_exp.elts):
+            avaler: ExprAnalyzer
+            if isinstance(context, SetContext):
+                rhs_store_ables = context.rhs_store_ables
+                rhs_abstract_value = context.rhs_value
+                avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities,
+                                      SetContext(False, dummy_unpack(rhs_abstract_value)(index), []), self._builder,
+                                      self._env)
+                # todo: add unpack operation to summary
+            else:
+                avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities, context,
+                                      self._builder, self._env)
+            sub_stores, ent_objs = avaler.aval(elt)
+            stores.extend(sub_stores)
+            abstract_value.extend(ent_objs)
+        return stores, abstract_value
 
 
 def extend_known_possible_attribute(manager: AnalyzeManager,
@@ -357,28 +402,3 @@ def filter_not_setable_entities(ent_objs: AbstractValue) -> AbstractValue:
         if not isinstance(e, (Class, Function, Module, ModuleAlias)):
             ret.append((e, v))
     return ret
-
-
-def create_ref_by_ctx(target_ent: Entity,
-                      lineno: int, col_offset: int, ctx: ExpressionContext, expr: ast.expr) -> Ref:
-    """
-    Create a reference to the given entity by the expression's context.
-    """
-    in_type_ctx: bool
-    ref_kind: RefKind
-    match ctx:
-        case TypingContext():
-            in_type_ctx = True
-            ref_kind = RefKind.UseKind
-        case UseContext():
-            in_type_ctx = False
-            ref_kind = RefKind.UseKind
-        case CallContext():
-            in_type_ctx = False
-            ref_kind = RefKind.CallKind
-        case SetContext():
-            in_type_ctx = False
-            ref_kind = RefKind.SetKind
-        case _:
-            assert False, "unexpected context"
-    return Ref(ref_kind, target_ent, lineno, col_offset, in_type_ctx, expr)
