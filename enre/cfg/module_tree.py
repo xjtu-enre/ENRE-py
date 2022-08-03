@@ -84,7 +84,10 @@ class FileSummary(ModuleSummary):
         if self._correspond_obj:
             return self._correspond_obj
         else:
-            new_obj = ModuleObject(self.module, self, defaultdict(set))
+            namespace = defaultdict(set)
+            for child in self._children:
+                namespace[child.name()].add(child.get_object())
+            new_obj = ModuleObject(self.module, self, namespace)
             self._correspond_obj = new_obj
             return new_obj
 
@@ -419,6 +422,8 @@ class SummaryBuilder(object):
             # invoke nothing if func contains no StoreAble
             return []
         for l in list(itertools.product(*([func] + args))):
+            for store in l:
+                self.add_store_able(store)
             func_store = l[0]
             args_stores = l[1:]
             invoke = Invoke(func_store, args_stores, invoke_expr)

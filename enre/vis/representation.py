@@ -120,11 +120,13 @@ class DepRepr:
             ret["variables"].append(variable)
         for e in self._edge_list:
             values: JsonDict = {"kind": e.kind, "in_type_context": e.in_type_ctx}
+            location = {"startLine": e.lineno, "endLine": e.col_offset}
             if e.resolved_targets:
                 values["resolved"] = e.resolved_targets
             ret["cells"].append({"src": e.src,
                                  "dest": e.dest,
-                                 "values": values})
+                                 "values": values,
+                                 "location": location})
         return ret
 
     @classmethod

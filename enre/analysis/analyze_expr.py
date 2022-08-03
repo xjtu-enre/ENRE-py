@@ -299,6 +299,12 @@ class ExprAnalyzer:
             abstract_value.extend(ent_objs)
         return stores, abstract_value
 
+    def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
+        _, _ = self.aval(subscript.slice)
+        stores, abstract_value = self.aval(subscript.value)
+
+        return [], abstract_value
+
 
 def extend_known_possible_attribute(manager: AnalyzeManager,
                                     attribute: str,
