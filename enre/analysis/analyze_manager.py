@@ -71,8 +71,8 @@ class RootDB:
         if path.is_file() and path.name.endswith(".py"):
             py_files.append(rel_path)
             from enre.dep.DepDB import DepDB
-            module_ent = Module(path.relative_to(self.root_dir.parent))
-            self.tree[path.relative_to(self.root_dir.parent)] = ModuleDB(self.root_dir, module_ent)
+            module_ent = Module(rel_path)
+            self.tree[rel_path] = ModuleDB(self.root_dir, module_ent)
         elif path.is_dir():
             sub_py_files = []
             for file in path.iterdir():
@@ -143,11 +143,14 @@ class AnalyzeManager:
     def work_flow(self) -> None:
         from enre.passes.entity_pass import EntityPass
         from enre.passes.build_ambiguous import BuildAmbiguous
+        from enre.passes.build_visibility import BuildVisibility
+
         self.iter_dir(self.project_root)
         entity_pass = EntityPass(self.root_db)
         build_ambiguous_pass = BuildAmbiguous(self.root_db)
         build_ambiguous_pass.execute_pass()
-        # entity_pass.execute_pass()
+        build_visibility_pass = BuildVisibility(self.root_db)
+        build_visibility_pass.work_flow()
 
     def iter_dir(self, path: Path) -> None:
         from .analyze_stmt import Analyzer

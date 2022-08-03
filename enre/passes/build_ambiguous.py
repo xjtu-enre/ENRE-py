@@ -116,4 +116,4 @@ class BuildAmbiguous(DepDBPass):
             # referenced attribute is an unresolved attribute
             unresolved = UnresolvedAttribute(target_ent.longname, target_ent.location, ValueInfo.get_any())
             self.package_db.add_ent_global(unresolved)
-            ent.add_ref(Ref(ref.ref_kind, unresolved, ref.lineno, ref.col_offset, False, None))
+            ent.add_ref(Ref(ref.ref_kind, unresolved, ref.lineno, ref.col_offset, ref.in_type_ctx, ref.expr))

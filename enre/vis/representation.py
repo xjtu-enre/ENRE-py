@@ -1,9 +1,12 @@
 from dataclasses import dataclass
-from typing import List, TypedDict, Any, TypeAlias, Dict, Iterable
+from enum import Enum
+from typing import Iterable
+from typing import List, TypedDict, Any, TypeAlias, Dict
 
 from enre.analysis.analyze_manager import RootDB
+from enre.analysis.analyze_method import FunctionKind
 from enre.ent.EntKind import EntKind
-from enre.ent.entity import Entity
+from enre.ent.entity import Entity, Class, Function
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -20,6 +23,14 @@ NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
 
 DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
 
+Location = TypedDict("Location", {"startLine": int, "endLine": int, "startColumn": int, "endColumn": int})
+
+
+class Modifiers(Enum):
+    abstract = "abstract"
+    private = "private"
+    readonly = "readonly"
+
 
 @dataclass
 class Node:
@@ -30,6 +41,7 @@ class Node:
     end_line: int
     start_col: int
     end_col: int
+    modifiers: Dict[str, List[str]]
 
 
 @dataclass
@@ -80,9 +92,10 @@ class DepRepr:
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
+            modifiers = cls.get_modifiers(ent)
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col))
+                                   ent.location.code_span.end_col, modifiers))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     resolved_targets = [t.id for t in ref.resolved_targets]
@@ -91,17 +104,20 @@ class DepRepr:
                                                     dest=ref.target_ent.id,
                                                     dest_name=ref.target_ent.longname.longname,
                                                     kind=ref.ref_kind.value,
-                                                    in_type_ctx=ref.in_type_ctx,
                                                     lineno=ref.lineno,
                                                     col_offset=ref.col_offset,
+                                                    in_type_ctx=ref.in_type_ctx,
                                                     resolved_targets=resolved_targets))
 
     def to_json_1(self) -> JsonDict:
         ret: JsonDict = {"variables": [], "cells": []}
         for n in self._node_list:
-            ret["variables"].append({"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
-                                     "location": {"startLine": n.start_line, "endLine": n.end_line,
-                                                  "startColumn": n.start_col, "endColumn": n.end_col}})
+            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+                        "location": {"startLine": n.start_line, "endLine": n.end_line,
+                                     "startColumn": n.start_col, "endColumn": n.end_col}}
+            if exist_no_empty(n.modifiers):
+                variable["modifiers"] = n.modifiers
+            ret["variables"].append(variable)
         for e in self._edge_list:
             values: JsonDict = {"kind": e.kind}
             if e.resolved_targets:
@@ -131,7 +147,7 @@ class DepRepr:
                                    start_line=-1,
                                    end_line=-1,
                                    start_col=-1,
-                                   end_col=-1))
+                                   end_col=-1, modifiers={}))
 
             for ref in ent.refs():
                 if not ref.isforward():
@@ -149,3 +165,34 @@ class DepRepr:
                                        in_type_ctx=False,
                                        resolved_targets=[]))
         return dep_repr
+
+    @classmethod
+    def get_modifiers(cls, ent: Entity) -> Dict[str, list[str]]:
+        ret: Dict[str, List[str]] = {}
+        if isinstance(ent, Class):
+            ret = {
+                'modifier': [],
+                'readonlyProperty': [],
+                'privateProperty': []
+            }
+            if ent.abstract_info:
+                ret['modifier'].append('abstract class')
+            for name, _ in ent.readonly_attribute.items():
+                ret['readonlyProperty'].append(name)
+            for name, _ in ent.private_attribute.items():
+                ret['privateProperty'].append(name)
+        elif isinstance(ent, Function):
+            ret = {
+                'modifier': []
+            }
+            if ent.abstract_kind == FunctionKind.AbstractMethod:
+                ret['modifier'].append('abstract method')
+            if ent.static_kind == FunctionKind.StaticMethod:
+                ret['modifier'].append('static method')
+        return ret
+
+
+def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
+    return ('modifier' in modifiers and len(modifiers['modifier']) > 0) or \
+           ('readonlyProperty' in modifiers and len(modifiers['readonlyProperty']) > 0) or \
+           ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0)

@@ -20,13 +20,13 @@ def main() -> None:
     parser.add_argument("--cfg", action="store_true",
                         help="run control flow analysis and output module summaries")
     parser.add_argument("--compatible", action="store_true")
-    args = parser.parse_args()
+    config = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
-    manager = enre_wrapper(root_path, args.compatible, args.cfg)
+    manager = enre_wrapper(root_path, config.compatible, config.cfg)
     end = time.time()
 
-    if args.profile:
+    if config.profile:
         time_in_json = json.dumps({
             "analyzed files": len(manager.root_db.tree),
             "analysing time": end - start})
@@ -42,6 +42,7 @@ def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> An
     if need_cfg:
         print("dependency analysis finished, now running control flow analysis")
         cfg_wrapper(root_path, manager.scene)
+        print("control flow analysis finished")
         aggregate_cfg_info(manager.root_db, manager.scene)
 
     with open(out_path, "w") as file:

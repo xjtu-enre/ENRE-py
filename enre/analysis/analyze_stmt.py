@@ -7,6 +7,7 @@ from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorTy
     UseContext
 # Avaler stand for Abstract evaluation
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
+from enre.analysis.analyze_method import MethodVisitor
 from enre.analysis.assign_target import dummy_iter_store
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 from enre.analysis.value_info import ValueInfo, PackageType
@@ -101,6 +102,14 @@ class Analyzer:
 
         hook_scope.add_hook(def_stmt.body, body_env)
         self.process_annotations(def_stmt.args, env)
+        self.set_method_info(def_stmt, func_ent)
+
+    def set_method_info(self, def_stmt: ast.FunctionDef, func_ent: Function) -> None:
+        method_visitor = MethodVisitor()
+        method_visitor.visit(def_stmt)
+        func_ent.abstract_kind = method_visitor.abstract_kind
+        func_ent.static_kind = method_visitor.static_kind
+        func_ent.readonly_property_name = method_visitor.readonly_property_name
 
     def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
         ...
@@ -408,7 +417,7 @@ def process_parameters(args: ast.arguments, env: ScopeEnv, current_db: ModuleDB,
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
         summary.parameter_list.append(a.arg)
-        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, False, None))
+        ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
 
     args_binding: "Bindings" = []
 
