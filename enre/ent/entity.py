@@ -40,16 +40,23 @@ class EntLongname:
         return hash(self.longname)
 
 
-@dataclass(eq=True, frozen=True)
+@dataclass
 class Span:
-    @classmethod
-    def get_nil(cls) -> "Span":
-        return _Nil_Span
-
     start_line: int
     end_line: int
     start_col: int
     end_col: int
+
+    @classmethod
+    def get_nil(cls) -> "Span":
+        return _Nil_Span
+
+    def offset(self, offset: int):
+        assert self.end_col == -1
+        self.start_col += offset
+
+    def __hash__(self) -> int:
+        return hash((self.start_line, self.end_line, self.start_col, self.end_col))
 
 
 def get_syntactic_span(tree: ast.AST) -> Span:
@@ -58,6 +65,14 @@ def get_syntactic_span(tree: ast.AST) -> Span:
     # todo: fill correct location for compatibility before 3.8
     start_col = tree.col_offset
     end_col = tree.end_col_offset if tree.end_col_offset else -1
+    return Span(start_line, end_line, start_col, end_col)
+
+
+def get_syntactic_head(tree: ast.AST) -> Span:
+    start_line = tree.lineno
+    end_line = -1
+    start_col = tree.col_offset
+    end_col = -1
     return Span(start_line, end_line, start_col, end_col)
 
 

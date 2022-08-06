@@ -16,11 +16,15 @@ from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Function, Module, Location, UnknownVar, Parameter, Class, ModuleAlias, \
     Entity, Alias, UnknownModule, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
-    Package, PackageAlias
+    Package, PackageAlias, get_syntactic_head
 from enre.ref.Ref import Ref
 
 if ty.TYPE_CHECKING:
     from enre.analysis.env import Binding, Bindings
+
+DefaultDefHeadLen = 4
+DefaultClassHeadLen = 6
+DefaultAsyncDefHeadLen = 8
 
 
 @dataclass
@@ -105,11 +109,15 @@ class Analyzer:
         return func_ent
 
     def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
-        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, get_syntactic_span(def_stmt), env)
+        func_span = get_syntactic_head(def_stmt)
+        func_span.offset(DefaultDefHeadLen)
+        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, env)
         self.set_method_info(def_stmt, func_ent)
 
     def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
-        self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, get_syntactic_span(def_stmt), env)
+        func_span = get_syntactic_head(def_stmt)
+        func_span.offset(DefaultAsyncDefHeadLen)
+        self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, env)
 
     def set_method_info(self, def_stmt: ast.FunctionDef, func_ent: Function) -> None:
         method_visitor = MethodVisitor()
@@ -121,7 +129,8 @@ class Analyzer:
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
         now_scope = env.get_scope().get_location()
-        class_code_span = get_syntactic_span(class_stmt)
+        class_code_span = get_syntactic_head(class_stmt)
+        class_code_span.offset(DefaultClassHeadLen)
         new_scope = now_scope.append(class_stmt.name, class_code_span)
         class_ent = Class(new_scope.to_longname(), new_scope)
         class_name = class_stmt.name
