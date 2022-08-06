@@ -51,67 +51,67 @@ name: UseModuleLevelDefinition
 relation:
   exact: false
   items:
-  - category: Define
+  - type: Define
     dest: test_module_level_use.Base
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.Inherit
     src: test_module_level_use
-  - category: Inherit
+  - type: Inherit
     dest: test_module_level_use.Base
     src: test_module_level_use.Inherit
-  - category: Define
+  - type: Define
     dest: test_module_level_use.func1
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.x
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.y
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.t1
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.t2
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.t3
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.a
     src: test_module_level_use
-  - category: Define
+  - type: Define
     dest: test_module_level_use.b
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.a
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.b
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.Base
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.Inherit
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.func1
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.x
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.y
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.t1
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.t2
     src: test_module_level_use
-  - category: Use
+  - type: Use
     dest: test_module_level_use.t3
     src: test_module_level_use
 ```
@@ -162,37 +162,37 @@ name: UseLocalDefinition
 relation:
   exact: false
   items:
-  - category: Use
+  - type: Use
     dest: test_local_use.func
     src: test_local_use.func.inner_inner
-  - category: Use
+  - type: Use
     dest: test_local_use.func
     src: test_local_use.func.inner
-  - category: Use
+  - type: Use
     dest: test_local_use.func.inner_inner
     src: test_local_use.func.inner
-  - category: Use
+  - type: Use
     dest: test_local_use.func.inner
     src: test_local_use.func
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.a
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.b
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.x
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.y
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.t1
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.t2
     src: test_local_use.func2
-  - category: Use
+  - type: Use
     dest: test_local_use.func2.t3
     src: test_local_use.func2
 ```
@@ -222,19 +222,19 @@ name: UseClassAttribute
 relation:
   exact: false
   items:
-  - category: Define
+  - type: Define
     dest: test_use_class_attr.Base
     src: test_use_class_attr
-  - category: Inherit
+  - type: Inherit
     dest: test_use_class_attr.Base
     src: test_use_class_attr.Inherit
-  - category: Define
+  - type: Define
     dest: test_use_class_attr.Base
     src: test_use_class_attr
-  - category: Use
+  - type: Use
     dest: test_use_class_attr.Base.base_attribute
     src: test_use_class_attr.Inherit.use_attribute
-  - category: Use
+  - type: Use
     dest: test_use_class_attr.Base.static_attr
     src: test_use_class_attr.Inherit.use_attribute
 ```

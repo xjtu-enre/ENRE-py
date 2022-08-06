@@ -30,15 +30,15 @@ func1()
 ```yaml
 relation:
   items:
-  - category: Define
+  - type: Define
     dest: test_global_function_call.func1
     loc: '2:4'
     src: test_global_function_call
-  - category: Call
+  - type: Call
     dest: test_global_function_call.func1
     loc: '5:4'
     src: test_global_function_call.func1
-  - category: Call
+  - type: Call
     dest: test_global_function_call.func1
     loc: '10:0'
     src: test_global_function_call
@@ -71,27 +71,27 @@ instance.method()
 relation:
   exact: false
   items:
-  - category: Define
+  - type: Define
     dest: test_method_call.ClassA
     loc: '2:6'
     src: test_method_call
-  - category: Define
+  - type: Define
     dest: test_method_call.ClassA.method
     loc: '5:4'
     src: test_method_call.ClassA
-  - category: Define
+  - type: Define
     dest: test_method_call.ClassB
     loc: '9:6'
     src: test_method_call
-  - category: Define
+  - type: Define
     dest: test_method_call.ClassB.method
     loc: '12:4'
     src: test_method_call.ClassB
-  - category: Define
+  - type: Define
     dest: test_method_call.instance
     loc: '16:0'
     src: test_method_call
-  - category: Call
+  - type: Call
     dest: test_method_call.ClassA.method
     loc: '19:9'
     src: test_method_call
@@ -125,31 +125,31 @@ def func():
 relation:
   exact: false
   items:
-  - category: Define
+  - type: Define
     dest: test_nested_define.func
     loc: '2:4'
     src: test_nested_define
-  - category: Define
+  - type: Define
     dest: test_nested_define.func.inner
     loc: '5:4'
     src: test_nested_define.func
-  - category: Define
+  - type: Define
     dest: test_nested_define.func.inner_inner
     loc: '8:8'
     src: test_nested_define.func
-  - category: Call
+  - type: Call
     dest: test_nested_define.func
     loc: '11:12'
     src: test_nested_define.func.inner_inner
-  - category: Call
+  - type: Call
     dest: test_nested_define.func
     loc: '13:8'
     src: test_nested_define.func.inner
-  - category: Call
+  - type: Call
     dest: test_nested_define.func.inner_inner
     loc: '16:8'
     src: test_nested_define.func.inner
-  - category: Call
+  - type: Call
     dest: test_nested_define.func.inner
     loc: '18:4'
     src: test_nested_define.func

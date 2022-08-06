@@ -26,16 +26,16 @@ import test_module_a as a
 name: ModuleDefinition
 exact: false
 items:
-  - category: Module
+  - type: Module
     longname: test_module_a
     name: test_module_a
-  - category: Module
+  - type: Module
     longname: test_module_b
     name: test_module_b
-  - category: Module Alias
+  - type: Module Alias
     longname: test_module_b.a
     name: b
-  - category: Module Alias
+  - type: Module Alias
     longname: test_module_a.b
     name: a
 ```

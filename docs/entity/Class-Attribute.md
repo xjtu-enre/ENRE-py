@@ -32,31 +32,31 @@ name: StaticClassAttributeDefinition
 entity:
   exact: false
   items:
-  - category: Class
+  - type: Class
     longname: test_static_class_attribute.Base
     name: Base
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Base.attribute_a
     name: attribute_a
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Base.attribute_b
     name: attribute_b
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Base.attribute_c
     name: attribute_c
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Base.attribute_d
     name: attribute_d
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Base.attribute_x
     name: attribute_x
-  - category: Class
+  - type: Class
     longname: test_static_class_attribute.Inherit
     name: Inherit
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e
-  - category: Class Attribute
+  - type: Class Attribute
     longname: test_static_class_attribute.Inherit.attribute_f
     name: attribute_f
 ```

@@ -37,27 +37,27 @@ name: ClassInherit
 relation:
   exact: false
   items:
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base
     src: test_inherit.Inherit
     loc: '4:14'
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base
     src: test_inherit.Inherit1
     loc: '9:15'
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base2
     src: test_inherit.Inherit1
     loc: '9:21'
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base
     src: test_inherit.func.LocalInherit
     loc: '13:23'
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base
     src: test_inherit.func.LocalInherit2
     loc: '16:24'
-  - category: Inherit
+  - type: Inherit
     dest: test_inherit.Base2
     src: test_inherit.func.LocalInherit2
     loc: '16:30'
@@ -75,11 +75,11 @@ name: VariableInherit
 relation:
   exact: false
   items:
-  - category: Inherit
+  - type: Inherit
     dest: test_variable_inherit.Mixed.c
     src: test_variable_inherit.mixin.Mixed
     loc: '2:16'
-  - category: Inherit
+  - type: Inherit
     dest: test_variable_inherit.Mixed.d
     src: test_variable_inherit.mixin.Mixed
     loc: '2:19'
@@ -111,11 +111,11 @@ name: FirstClassClassInherit
 relation:
   exact: false
   items:
-  - category: Inherit
+  - type: Inherit
     dest: test_first_order_class_inherit.cls
     loc: '14:15'
     src: test_first_order_class_inherit.SubClass
-  - category: Inherit
+  - type: Inherit
     dest: test_first_order_class_inherit.Difficult
     loc: '14:0'
     src: test_first_order_class_inherit.SubClass

@@ -27,7 +27,7 @@ name: GlobalClassDefinition
 entity:
   exact: false
   items:
-  - category: Class
+  - type: Class
     longname: test_global_class.Base
     name: Base
     loc: '1:6'
@@ -50,11 +50,11 @@ name: InheritGlobalClassDefinition
 entity:
   exact: false
   items:
-  - category: Class
+  - type: Class
     longname: test_inherit_global_class.Base
     name: Base
     loc: '2:6'
-  - category: Class
+  - type: Class
     longname: test_inherit_global_class.Inherit
     name: Inherit
     loc: '6:6'
@@ -80,23 +80,23 @@ name: NestedClassDefinition
 entity:
   exact: false
   items:
-  - category: Class
+  - type: Class
     longname: test_nested_class.Out
     name: Out
     loc: '1:6'
-  - category: Class
+  - type: Class
     longname: test_nested_class.Out.Inner1
     name: Inner1
     loc: '2:10'
-  - category: Function
+  - type: Function
     longname: test_nested_class.out_func
     name: out_func
     loc: '5:14'
-  - category: Class
+  - type: Class
     longname: test_nested_class.out_func.Inner2
     name: Inner2
     loc: '6:10'
-  - category: Class
+  - type: Class
     longname: test_nested_class.out_func.Inner2.Inner3
     name: Inner3
     loc: '7:14'
@@ -137,45 +137,45 @@ name: AbstractClassDefination
 entity:
   exact: false
   items:
-    - category: Class
+    - type: Class
       longname: test_abstract_class.A
       name: A
       loc: '1:6'
       abstract_class: True
       abstract_method_list: None
-    - category: Class
+    - type: Class
       longname: test_abstract_class.B
       name: B
       loc: '5:6'
       abstract_class: True
       abstract_method_list: func3
-    - category: Class
+    - type: Class
       longname: test_abstract_class.B.Inner
       name: Inner
       loc: '6:10'
       abstract_class: True
       abstract_method_list: __init__, __new__, func1
-    - category: Function
+    - type: Function
       longname: test_abstract_class.B.Inner.__init__
       name: __init__
       loc: '7:12'
       method_kind: Abstract Constructor
-    - category: Function
+    - type: Function
       longname: test_abstract_class.B.Inner.__new__
       name: __new__
       loc: '11:12'
       method_kind: Abstract Constructor
-    - category: Function
+    - type: Function
       longname: test_abstract_class.B.Inner.func1
       name: func1
       loc: '14:12'
       method_kind: Abstract Method
-    - category: Function
+    - type: Function
       longname: test_abstract_class.B.Inner.func2
       name: func2
       loc: '17:12'
       method_kind: None
-    - category: Function
+    - type: Function
       longname: test_abstract_class.B.func3
       name: func3
       loc: '22:8'

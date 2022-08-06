@@ -38,23 +38,23 @@ name: GlobalVariableDefinition
 entities:
   exact: false
   items:
-  - category: Variable
+  - type: Variable
     longname: test_global_variable.x
     name: x
     loc: '1:0'
-  - category: Variable
+  - type: Variable
     longname: test_global_variable.y
     name: y
     loc: '3:0'
-  - category: Variable
+  - type: Variable
     longname: test_global_variable.t1
     name: t1
     loc: '6:0'
-  - category: Variable
+  - type: Variable
     longname: test_global_variable.t2
     name: t2
     loc: '6:4'
-  - category: Variable
+  - type: Variable
     longname: test_global_variable.t3
     name: t3
     loc: '7:1'
@@ -90,59 +90,59 @@ name: LocalVariableDefinition
 entity:
   exact: false
   items:
-  - category: Function
+  - type: Function
     longname: test_local_variable.func
     name: func
     loc: '1:4'
-  - category: Parameter
+  - type: Parameter
     longname: test_local_variable.func.p1
     name: p1
     loc: '1:10'
-  - category: Parameter
+  - type: Parameter
     longname: test_local_variable.func.p2
     name: p2
     loc: '1:13'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.x
     name: x
     loc: '2:4'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.y
     name: y
     loc: '4:4'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.t1
     name: t1
     loc: '6:4'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.t2
     name: t2
     loc: '6:8'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.t3
     name: t3
     loc: '8:5'
-  - category: Function
+  - type: Function
     longname: test_local_variable.func.inner
     name: inner
     loc: '9:8'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.inner.x
     name: x
     loc: '10:8'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.inner.y
     name: y
     loc: '12:8'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.inner.t1
     name: t1
     loc: '14:8'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.inner.t2
     name: t2
     loc: '14:12'
-  - category: Variable
+  - type: Variable
     longname: test_local_variable.func.inner.t3
     name: t3
     loc: '16:9'
@@ -168,23 +168,23 @@ name: IterationVariable
 entities:
   exact: false
   items:
-  - category: Variable
+  - type: Variable
     longname: test_iteration_variable.a
     name: x
     loc: '1:0'
-  - category: Variable
+  - type: Variable
     longname: test_iteration_variable.a
     name: a
     loc: '3:4'
-  - category: Variable
+  - type: Variable
     longname: test_iteration_variable.b
     name: b
     loc: '3:7'
-  - category: Variable
+  - type: Variable
     longname: test_iteration_variable.func.c
     name: c
     loc: '7:8'
-  - category: Variable
+  - type: Variable
     longname: test_iteration_variable.func.d
     name: d
     loc: '7:11'
