@@ -10,7 +10,7 @@ name: Inherit
 
 ##### Examples
 
-- Class Inherit
+###### Class Inherit
 ```python
 
 class Base:
@@ -35,36 +35,35 @@ def func():
 ```yaml
 name: ClassInherit
 relation:
-  exact: false
   items:
   - type: Inherit
-    to: test_inherit.Base
-    from: test_inherit.Inherit
+    to: Class:'test_inherit.Base'
+    from: Class:'test_inherit.Inherit'
     loc: '4:14'
   - type: Inherit
-    to: test_inherit.Base
-    from: test_inherit.Inherit1
+    to: Class:'test_inherit.Base'
+    from: Class:'test_inherit.Inherit1'
     loc: '9:15'
   - type: Inherit
-    to: test_inherit.Base2
-    from: test_inherit.Inherit1
+    to: Class:'test_inherit.Base2'
+    from: Class:'test_inherit.Inherit1'
     loc: '9:21'
   - type: Inherit
-    to: test_inherit.Base
-    from: test_inherit.func.LocalInherit
+    to: Class:'test_inherit.Base'
+    from: Class:'test_inherit.func.LocalInherit'
     loc: '13:23'
   - type: Inherit
-    to: test_inherit.Base
-    from: test_inherit.func.LocalInherit2
+    to: Class:'test_inherit.Base'
+    from: Class:'test_inherit.func.LocalInherit2'
     loc: '16:24'
   - type: Inherit
-    to: test_inherit.Base2
-    from: test_inherit.func.LocalInherit2
+    to: Class:'test_inherit.Base2'
+    from: Class:'test_inherit.func.LocalInherit2'
     loc: '16:30'
 ```
-- VariableInherit
+###### VariableInherit
 ```python
-// test_variable_inherit.py
+//// test_variable_inherit.py
 def mixin(c, d):
     class Mixed(c, d):
         ...
@@ -73,21 +72,20 @@ def mixin(c, d):
 ```yaml
 name: VariableInherit
 relation:
-  exact: false
   items:
   - type: Inherit
-    to: test_variable_inherit.Mixed.c
-    from: test_variable_inherit.mixin.Mixed
+    to: Variable:'test_variable_inherit.Mixed.c'
+    from: Class:'test_variable_inherit.mixin.Mixed'
     loc: '2:16'
   - type: Inherit
-    to: test_variable_inherit.Mixed.d
-    from: test_variable_inherit.mixin.Mixed
+    to: Variable:'test_variable_inherit.Mixed.d'
+    from: Class:'test_variable_inherit.mixin.Mixed'
     loc: '2:19'
 ```
 
-- FirstClassClassInherit
+###### FirstClassClassInherit
 ```python
-// test_first_order_class_inherit.py
+//// test_first_order_class_inherit.py
 
 def create_class():
 
@@ -109,14 +107,13 @@ class SubClass(cls):
 ```yaml
 name: FirstClassClassInherit
 relation:
-  exact: false
   items:
   - type: Inherit
-    to: test_first_order_class_inherit.cls
+    to: Variable:'test_first_order_class_inherit.cls'
     loc: '14:15'
-    from: test_first_order_class_inherit.SubClass
+    from: Class:'test_first_order_class_inherit.SubClass'
   - type: Inherit
-    to: test_first_order_class_inherit.Difficult
+    to: Class:'test_first_order_class_inherit.Difficult'
     loc: '14:0'
-    from: test_first_order_class_inherit.SubClass
+    from: Class:'test_first_order_class_inherit.SubClass'
 ```

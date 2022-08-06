@@ -10,7 +10,7 @@ name: Use
 #### Semantic: 
 
 ##### Examples
-- Use Module Level Definition
+###### Use Module Level Definition
 ```python
 // test_module_level_use.py
 class Base:
@@ -49,7 +49,6 @@ print(t3)
 ```yaml
 name: UseModuleLevelDefinition
 relation:
-  exact: false
   items:
   - type: Define
     to: test_module_level_use.Base
@@ -117,7 +116,7 @@ relation:
 ```
 
 
-- Use Local Definition
+###### Use Local Definition
 
 ```python
 // test_local_use.py
@@ -160,7 +159,6 @@ def func2():
 ```yaml
 name: UseLocalDefinition
 relation:
-  exact: false
   items:
   - type: Use
     to: test_local_use.func
@@ -197,7 +195,7 @@ relation:
     from: test_local_use.func2
 ```
 
-- Use Class Attribute
+###### Use Class Attribute
 ```python
 // test_use_class_attr.py
 class Base:
@@ -220,7 +218,6 @@ class Inherit(Base):
 ```yaml
 name: UseClassAttribute
 relation:
-  exact: false
   items:
   - type: Define
     to: test_use_class_attr.Base
