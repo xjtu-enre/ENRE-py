@@ -50,41 +50,41 @@ relation:
   exact: false
   items:
   - type: Define
-    dest: test_module_level_define.Base
+    to: test_module_level_define.Base
     loc: '2:6'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.Inherit
+    to: test_module_level_define.Inherit
     loc: '6:6'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Inherit
-    dest: test_module_level_define.Base
+    to: test_module_level_define.Base
     loc: '6:0'
-    src: test_module_level_define.Inherit
+    from: test_module_level_define.Inherit
   - type: Define
-    dest: test_module_level_define.func1
+    to: test_module_level_define.func1
     loc: '11:4'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.x
+    to: test_module_level_define.x
     loc: '15:0'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.y
+    to: test_module_level_define.y
     loc: '18:0'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.t1
+    to: test_module_level_define.t1
     loc: '21:0'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.t2
+    to: test_module_level_define.t2
     loc: '21:4'
-    src: test_module_level_define
+    from: test_module_level_define
   - type: Define
-    dest: test_module_level_define.t3
+    to: test_module_level_define.t3
     loc: '26:1'
-    src: test_module_level_define
+    from: test_module_level_define
 ```
 
 
@@ -135,35 +135,35 @@ relation:
   exact: false
   items:
   - type: Define
-    dest: test_nested_define.func
+    to: test_nested_define.func
     loc: '2:4'
-    src: test_nested_define
+    from: test_nested_define
   - type: Define
-    dest: test_nested_define.func.inner
+    to: test_nested_define.func.inner
     loc: '5:8'
-    src: test_nested_define.func
+    from: test_nested_define.func
   - type: Define
-    dest: test_nested_define.func.inner_inner
+    to: test_nested_define.func.inner_inner
     loc: '8:12'
-    src: test_nested_define.func
+    from: test_nested_define.func
   - type: Define
-    dest: test_nested_define.func2.x
+    to: test_nested_define.func2.x
     loc: '22:4'
-    src: test_nested_define.func2
+    from: test_nested_define.func2
   - type: Define
-    dest: test_nested_define.func2.y
+    to: test_nested_define.func2.y
     loc: '25:4'
-    src: test_nested_define.func2
+    from: test_nested_define.func2
   - type: Define
-    dest: test_nested_define.func2.t1
+    to: test_nested_define.func2.t1
     loc: '28:4'
-    src: test_nested_define.func2
+    from: test_nested_define.func2
   - type: Define
-    dest: test_nested_define.func2.t2
+    to: test_nested_define.func2.t2
     loc: '28:8'
-    src: test_nested_define.func2
+    from: test_nested_define.func2
   - type: Define
-    dest: test_nested_define.func2.t3
+    to: test_nested_define.func2.t3
     loc: '33:5'
-    src: test_nested_define.func2
+    from: test_nested_define.func2
 ```

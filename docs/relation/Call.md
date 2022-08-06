@@ -31,17 +31,17 @@ func1()
 relation:
   items:
   - type: Define
-    dest: test_global_function_call.func1
+    to: test_global_function_call.func1
     loc: '2:4'
-    src: test_global_function_call
+    from: test_global_function_call
   - type: Call
-    dest: test_global_function_call.func1
+    to: test_global_function_call.func1
     loc: '5:4'
-    src: test_global_function_call.func1
+    from: test_global_function_call.func1
   - type: Call
-    dest: test_global_function_call.func1
+    to: test_global_function_call.func1
     loc: '10:0'
-    src: test_global_function_call
+    from: test_global_function_call
 ```
 - Class Method Call
 ```python
@@ -72,29 +72,29 @@ relation:
   exact: false
   items:
   - type: Define
-    dest: test_method_call.ClassA
+    to: test_method_call.ClassA
     loc: '2:6'
-    src: test_method_call
+    from: test_method_call
   - type: Define
-    dest: test_method_call.ClassA.method
+    to: test_method_call.ClassA.method
     loc: '5:4'
-    src: test_method_call.ClassA
+    from: test_method_call.ClassA
   - type: Define
-    dest: test_method_call.ClassB
+    to: test_method_call.ClassB
     loc: '9:6'
-    src: test_method_call
+    from: test_method_call
   - type: Define
-    dest: test_method_call.ClassB.method
+    to: test_method_call.ClassB.method
     loc: '12:4'
-    src: test_method_call.ClassB
+    from: test_method_call.ClassB
   - type: Define
-    dest: test_method_call.instance
+    to: test_method_call.instance
     loc: '16:0'
-    src: test_method_call
+    from: test_method_call
   - type: Call
-    dest: test_method_call.ClassA.method
+    to: test_method_call.ClassA.method
     loc: '19:9'
-    src: test_method_call
+    from: test_method_call
 ```
 
 - Local Function Call
@@ -126,33 +126,33 @@ relation:
   exact: false
   items:
   - type: Define
-    dest: test_nested_define.func
+    to: test_nested_define.func
     loc: '2:4'
-    src: test_nested_define
+    from: test_nested_define
   - type: Define
-    dest: test_nested_define.func.inner
+    to: test_nested_define.func.inner
     loc: '5:4'
-    src: test_nested_define.func
+    from: test_nested_define.func
   - type: Define
-    dest: test_nested_define.func.inner_inner
+    to: test_nested_define.func.inner_inner
     loc: '8:8'
-    src: test_nested_define.func
+    from: test_nested_define.func
   - type: Call
-    dest: test_nested_define.func
+    to: test_nested_define.func
     loc: '11:12'
-    src: test_nested_define.func.inner_inner
+    from: test_nested_define.func.inner_inner
   - type: Call
-    dest: test_nested_define.func
+    to: test_nested_define.func
     loc: '13:8'
-    src: test_nested_define.func.inner
+    from: test_nested_define.func.inner
   - type: Call
-    dest: test_nested_define.func.inner_inner
+    to: test_nested_define.func.inner_inner
     loc: '16:8'
-    src: test_nested_define.func.inner
+    from: test_nested_define.func.inner
   - type: Call
-    dest: test_nested_define.func.inner
+    to: test_nested_define.func.inner
     loc: '18:4'
-    src: test_nested_define.func
+    from: test_nested_define.func
 ```
 
 - First Order Function Call
@@ -173,14 +173,14 @@ relation:
     exact: False
     filter: Call
     items:
-    - dest: test_first_order_func_call.f
-      src: test_first_order_func_call.acceptor
+    - to: test_first_order_func_call.f
+      from: test_first_order_func_call.acceptor
       loc: '5:4'
-    - dest: test_first_order_func_call.foo
-      src: test_first_order_func_call.acceptor
+    - to: test_first_order_func_call.foo
+      from: test_first_order_func_call.acceptor
       loc: '5:4'
-    - dest: test_first_order_func_call.acceptor
-      src: test_first_order_func_call
+    - to: test_first_order_func_call.acceptor
+      from: test_first_order_func_call
       loc: '7:0'
 ```
 
@@ -210,20 +210,20 @@ name: FirstOrderClassCall
 relation:
     filter: Call
     items:
-    - dest: test_first_order_class_call.Base
-      src: test_first_order_class_call
+    - to: test_first_order_class_call.Base
+      from: test_first_order_class_call
       loc: '4:7'
-    - dest: test_first_order_class_call.create_class
-      src: test_first_order_class_call
+    - to: test_first_order_class_call.create_class
+      from: test_first_order_class_call
       loc: '12:6'
-    - dest: test_first_order_class_call.cls
-      src: test_first_order_class_call
+    - to: test_first_order_class_call.cls
+      from: test_first_order_class_call
       loc: '14:16'
-    - dest: test_first_order_class_call.create_class.Difficult.test
-      src: test_first_order_class_call
+    - to: test_first_order_class_call.create_class.Difficult.test
+      from: test_first_order_class_call
       loc: '16:14'
-    - dest: test_first_order_class_call.create_class.Difficult
-      src: test_first_order_class_call.create_class
+    - to: test_first_order_class_call.create_class.Difficult
+      from: test_first_order_class_call.create_class
       type: Define
       loc: '7:4'
 ```

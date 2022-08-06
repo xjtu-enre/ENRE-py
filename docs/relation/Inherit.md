@@ -38,28 +38,28 @@ relation:
   exact: false
   items:
   - type: Inherit
-    dest: test_inherit.Base
-    src: test_inherit.Inherit
+    to: test_inherit.Base
+    from: test_inherit.Inherit
     loc: '4:14'
   - type: Inherit
-    dest: test_inherit.Base
-    src: test_inherit.Inherit1
+    to: test_inherit.Base
+    from: test_inherit.Inherit1
     loc: '9:15'
   - type: Inherit
-    dest: test_inherit.Base2
-    src: test_inherit.Inherit1
+    to: test_inherit.Base2
+    from: test_inherit.Inherit1
     loc: '9:21'
   - type: Inherit
-    dest: test_inherit.Base
-    src: test_inherit.func.LocalInherit
+    to: test_inherit.Base
+    from: test_inherit.func.LocalInherit
     loc: '13:23'
   - type: Inherit
-    dest: test_inherit.Base
-    src: test_inherit.func.LocalInherit2
+    to: test_inherit.Base
+    from: test_inherit.func.LocalInherit2
     loc: '16:24'
   - type: Inherit
-    dest: test_inherit.Base2
-    src: test_inherit.func.LocalInherit2
+    to: test_inherit.Base2
+    from: test_inherit.func.LocalInherit2
     loc: '16:30'
 ```
 - VariableInherit
@@ -76,12 +76,12 @@ relation:
   exact: false
   items:
   - type: Inherit
-    dest: test_variable_inherit.Mixed.c
-    src: test_variable_inherit.mixin.Mixed
+    to: test_variable_inherit.Mixed.c
+    from: test_variable_inherit.mixin.Mixed
     loc: '2:16'
   - type: Inherit
-    dest: test_variable_inherit.Mixed.d
-    src: test_variable_inherit.mixin.Mixed
+    to: test_variable_inherit.Mixed.d
+    from: test_variable_inherit.mixin.Mixed
     loc: '2:19'
 ```
 
@@ -112,11 +112,11 @@ relation:
   exact: false
   items:
   - type: Inherit
-    dest: test_first_order_class_inherit.cls
+    to: test_first_order_class_inherit.cls
     loc: '14:15'
-    src: test_first_order_class_inherit.SubClass
+    from: test_first_order_class_inherit.SubClass
   - type: Inherit
-    dest: test_first_order_class_inherit.Difficult
+    to: test_first_order_class_inherit.Difficult
     loc: '14:0'
-    src: test_first_order_class_inherit.SubClass
+    from: test_first_order_class_inherit.SubClass
 ```
