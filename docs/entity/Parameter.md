@@ -1,13 +1,13 @@
-# Entity: Parameter
+## Entity: Parameter
 A parameter is the variable listed inside the parentheses in the function definition. 
 
-## Supported pattern
+### Supported Patterns
 ```yaml
 name: ParameterDefinition
 ```
-### Syntax: ParameterDefinition
+#### Syntax: ParameterDefinition
 
-```
+```text
 parameter_list            :  defparameter ("," defparameter)* "," "/" ["," [parameter_list_no_posonly]]
                                | parameter_list_no_posonly
 parameter_list_no_posonly :  defparameter ("," defparameter)* ["," [parameter_list_starargs]]
@@ -17,7 +17,7 @@ parameter_list_starargs   :  "*" [parameter] ("," defparameter)* ["," ["**" para
 parameter                 :  identifier [":" expression]
 ```
 
-### Examples
+##### Examples
 
 - Parameter Definition
 
@@ -47,98 +47,49 @@ entity:
   - category: Function
     longname: test_parameter.func1
     name: func1
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '1:4'
   - category: Parameter
     longname: test_parameter.func1.x
     name: x
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '1:10'
   - category: Function
     longname: test_parameter.func2
     name: func2
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '4:4'
   - category: Parameter
     longname: test_parameter.func2.x
     name: x
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '4:10'
   - category: Function
     longname: test_parameter.func3
     name: func3
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '7:4'
   - category: Parameter
     longname: test_parameter.func3.x
     name: x
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '7:10'
   - category: Parameter
     longname: test_parameter.func3.y
     name: y
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '7:14'
   - category: Parameter
     longname: test_parameter.func3.z
     name: z
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '7:19'
   - category: Function
     longname: test_parameter.func4
     name: func4
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '10:4'
   - category: Parameter
     longname: test_parameter.func4.x
     name: x
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '10:10'
   - category: AnonymousFunction
-    longname: test_parameter.func4.(32)
+    longname: test_parameter.func4.(13)
     name: null
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '13:0'
   - category: Lambda Parameter
-    longname: test_parameter.func4.(32).t
-    name: t
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    longname: test_parameter.func4.(13).t
+    name: '13:7'
 
 ```

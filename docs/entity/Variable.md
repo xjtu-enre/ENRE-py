@@ -1,13 +1,13 @@
-# Entity: Variable
+## Entity: Variable
 A Variable is a reserved memory location for storing data values. 
 
-## Supported pattern
+### Supported Patterns
 ```yaml
 name: VariableDefinition
 ```
 
-### Syntax: VariableDefinition
-```
+#### Syntax: VariableDefinition
+```text
 assignment_stmt :  (target_list =)+ (starred_expression | yield_expression)
 target_list     :  target ("," target)* [","]
 target          :  identifier
@@ -19,7 +19,7 @@ target          :  identifier
                    | "*" target
 ```
 
-### Examples
+##### Examples
 - Global Variable Definition
 
 ```python
@@ -41,43 +41,23 @@ entities:
   - category: Variable
     longname: test_global_variable.x
     name: x
-    r:
-        d: Var 
-        e: .
-        s: global variable
-        u: .
+    loc: '1:0'
   - category: Variable
     longname: test_global_variable.y
     name: y
-    r:
-        d: Var 
-        e: .
-        s: global variable
-        u: .
+    loc: '3:0'
   - category: Variable
     longname: test_global_variable.t1
     name: t1
-    r:
-        d: x 
-        e: .
-        s: global variable
-        u: .
+    loc: '6:0'
   - category: Variable
     longname: test_global_variable.t2
     name: t2
-    r:
-        d: x 
-        e: .
-        s: global variable
-        u: .
+    loc: '6:4'
   - category: Variable
     longname: test_global_variable.t3
     name: t3
-    r:
-        d: x 
-        e: o/Unknown Variable
-        s: global variable
-        u: .
+    loc: '7:1'
 ```
 
 - Local Variable Definition
@@ -113,115 +93,59 @@ entity:
   - category: Function
     longname: test_local_variable.func
     name: func
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '1:4'
   - category: Parameter
     longname: test_local_variable.func.p1
     name: p1
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '1:10'
   - category: Parameter
     longname: test_local_variable.func.p2
     name: p2
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '1:13'
   - category: Variable
     longname: test_local_variable.func.x
     name: x
-    r:
-        d: Var 
-        e: .
-        s: .
-        u: .
+    loc: '2:4'
   - category: Variable
     longname: test_local_variable.func.y
     name: y
-    r:
-        d: Var 
-        e: .
-        s: x
-        u: .
+    loc: '4:4'
   - category: Variable
     longname: test_local_variable.func.t1
     name: t1
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '6:4'
   - category: Variable
     longname: test_local_variable.func.t2
     name: t2
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '6:8'
   - category: Variable
     longname: test_local_variable.func.t3
     name: t3
-    r:
-        d: x 
-        e: o/Unknown Variable
-        s: x
-        u: .
+    loc: '8:5'
   - category: Function
     longname: test_local_variable.func.inner
     name: inner
-    r:
-        d: . 
-        e: .
-        s: .
-        u: .
+    loc: '9:8'
   - category: Variable
     longname: test_local_variable.func.inner.x
     name: x
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '10:8'
   - category: Variable
     longname: test_local_variable.func.inner.y
     name: y
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '12:8'
   - category: Variable
     longname: test_local_variable.func.inner.t1
     name: t1
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '14:8'
   - category: Variable
     longname: test_local_variable.func.inner.t2
     name: t2
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '14:12'
   - category: Variable
     longname: test_local_variable.func.inner.t3
     name: t3
-    r:
-        d: x 
-        e: x
-        s: x
-        u: .
+    loc: '16:9'
 ```
 
 - Iteration Variable
@@ -234,8 +158,8 @@ for a, b in x:
     ...
 
 def func():
-  for c, d in x:
-    ...
+    for c, d in x:
+      ...
 
 ```
 
@@ -246,35 +170,22 @@ entities:
   items:
   - category: Variable
     longname: test_iteration_variable.a
+    name: x
+    loc: '1:0'
+  - category: Variable
+    longname: test_iteration_variable.a
     name: a
-    r:
-        d: x 
-        e: .
-        s: global variable
-        u: .
+    loc: '3:4'
   - category: Variable
     longname: test_iteration_variable.b
     name: b
-    r:
-        d: x 
-        e: .
-        s: global variable
-        u: .
+    loc: '3:7'
   - category: Variable
     longname: test_iteration_variable.func.c
     name: c
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '7:8'
   - category: Variable
     longname: test_iteration_variable.func.d
     name: d
-    r:
-        d: x 
-        e: .
-        s: x
-        u: .
+    loc: '7:11'
 ```
-

@@ -1,15 +1,15 @@
-# Entity: Class Attribute
+## Entity: Class Attribute
 A class attribute is a field of class object or a field of class instance which can be infered from the class definition.
-## Supported pattern
+### Supported Patterns
 ```yaml
 name: ClassAttributeDefinition
 ```
-## Syntax: ClassAttributeDefinition
+#### Syntax: ClassAttributeDefinition
 
-```
+```text
 ```
 
-### Examples
+##### Examples
 - Static Class Attribute Definition
 ```python
 // test_static_class_attribute.py
@@ -35,73 +35,28 @@ entity:
   - category: Class
     longname: test_static_class_attribute.Base
     name: Base
-    r:
-      d: Type
-      e: .
-      s: .
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_a
     name: attribute_a
-    r:
-      d: o/Var
-      e: .
-      s: field
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_b
     name: attribute_b
-    r:
-      d: o/Var
-      e: .
-      s: field
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_c
     name: attribute_c
-    r:
-      d: x
-      e: .
-      s: field
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_d
     name: attribute_d
-    r:
-      d: x
-      e: .
-      s: field
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Base.attribute_x
     name: attribute_x
-    r:
-      d: x 
-      e: .
-      s: field
-      u: .
   - category: Class
     longname: test_static_class_attribute.Inherit
     name: Inherit
-    r:
-      d: Type 
-      e: .
-      s: .
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e
-    r:
-      d: o/Var 
-      e: .
-      s: field
-      u: .
   - category: Class Attribute
     longname: test_static_class_attribute.Inherit.attribute_f
     name: attribute_f
-    r:
-      d: x 
-      e: .
-      s: field
-      u: .
 ```

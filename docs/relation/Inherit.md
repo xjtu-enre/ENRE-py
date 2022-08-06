@@ -1,10 +1,14 @@
-# Relation: Inherit
+## Relation: Inherit
+Add class object to the attribute `__base__` indicates a inherit dependency.
 
-## Supported Pattern
+### Supported Patterns
 ```yaml
 name: Inherit
 ```
-### Examples
+
+#### Semantic: 
+
+##### Examples
 
 - Class Inherit
 ```python
@@ -36,33 +40,27 @@ relation:
   - category: Inherit
     dest: test_inherit.Base
     src: test_inherit.Inherit
-    r:
-    	s:inheritance
+    loc: '4:14'
   - category: Inherit
     dest: test_inherit.Base
     src: test_inherit.Inherit1
-    r:
-    	s:inheritance
+    loc: '9:15'
   - category: Inherit
     dest: test_inherit.Base2
     src: test_inherit.Inherit1
-    r:
-    	s:inheritance
+    loc: '9:21'
   - category: Inherit
     dest: test_inherit.Base
     src: test_inherit.func.LocalInherit
-    r:
-    	s:inheritance
+    loc: '13:23'
   - category: Inherit
     dest: test_inherit.Base
     src: test_inherit.func.LocalInherit2
-    r:
-    	s:inheritance
+    loc: '16:24'
   - category: Inherit
     dest: test_inherit.Base2
     src: test_inherit.func.LocalInherit2
-    r:
-    	s:inheritance
+    loc: '16:30'
 ```
 - VariableInherit
 ```python
@@ -73,18 +71,52 @@ def mixin(c, d):
 ```
 
 ```yaml
-name: TBA
+name: VariableInherit
 relation:
   exact: false
   items:
   - category: Inherit
     dest: test_variable_inherit.Mixed.c
     src: test_variable_inherit.mixin.Mixed
-    r:
-    	s:x
+    loc: '2:16'
   - category: Inherit
     dest: test_variable_inherit.Mixed.d
     src: test_variable_inherit.mixin.Mixed
-    r:
-    	s:x
+    loc: '2:19'
+```
+
+- FirstClassClassInherit
+```python
+// test_first_order_class_inherit.py
+
+def create_class():
+
+
+    class Difficult:
+        ...
+
+
+    return Difficult
+
+cls = create_class()
+
+
+class SubClass(cls):
+    ...
+
+```
+
+```yaml
+name: FirstClassClassInherit
+relation:
+  exact: false
+  items:
+  - category: Inherit
+    dest: test_first_order_class_inherit.cls
+    loc: '14:15'
+    src: test_first_order_class_inherit.SubClass
+  - category: Inherit
+    dest: test_first_order_class_inherit.Difficult
+    loc: '14:0'
+    src: test_first_order_class_inherit.SubClass
 ```

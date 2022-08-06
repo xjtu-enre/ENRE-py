@@ -1,10 +1,15 @@
-# Relation: Use
+## Relation: Use
 
-## Supported Pattern
+A Use dependency indicates some object was referenced.
+
+### Supported Patterns
 ```yaml
 name: Use
 ```
-### Examples
+
+#### Semantic: 
+
+##### Examples
 - Use Module Level Definition
 ```python
 // test_module_level_use.py
@@ -49,108 +54,66 @@ relation:
   - category: Define
     dest: test_module_level_use.Base
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.Inherit
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Inherit
     dest: test_module_level_use.Base
     src: test_module_level_use.Inherit
-    r:
-    	s:inheritance
   - category: Define
     dest: test_module_level_use.func1
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.x
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.y
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.t1
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.t2
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.t3
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.a
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Define
     dest: test_module_level_use.b
     src: test_module_level_use
-    r:
-    	s:o/Concept
   - category: Use
     dest: test_module_level_use.a
     src: test_module_level_use
-    r:
-    	s:.
   - category: Use
     dest: test_module_level_use.b
     src: test_module_level_use
-    r:
-    	s:.
   - category: Use
     dest: test_module_level_use.Base
     src: test_module_level_use
-    r:
-    	s:type use
   - category: Use
     dest: test_module_level_use.Inherit
     src: test_module_level_use
-    r:
-    	s:type use
   - category: Use
     dest: test_module_level_use.func1
     src: test_module_level_use
-    r:
-    	s:ambiguous use
   - category: Use
     dest: test_module_level_use.x
     src: test_module_level_use
-    r:
-    	s:.
   - category: Use
     dest: test_module_level_use.y
     src: test_module_level_use
-    r:
-    	s:.
   - category: Use
     dest: test_module_level_use.t1
     src: test_module_level_use
-    r:
-    	s:.
   - category: Use
     dest: test_module_level_use.t2
     src: test_module_level_use
-    r:
-   		s:.
   - category: Use
     dest: test_module_level_use.t3
     src: test_module_level_use
-    r:
-   		s:.
 ```
 
 
@@ -202,58 +165,36 @@ relation:
   - category: Use
     dest: test_local_use.func
     src: test_local_use.func.inner_inner
-    r:
-    	s:ambiguous use
   - category: Use
     dest: test_local_use.func
     src: test_local_use.func.inner
-    r:
-    	s:ambiguous use
   - category: Use
     dest: test_local_use.func.inner_inner
     src: test_local_use.func.inner
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func.inner
     src: test_local_use.func
-    r:
-    	s:ambiguous use
   - category: Use
     dest: test_local_use.func2.a
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.b
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.x
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.y
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.t1
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.t2
     src: test_local_use.func2
-    r:
-    	s:x
   - category: Use
     dest: test_local_use.func2.t3
     src: test_local_use.func2
-    r:
-    	s:x
 ```
 
 - Use Class Attribute
@@ -284,27 +225,17 @@ relation:
   - category: Define
     dest: test_use_class_attr.Base
     src: test_use_class_attr
-    r:
-    	s:o/Concept
   - category: Inherit
     dest: test_use_class_attr.Base
     src: test_use_class_attr.Inherit
-    r:
-    	s:inheritance
   - category: Define
     dest: test_use_class_attr.Base
     src: test_use_class_attr
-    r:
-    	s:o/Concept
   - category: Use
     dest: test_use_class_attr.Base.base_attribute
     src: test_use_class_attr.Inherit.use_attribute
-    r:
-   		s:.
   - category: Use
     dest: test_use_class_attr.Base.static_attr
     src: test_use_class_attr.Inherit.use_attribute
-    r:
-    	s:.
 ```
 
