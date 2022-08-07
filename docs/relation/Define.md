@@ -238,3 +238,53 @@ relation:
     from: Function:'test_parameter_define.func.inner.inner_inner'
     loc: '8:32'
 ```
+
+###### Static Class Attribute Definition
+```python
+//// test_static_class_attribute.py
+class Base:
+    attribute_a = 1
+    attribute_b: int
+    attribute_c, attribute_d = 1, 2 
+    def __init__(self):
+        self.attribute_x = 1
+class Inherit(Base):
+    attribute_e = 1
+    def __init__(self):
+        super().__init__()        
+        self.attribute_f = 1
+```
+
+```yaml
+name: StaticClassAttributeDefinition
+relation:
+  items:
+  - to: Class Attribute:'test_static_class_attribute.Base.attribute_a'
+    from: Class:'test_static_class_attribute.Base'
+    type: Define
+    loc: '2:4'
+  - type: Define
+    from: Class:'test_static_class_attribute.Base'
+    to: Class Attribute:'test_static_class_attribute.Base.attribute_b'
+    loc: '3:4'
+  - type: Define
+    to: Class Attribute:'test_static_class_attribute.Base.attribute_c'
+    from: Class:'test_static_class_attribute.Base'
+    loc: '4:4'
+  - type: Define
+    to: Class Attribute:'test_static_class_attribute.Base.attribute_d'
+    from: Class:'test_static_class_attribute.Base'
+    loc: '4:17'
+  - type: Define
+    to: Class Attribute:'test_static_class_attribute.Base.attribute_x'
+    from: Function:'test_static_class_attribute.Base.__init__'
+    loc: '5:13'
+  - type: Define
+    to: Class Attribute:'test_static_class_attribute.Inherit.attribute_e'
+    from: Class:'test_static_class_attribute.Inherit'
+    loc: '8:4'
+  - type: Define
+    to: Class Attribute:'test_static_class_attribute.Inherit.attribute_f'
+    from: Function:'test_static_class_attribute.Inherit.__init__'
+    loc: '11:13'
+```

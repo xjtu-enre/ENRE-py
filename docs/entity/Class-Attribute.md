@@ -10,9 +10,9 @@ name: ClassAttributeDefinition
 ```
 
 ##### Examples
-- Static Class Attribute Definition
+###### Static Class Attribute Definition
 ```python
-// test_static_class_attribute.py
+//// test_static_class_attribute.py
 class Base:
     attribute_a = 1
     attribute_b: int
@@ -24,39 +24,46 @@ class Inherit(Base):
     def __init__(self):
         super().__init__()        
         self.attribute_f = 1
-
 ```
 
 ```yaml
 name: StaticClassAttributeDefinition
 entity:
-  exact: false
   items:
   - type: Class
-    longname: test_static_class_attribute.Base
+    qualified: test_static_class_attribute.Base
     name: Base
+    loc: '1:6'
   - type: Class Attribute
-    longname: test_static_class_attribute.Base.attribute_a
+    qualified: test_static_class_attribute.Base.attribute_a
     name: attribute_a
+    loc: '2:4'
   - type: Class Attribute
-    longname: test_static_class_attribute.Base.attribute_b
+    qualified: test_static_class_attribute.Base.attribute_b
     name: attribute_b
+    loc: '3:4'
   - type: Class Attribute
-    longname: test_static_class_attribute.Base.attribute_c
+    qualified: test_static_class_attribute.Base.attribute_c
     name: attribute_c
+    loc: '4:4'
   - type: Class Attribute
-    longname: test_static_class_attribute.Base.attribute_d
+    qualified: test_static_class_attribute.Base.attribute_d
     name: attribute_d
+    loc: '4:17'
   - type: Class Attribute
-    longname: test_static_class_attribute.Base.attribute_x
+    qualified: test_static_class_attribute.Base.attribute_x
     name: attribute_x
+    loc: '5:13'
   - type: Class
-    longname: test_static_class_attribute.Inherit
+    qualified: test_static_class_attribute.Inherit
     name: Inherit
+    loc: '7:4'
   - type: Class Attribute
-    longname: test_static_class_attribute.Inherit.attribute_e
+    qualified: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e
+    loc: '8:4'
   - type: Class Attribute
-    longname: test_static_class_attribute.Inherit.attribute_f
+    qualified: test_static_class_attribute.Inherit.attribute_f
     name: attribute_f
+    loc: '11:13'
 ```
