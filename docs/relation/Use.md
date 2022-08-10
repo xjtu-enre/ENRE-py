@@ -20,8 +20,8 @@ class Inherit(Base):
     ...
 
 def func1():
+    print(Base)
     return 0
-
 x = []
 
 y: int = 1
@@ -62,6 +62,10 @@ relation:
     to: Function:'test_module_level_use.func1'
     from: Module:'test_module_level_use'
     loc: '7:4'
+  - type: Use
+    to: Class:'test_module_level_use.Base'
+    from: Function:'test_module_level_use.func1'
+    loc: '8:10'
   - type: Define
     to: Variable:'test_module_level_use.x'
     from: Module:'test_module_level_use'
@@ -228,9 +232,9 @@ relation:
     loc: '35:10'
 ```
 
-###### Use Class Attribute
+###### Use Attribute
 ```python
-// test_use_class_attr.py
+//// test_use_class_attr.py
 class Base:
     static_attr = 1
     def __init__(self):
@@ -246,6 +250,11 @@ class Inherit(Base):
 
         print(self.static_attr)
 
+print(Base.static_attr)
+
+class Foo:
+    static_attr = Base.static_attr
+
 ```
 
 ```yaml
@@ -253,19 +262,32 @@ name: UseClassAttribute
 relation:
   items:
   - type: Define
-    to: test_use_class_attr.Base
-    from: test_use_class_attr
+    to: Class:'test_use_class_attr.Base'
+    from: Module:'test_use_class_attr'
+    loc: '1:6'
   - type: Inherit
-    to: test_use_class_attr.Base
-    from: test_use_class_attr.Inherit
+    to: Class:'test_use_class_attr.Base'
+    from: Class:'test_use_class_attr.Inherit'
+    loc: '6:14'
   - type: Define
-    to: test_use_class_attr.Base
-    from: test_use_class_attr
+    to: Class:'test_use_class_attr.Base'
+    from: Module:'test_use_class_attr'
+    loc: '6:6'
   - type: Use
-    to: test_use_class_attr.Base.base_attribute
-    from: test_use_class_attr.Inherit.use_attribute
+    to: Attribute:'test_use_class_attr.Base.base_attribute'
+    from: Function:'test_use_class_attr.Inherit.use_attribute'
+    loc: '12:19'
   - type: Use
-    to: test_use_class_attr.Base.static_attr
-    from: test_use_class_attr.Inherit.use_attribute
+    to: Attribute:'test_use_class_attr.Base.static_attr'
+    from: Function:'test_use_class_attr.Inherit.use_attribute'
+    loc: '14:19'
+  - type: Use
+    from: Module:'test_use_class_attr'
+    to: Attribute:'test_use_class_attr.Base.static_attr'
+    loc: '16:11'
+  - type: Use
+    from: Class:'test_use_class_attr.Foo'
+    to: Attribute:'test_use_class_attr.Base.static_attr'
+    loc: '18:24'
 ```
 

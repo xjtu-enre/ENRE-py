@@ -15,10 +15,10 @@ name: ModuleDefinition
 
 - Module Definition
 ```python
-// test_module_a.py
+//// test_module_a.py
 import test_module_b as b
 
-// test_module_b.py
+//// test_module_b.py
 import test_module_a as a
 ```
 

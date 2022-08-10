@@ -1,5 +1,5 @@
-## Entity: Class Attribute
-A class attribute is a field of class object or a field of class instance which can be infered from the class definition.
+## Entity: Attribute
+A attribute is a field of class object or a field of class instance which can be infered from the class definition.
 ### Supported Patterns
 ```yaml
 name: ClassAttributeDefinition
@@ -34,23 +34,23 @@ entity:
     qualified: test_static_class_attribute.Base
     name: Base
     loc: '1:6'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_a
     name: attribute_a
     loc: '2:4'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_b
     name: attribute_b
     loc: '3:4'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_c
     name: attribute_c
     loc: '4:4'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_d
     name: attribute_d
     loc: '4:17'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_x
     name: attribute_x
     loc: '5:13'
@@ -58,11 +58,11 @@ entity:
     qualified: test_static_class_attribute.Inherit
     name: Inherit
     loc: '7:4'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e
     loc: '8:4'
-  - type: Class Attribute
+  - type: Attribute
     qualified: test_static_class_attribute.Inherit.attribute_f
     name: attribute_f
     loc: '11:13'

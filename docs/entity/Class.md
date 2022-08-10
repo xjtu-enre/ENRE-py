@@ -14,10 +14,10 @@ classname   :  identifier
 ```
 
 ##### Examples
-- Global Class Definition
+###### Global Class Definition
 
 ```python
-// test_global_class.py
+//// test_global_class.py
 class Base:
     ...
 ```
@@ -25,7 +25,6 @@ class Base:
 ```yaml
 name: GlobalClassDefinition
 entity:
-  exact: false
   items:
   - type: Class
     longname: test_global_class.Base
@@ -33,7 +32,7 @@ entity:
     loc: '1:6'
 ```
 
-- Inherit Global Class Definition
+###### Inherit Global Class Definition
 
 ```python
 
@@ -48,7 +47,6 @@ class Inherit(Base):
 ```yaml
 name: InheritGlobalClassDefinition
 entity:
-  exact: false
   items:
   - type: Class
     longname: test_inherit_global_class.Base
@@ -60,7 +58,7 @@ entity:
     loc: '6:6'
 ```
 
-- Nested Class Definition 
+###### Nested Class Definition 
 ```python
 class Out:
     class Inner1:
@@ -78,7 +76,6 @@ def out_func():
 ```yaml
 name: NestedClassDefinition
 entity:
-  exact: false
   items:
   - type: Class
     longname: test_nested_class.Out
@@ -102,10 +99,10 @@ entity:
     loc: '7:14'
 ```
 
-- Abstract Class Defination
+###### Abstract Class Defination
 
 ```python
-// test_abstract_class.py
+//// test_abstract_class.py
 class A(ABC):
     ...
 
@@ -135,7 +132,6 @@ class B:
 ```yaml
 name: AbstractClassDefination
 entity:
-  exact: false
   items:
     - type: Class
       longname: test_abstract_class.A

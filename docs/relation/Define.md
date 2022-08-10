@@ -259,32 +259,32 @@ class Inherit(Base):
 name: StaticClassAttributeDefinition
 relation:
   items:
-  - to: Class Attribute:'test_static_class_attribute.Base.attribute_a'
+  - to: Attribute:'test_static_class_attribute.Base.attribute_a'
     from: Class:'test_static_class_attribute.Base'
     type: Define
     loc: '2:4'
   - type: Define
     from: Class:'test_static_class_attribute.Base'
-    to: Class Attribute:'test_static_class_attribute.Base.attribute_b'
+    to: Attribute:'test_static_class_attribute.Base.attribute_b'
     loc: '3:4'
   - type: Define
-    to: Class Attribute:'test_static_class_attribute.Base.attribute_c'
+    to: Attribute:'test_static_class_attribute.Base.attribute_c'
     from: Class:'test_static_class_attribute.Base'
     loc: '4:4'
   - type: Define
-    to: Class Attribute:'test_static_class_attribute.Base.attribute_d'
+    to: Attribute:'test_static_class_attribute.Base.attribute_d'
     from: Class:'test_static_class_attribute.Base'
     loc: '4:17'
   - type: Define
-    to: Class Attribute:'test_static_class_attribute.Base.attribute_x'
+    to: Attribute:'test_static_class_attribute.Base.attribute_x'
     from: Function:'test_static_class_attribute.Base.__init__'
     loc: '5:13'
   - type: Define
-    to: Class Attribute:'test_static_class_attribute.Inherit.attribute_e'
+    to: Attribute:'test_static_class_attribute.Inherit.attribute_e'
     from: Class:'test_static_class_attribute.Inherit'
     loc: '8:4'
   - type: Define
-    to: Class Attribute:'test_static_class_attribute.Inherit.attribute_f'
+    to: Attribute:'test_static_class_attribute.Inherit.attribute_f'
     from: Function:'test_static_class_attribute.Inherit.__init__'
     loc: '11:13'
 ```
