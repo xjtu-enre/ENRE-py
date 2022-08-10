@@ -26,6 +26,7 @@ name: PackageDefinition
 ```yaml
 name: RegularPackage
 entity: 
+  extra: false
   items:
   - longname: package_a
     name: package_a
@@ -45,6 +46,7 @@ entity:
 ```yaml
 name: NamespacePackage
 entity: 
+  extra: false
   items:
   - longname: package_a
     name: package_a

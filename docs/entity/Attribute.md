@@ -29,6 +29,7 @@ class Inherit(Base):
 ```yaml
 name: StaticClassAttributeDefinition
 entity:
+  extra: false
   items:
   - type: Class
     qualified: test_static_class_attribute.Base

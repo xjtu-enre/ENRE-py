@@ -25,11 +25,11 @@ import module_a as a
 
 ```
 
-
 ```yaml
 name: GlobalImport
 entity:
   type: Alias
+  extra: false
   items:
   - longname: module_b.f
     name: f

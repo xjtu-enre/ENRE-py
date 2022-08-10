@@ -19,7 +19,7 @@ parameter                 :  identifier [":" expression]
 
 ##### Examples
 
-- Parameter Definition
+###### Parameter Definition
 
 ```python
 // test_parameter.py
@@ -42,7 +42,7 @@ lambda t: t
 ```yaml
 name: ParameterDefinition
 entity:
-  exact: false
+  extra: false
   items:
   - type: Function
     longname: test_parameter.func1
@@ -85,11 +85,11 @@ entity:
     name: x
     loc: '10:10'
   - type: AnonymousFunction
-    longname: test_parameter.func4.(13)
+    longname: 'test_parameter.func4.(13)'
     name: null
     loc: '13:0'
   - type: Lambda Parameter
-    longname: test_parameter.func4.(13).t
+    longname: 'test_parameter.func4.(13).t'
     name: '13:7'
 
 ```

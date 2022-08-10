@@ -35,6 +35,7 @@ def func1():
 
 ```yaml
 name: GlobalFunctionDefinition
+extra: False
 entity:
   exact: false
   items:
@@ -60,6 +61,7 @@ class InheritClassA(ClassA):
 ```
 ```yaml
 name: ClassMethodDefinition
+extra: False
 entity:
   exact: false
   items:
@@ -106,6 +108,7 @@ def func():
 
 ```yaml
 name: NestedFunctionDefinition
+extra: False
 entity:
   exact: false
   items:

@@ -13,7 +13,7 @@ name: ModuleDefinition
 
 ##### Examples
 
-- Module Definition
+###### Module Definition
 ```python
 //// test_module_a.py
 import test_module_b as b
@@ -24,18 +24,23 @@ import test_module_a as a
 
 ```yaml
 name: ModuleDefinition
-exact: false
-items:
-  - type: Module
-    longname: test_module_a
-    name: test_module_a
-  - type: Module
-    longname: test_module_b
-    name: test_module_b
-  - type: Module Alias
-    longname: test_module_b.a
-    name: b
-  - type: Module Alias
-    longname: test_module_a.b
-    name: a
+entity:
+  extra: false
+  items:
+    - type: Module
+      longname: test_module_a
+      name: test_module_a
+      loc: 'file0'
+    - type: Module
+      longname: test_module_b
+      name: test_module_b
+      loc: 'file1'
+    - type: Alias
+      longname: test_module_b.a
+      name: b
+      loc: 'file1:1:24'
+    - type: Alias
+      longname: test_module_a.b
+      name: a
+      loc: 'file0:1:24'
 ```

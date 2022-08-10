@@ -25,6 +25,7 @@ class Base:
 ```yaml
 name: GlobalClassDefinition
 entity:
+  extra: false
   items:
   - type: Class
     longname: test_global_class.Base
@@ -47,6 +48,7 @@ class Inherit(Base):
 ```yaml
 name: InheritGlobalClassDefinition
 entity:
+  extra: false
   items:
   - type: Class
     longname: test_inherit_global_class.Base
@@ -76,6 +78,7 @@ def out_func():
 ```yaml
 name: NestedClassDefinition
 entity:
+  extra: false
   items:
   - type: Class
     longname: test_nested_class.Out
@@ -132,6 +135,7 @@ class B:
 ```yaml
 name: AbstractClassDefination
 entity:
+  extra: false
   items:
     - type: Class
       longname: test_abstract_class.A
