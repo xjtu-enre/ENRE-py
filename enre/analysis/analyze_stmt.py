@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorType, ModuleType, \
-    UseContext
+    UseContext, CallContext
 # Avaler stand for Abstract evaluation
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.analysis.analyze_method import MethodVisitor
@@ -75,7 +75,7 @@ class Analyzer:
                 self.analyze(value, env)
 
     def analyze_function(self, name: str, args: ast.arguments, body: ty.List[ast.stmt], span: Span,
-                         env: EntEnv) -> Function:
+                         decorators: ty.List[ast.expr], env: EntEnv) -> Function:
         in_class_env = isinstance(env.get_ctx(), Class)
         fun_code_span = span
         now_scope = env.get_scope().get_location()
@@ -104,6 +104,10 @@ class Analyzer:
         # add parameters to the scope environment
         process_parameters(args, body_env, env, self.manager, self.package_db, self.current_db, fun_summary,
                            env.get_class_ctx())
+        for decorator in decorators:
+            avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, None, CallContext(),
+                                  env.get_scope().get_builder(), env)
+            avaler.aval(decorator)
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
         hook_scope.add_hook(body, body_env)
         return func_ent
@@ -111,13 +115,19 @@ class Analyzer:
     def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
         func_span = get_syntactic_head(def_stmt)
         func_span.offset(DefaultDefHeadLen)
-        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, env)
+        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span,
+                                         def_stmt.decorator_list, env)
+
+        if def_stmt.returns is not None:
+            process_annotation(func_ent, self.manager, self.package_db, self.current_db, def_stmt.returns, env)
         self.set_method_info(def_stmt, func_ent)
 
     def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
         func_span = get_syntactic_head(def_stmt)
         func_span.offset(DefaultAsyncDefHeadLen)
-        self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, env)
+        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, def_stmt.decorator_list, env)
+        if def_stmt.returns is not None:
+            process_annotation(func_ent, self.manager, self.package_db, self.current_db, def_stmt.returns, env)
 
     def set_method_info(self, def_stmt: ast.FunctionDef, func_ent: Function) -> None:
         method_visitor = MethodVisitor()
@@ -284,7 +294,6 @@ class Analyzer:
         file_ent, bound_ent = self.manager.import_module(self.module, module_identifier, import_stmt.lineno,
                                                          import_stmt.col_offset, True)
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.ImportKind, file_ent, import_stmt.lineno, import_stmt.col_offset, False, None))
         new_bindings: "Bindings"
         if not isinstance(file_ent, UnknownModule):
             # if the imported module can found in package
@@ -295,6 +304,9 @@ class Analyzer:
                 as_name = alias.asname
                 imported_ents = get_file_level_ent(file_ent, name)
                 import_binding: Binding
+                for e in imported_ents:
+                    current_ctx.add_ref(
+                        Ref(RefKind.ImportKind, e, import_stmt.lineno, import_stmt.col_offset, False, None))
                 if as_name is not None:
                     location = env.get_scope().get_location().append(as_name, Span.get_nil())
                     alias_ent = Alias(location.to_longname(), location, imported_ents)

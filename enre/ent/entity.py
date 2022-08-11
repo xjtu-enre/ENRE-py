@@ -51,7 +51,7 @@ class Span:
     def get_nil(cls) -> "Span":
         return _Nil_Span
 
-    def offset(self, offset: int):
+    def offset(self, offset: int) -> None:
         assert self.end_col == -1
         self.start_col += offset
 
@@ -284,7 +284,7 @@ class ModuleAlias(Entity):
         return longname
 
     def kind(self) -> EntKind:
-        return EntKind.ModuleAlias
+        return EntKind.Alias
 
 
 class PackageAlias(Entity):
@@ -304,7 +304,7 @@ class PackageAlias(Entity):
         return longname
 
     def kind(self) -> EntKind:
-        return EntKind.ModuleAlias
+        return EntKind.Alias
 
 
 class Alias(Entity):

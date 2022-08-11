@@ -27,7 +27,7 @@ class EntKind(Enum):
     Parameter = "Parameter"
     UnknownVar = "Unknown Variable"
     UnknownModule = "Unknown Module"
-    ClassAttr = "Class Attribute"
+    ClassAttr = "Attribute"
     UnresolvedAttr = "Unresolved Attribute"
     ReferencedAttr = "Referenced Attribute"
     AmbiguousAttr = "Ambiguous Attribute"
