@@ -20,10 +20,11 @@ def main() -> None:
     parser.add_argument("--cfg", action="store_true",
                         help="run control flow analysis and output module summaries")
     parser.add_argument("--compatible", action="store_true")
+    parser.add_argument("--builtins", action="store", help="builtins module path")
     config = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
-    manager = enre_wrapper(root_path, config.compatible, config.cfg)
+    manager = enre_wrapper(root_path, config.compatible, config.cfg, config.builtins)
     end = time.time()
 
     if config.profile:
@@ -34,9 +35,11 @@ def main() -> None:
         # print(f"analysing time: {end - start}s")
 
 
-def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> AnalyzeManager:
+def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool,
+                 builtin_module: str) -> AnalyzeManager:
     project_name = root_path.name
-    manager = AnalyzeManager(root_path)
+    builtins_path = Path(builtin_module) if builtin_module else None
+    manager = AnalyzeManager(root_path, builtins_path)
     manager.work_flow()
     out_path = Path(f"{project_name}-report-enre.json")
     if need_cfg:

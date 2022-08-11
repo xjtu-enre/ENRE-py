@@ -236,16 +236,16 @@ class Package(Entity, NameSpaceEntity):
 
 
 class Module(Entity, NameSpaceEntity):
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path, hard_longname: Optional[List[str]] = None):
         # file_path: relative path to root directory's parent
         import os
-        path = os.path.normpath(str(file_path)[:-len(".py")])
-        path_list = path.split(os.sep)
+        path = os.path.normpath(str(file_path).removesuffix(".py"))
+        path_list = path.split(os.sep) if hard_longname is None else hard_longname
         longname = EntLongname(path_list)
         location = Location(file_path, Span.get_nil(), path_list)
-        super(Module, self).__init__(longname, location)
         self.module_path = file_path
         self._names: "NamespaceType" = defaultdict(list)
+        super(Module, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
         return EntKind.Module
@@ -265,6 +265,40 @@ class Module(Entity, NameSpaceEntity):
 
     def direct_type(self) -> "ModuleType":
         return ModuleType(self.names)
+
+
+class BuiltinModule(Entity, NameSpaceEntity):
+    def __init__(self, file_path: Path):
+        # file_path: relative path to root directory's parent
+        path_list = ["builtins"]
+        longname = EntLongname(path_list)
+        location = Location(file_path, Span.get_nil(), path_list)
+        self.module_path = file_path
+        self._names: "NamespaceType" = defaultdict(list)
+        super(BuiltinModule, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Module
+
+    @property
+    def names(self) -> "NamespaceType":
+        return self._names
+
+    def add_ref(self, ref: "Ref") -> None:
+        if ref.ref_kind == RefKind.DefineKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        super(BuiltinModule, self).add_ref(ref)
+
+    @property
+    def module_longname(self) -> EntLongname:
+        return self.longname
+
+    def direct_type(self) -> "ModuleType":
+        return ModuleType(self.names)
+
+    @staticmethod
+    def get_BuiltinModule(builtin_path: Path) -> "BuiltinModule":
+        return BuiltinModule(builtin_path)
 
 
 class ModuleAlias(Entity):

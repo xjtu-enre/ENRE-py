@@ -8,6 +8,9 @@ from enre.ent.EntKind import RefKind
 from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function
 from enre.ref.Ref import Ref
 
+if ty.TYPE_CHECKING:
+    from enre.analysis.env import Bindings
+
 
 class ModuleStack:
     def __init__(self) -> None:
@@ -114,11 +117,16 @@ def merge_db(package_db: RootDB) -> "DepDB":
 
 
 class AnalyzeManager:
-    def __init__(self, root_path: Path):
+    def __init__(self, root_path: Path, builtin_path: ty.Optional[Path]) -> None:
         self.project_root = root_path
         self.root_db = RootDB(root_path)
         self.module_stack = ModuleStack()
         self.scene: Scene = Scene()
+        self.builtin_path = builtin_path
+        self.builtins_bindings: ty.Optional[Bindings] = None
+        if builtin_path:
+            self.root_db.tree[builtin_path] = ModuleDB(self.project_root,
+                                                       Module(builtin_path, hard_longname=["builtins"]))
 
     def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
         in_package = False
@@ -144,16 +152,15 @@ class AnalyzeManager:
         from enre.passes.entity_pass import EntityPass
         from enre.passes.build_ambiguous import BuildAmbiguous
         from enre.passes.build_visibility import BuildVisibility
-
+        self.analyze_builtins()
         self.iter_dir(self.project_root)
-        entity_pass = EntityPass(self.root_db)
         build_ambiguous_pass = BuildAmbiguous(self.root_db)
         build_ambiguous_pass.execute_pass()
         build_visibility_pass = BuildVisibility(self.root_db)
         build_visibility_pass.work_flow()
 
     def iter_dir(self, path: Path) -> None:
-        from .analyze_stmt import Analyzer
+        from enre.analysis.analyze_stmt import Analyzer
         print(path)
         if path.is_dir():
             for sub_file in path.iterdir():
@@ -164,15 +171,46 @@ class AnalyzeManager:
                 print(f"the module {rel_path} already imported by some analyzed module")
                 return
             else:
-                module_ent = self.root_db[rel_path].module_ent
-                checker = Analyzer(rel_path, self)
                 self.module_stack.push(rel_path)
-                module_summary = self.create_file_summary(module_ent)
-                builder = SummaryBuilder(module_summary)
-                checker.analyze_top_stmts(checker.current_db.tree.body, builder,
-                                          EntEnv(ScopeEnv(module_ent, module_ent.location,
-                                                          SummaryBuilder(module_summary))))
+                self.analyze_module_top_stmts(rel_path)
                 self.module_stack.pop()
+
+    def analyze_module_top_stmts(self, rel_path: Path) -> None:
+        from enre.analysis.analyze_stmt import Analyzer
+        module_ent = self.root_db[rel_path].module_ent
+        checker = Analyzer(rel_path, self)
+        module_summary = self.create_file_summary(module_ent)
+        builder = SummaryBuilder(module_summary)
+        top_scope = ScopeEnv(module_ent, module_ent.location, SummaryBuilder(module_summary))
+        if self.builtin_path:
+            builtins_module_db = self.root_db[self.builtin_path]
+            self.add_builtins_binding_to_scope(builtins_module_db, top_scope)
+        checker.analyze_top_stmts(checker.current_db.tree.body, builder,
+                                  EntEnv(top_scope))
+
+    def add_builtins_binding_to_scope(self, module_db: ModuleDB, scope: ScopeEnv) -> None:
+        if self.builtins_bindings:
+            scope.add_continuous(self.builtins_bindings)
+            return
+        bindings: Bindings = []
+        for name, ents in module_db.module_ent.names.items():
+            bound_ents = [(ent, ent.direct_type()) for ent in ents]
+            bindings.append((name, bound_ents))
+        bindings.append(("builtins", [(module_db.module_ent, module_db.module_ent.direct_type())]))
+        scope.add_continuous(bindings)
+        self.builtins_bindings = bindings
+
+    def analyze_builtins(self) -> None:
+        from enre.analysis.analyze_stmt import Analyzer
+        if not self.builtin_path:
+            return
+        checker = Analyzer(self.builtin_path, self)
+        module_ent = self.root_db[self.builtin_path].module_ent
+        module_summary = self.create_file_summary(module_ent)
+        builder = SummaryBuilder(module_summary)
+        checker.analyze_top_stmts(checker.current_db.tree.body, builder,
+                                  EntEnv(ScopeEnv(module_ent, module_ent.location,
+                                                  SummaryBuilder(module_summary))))
 
     def import_module(self, from_module_ent: Module, module_identifier: str,
                       lineno: int, col_offset: int, strict: bool) -> ty.Tuple[
@@ -205,14 +243,9 @@ class AnalyzeManager:
             return
         from enre.analysis.analyze_stmt import Analyzer
         rel_path = module_ent.module_path
-        checker = Analyzer(rel_path, self)
         self.module_stack.push(rel_path)
         print(f"importing the module {rel_path} now analyzing this module")
-        with open(self.project_root.parent.joinpath(rel_path), "r", encoding="utf-8") as file:
-            module_summary = self.create_file_summary(module_ent)
-            builder = SummaryBuilder(module_summary)
-            module_env = EntEnv(ScopeEnv(module_ent, module_ent.location, builder))
-            checker.analyze_top_stmts(ast.parse(file.read()).body, builder, module_env)
+        self.analyze_module_top_stmts(rel_path)
         print(f"module {rel_path} finished")
         self.module_stack.pop()
 
@@ -240,7 +273,6 @@ class AnalyzeManager:
 
     def add_summary(self, summary: ModuleSummary) -> None:
         self.scene.summaries.append(summary)
-
 
     def create_file_summary(self, module_ent: Module) -> FileSummary:
         summary = FileSummary(module_ent)
