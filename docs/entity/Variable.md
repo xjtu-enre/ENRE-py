@@ -20,10 +20,10 @@ target          :  identifier
 ```
 
 ##### Examples
-- Global Variable Definition
+###### Global Variable Definition
 
 ```python
-// test_global_variable.py
+//// test_global_variable.py
 x = 1
 
 y: int = 1
@@ -35,8 +35,8 @@ t1, t2 = 1, 2
 
 ```yaml
 name: GlobalVariableDefinition
-entities:
-  exact: false
+entity:
+  extra: false
   items:
   - type: Variable
     longname: test_global_variable.x
@@ -60,10 +60,10 @@ entities:
     loc: '7:1'
 ```
 
-- Local Variable Definition
+###### Local Variable Definition
 
 ```python
-// test_local_variable.func.py
+//// test_local_variable.func.py
 def func(p1, p2):
     x = 1
 
@@ -88,7 +88,7 @@ def func(p1, p2):
 ```yaml
 name: LocalVariableDefinition
 entity:
-  exact: false
+  extra: false
   items:
   - type: Function
     longname: test_local_variable.func
@@ -148,10 +148,10 @@ entity:
     loc: '16:9'
 ```
 
-- Iteration Variable
+###### Iteration Variable
 
 ```python
-// test_iteration_variable.py
+//// test_iteration_variable.py
 x = []
 
 for a, b in x:
@@ -165,8 +165,8 @@ def func():
 
 ```yaml
 name: IterationVariable
-entities:
-  exact: false
+entity:
+  extra: false
   items:
   - type: Variable
     longname: test_iteration_variable.a

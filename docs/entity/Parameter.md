@@ -85,11 +85,11 @@ entity:
     name: x
     loc: '10:10'
   - type: AnonymousFunction
-    longname: "test_parameter.func4.(13)"
-    name: null
+    longname: 'test_parameter.func4.(13)'
+    name: ''
     loc: '13:0'
   - type: LambdaParameter
-    longname: "test_parameter.func4.(13).t"
+    longname: 'test_parameter.func4.(13).t'
     name: t
     loc: '13:7'
 ```
