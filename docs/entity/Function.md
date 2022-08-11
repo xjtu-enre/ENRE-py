@@ -25,28 +25,27 @@ funcname                  : identifier
 ```
 
 ##### Examples
-- Global Function Definition
+###### Global Function Definition
 
 ```python
-// test_global_function.py
+//// test_global_function.py
 def func1():
     return 0
 ```
 
 ```yaml
 name: GlobalFunctionDefinition
-extra: False
 entity:
-  exact: false
+  extra: false
   items:
   - type: Function
     longname: test_global_function.func1
     name: func1
     loc: '1:4'
 ```
-- Class Method Definition
+###### Class Method Definition
 ```python
-// test_method_definition.py
+//// test_method_definition.py
 class ClassA:
     def method(self):
         ...
@@ -61,9 +60,8 @@ class InheritClassA(ClassA):
 ```
 ```yaml
 name: ClassMethodDefinition
-extra: False
 entity:
-  exact: false
+  extra: False
   items:
   - type: Class
     longname: test_method_definition.ClassA
@@ -91,7 +89,7 @@ entity:
     loc: '10:8'
 ```
 
-- Nested Function Definition
+###### Nested Function Definition
 ```python
 def func():
     def inner():
@@ -108,9 +106,8 @@ def func():
 
 ```yaml
 name: NestedFunctionDefinition
-extra: False
 entity:
-  exact: false
+  extra: false
   items:
   - type: Function
     longname: test_nested_function.func

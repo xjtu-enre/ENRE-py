@@ -291,3 +291,83 @@ relation:
     loc: '18:24'
 ```
 
+###### Use Alias
+
+```python
+//// module_a.py
+import module_b
+
+def func():
+    ...
+x = 1
+
+class ClassA:
+    ...
+```
+```python
+//// module_b.py
+from module_a import func as f, x as x_b, ClassA as c
+import module_a as a
+
+print(f, x_b, c, a)
+
+def foo():
+    print(f, x_b, c, a)
+
+class ClassB:
+    print(f, x_b, c, a)
+```
+```yaml
+name: UseAlias
+relation:
+    items:
+    - from: Module:'module_b'
+      to: Alias:'module_b.f'
+      type: Use
+      loc: '4:6'
+    - from: Module:'module_b'
+      to: Alias:'module_b.x_b'
+      type: Use
+      loc: '4:9'
+    - from: Module:'module_b'
+      to: Alias:'module_b.c'
+      type: Use
+      loc: '4:14'
+    - from: Module:'module_b'
+      to: Alias:'module_b.a'
+      type: Use
+      loc: '4:17'
+    - from: Function:'module_b.foo'
+      to: Alias:'module_b.f'
+      type: Use
+      loc: '7:10'
+    - from: Function:'module_b.foo'
+      to: Alias:'module_b.x_b'
+      type: Use
+      loc: '7:13'
+    - from: Function:'module_b.foo'
+      to: Alias:'module_b.c'
+      type: Use
+      loc: '7:18'
+    - from: Function:'module_b.foo'
+      to: Alias:'module_b.a'
+      type: Use
+      loc: '7:21'
+    - from: Class:'module_b.ClassB'
+      to: Alias:'module_b.f'
+      type: Use
+      loc: '10:10'
+    - from: Class:'module_b.ClassB'
+      to: Alias:'module_b.x_b'
+      type: Use
+      loc: '10:13'
+    - from: Class:'module_b.ClassB'
+      to: Alias:'module_b.c'
+      type: Use
+      loc: '10:18'
+    - from: Class:'module_b.ClassB'
+      to: Alias:'module_b.a'
+      type: Use
+      loc: '10:21'
+
+```

@@ -230,3 +230,31 @@ relation:
       loc: '7:4'
 ```
 
+###### Decorator Call
+```python
+////test_decorator_call.py
+def f1(a):
+    def wrap(f):
+        return f
+    return wrap
+
+def f2(f):
+    return f
+
+@f1(arg)
+@f2
+def func(): pass
+```
+
+```yaml
+name: TestDecoratorCall
+relation:
+    type: Call
+    items:
+    - from: Module:'test_decorator_call'
+      to: Function:'test_decorator_call.f2'
+      loc: '10:1'
+    - from: Module:'test_decorator_call'
+      to: Function:'test_decorator_call.f1'
+      loc: '9:1'
+```

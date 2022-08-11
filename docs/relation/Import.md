@@ -88,6 +88,9 @@ def func():
 def foo():
     import module_c as c
     from module_c import func
+
+class ClassA:
+    import module_c as c
 ```
 
 ```yaml
@@ -114,4 +117,8 @@ relation:
     from: Function:'module_d.foo'
     to: Alias:'module_d.foo.c'
     loc: 'file1:2:23'
+  - type: Import
+    from: Class:'module_d.ClassA'
+    to: Module:'module_c'
+    loc: 'file1:6:11'
 ```
