@@ -22,7 +22,7 @@ parameter                 :  identifier [":" expression]
 ###### Parameter Definition
 
 ```python
-// test_parameter.py
+//// test_parameter.py
 def func1(x):
     ...
 
@@ -85,11 +85,11 @@ entity:
     name: x
     loc: '10:10'
   - type: AnonymousFunction
-    longname: 'test_parameter.func4.(13)'
+    longname: "test_parameter.func4.(13)"
     name: null
     loc: '13:0'
-  - type: Lambda Parameter
-    longname: 'test_parameter.func4.(13).t'
-    name: '13:7'
-
+  - type: LambdaParameter
+    longname: "test_parameter.func4.(13).t"
+    name: t
+    loc: '13:7'
 ```

@@ -288,3 +288,33 @@ relation:
     from: Function:'test_static_class_attribute.Inherit.__init__'
     loc: '11:13'
 ```
+
+
+###### Anonymous Function Definition
+```python
+//// test_define_anonnymous.py
+lambda :None
+
+def foo():
+    lambda :None
+
+class ClassA:
+    lambda : None
+```
+
+```yaml
+name: AnonymousFunctionDefinition
+relation:
+  extra: false
+  type: Define
+  items:
+  - from: Module:'test_define_anonnymous'
+    to: AnonymousFunction:'test_define_anonnymous'[@loc=1]
+    loc: '1:0'
+  - from: Function:'test_define_anonnymous.foo'
+    to: AnonymousFunction:'test_define_anonnymous.foo'[@loc=4]
+    loc: '4:4'
+  - from: Class:'test_define_anonnymous.ClassA'
+    to: AnonymousFunction:'test_define_anonnymous.ClassA'[@loc=7]
+    loc: '7:4'
+```
