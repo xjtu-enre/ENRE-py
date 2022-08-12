@@ -93,8 +93,8 @@ class DepRepr:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
             modifiers = cls.get_modifiers(ent)
-            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col, ent.location.code_span.start_col,
+            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_line,
+                                   ent.location.code_span.end_line, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, modifiers))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
