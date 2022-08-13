@@ -2,6 +2,7 @@ import ast
 from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING, Tuple, TypeAlias, Optional
 
+from enre.cfg.module_tree import SummaryBuilder
 from enre.ent.entity import Entity, Location
 
 if TYPE_CHECKING:
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
     Bindings: TypeAlias = List[Binding]
 
 
-class LookupResult:
+class SubEnvLookupResult:
     def __init__(self, found_entities: "AbstractValue", must_found: bool) -> None:
         self._found_entities: AbstractValue = found_entities
         self._must_found = must_found
@@ -34,7 +35,7 @@ class SubEnv(ABC):
         return ParallelSubEnv(self, sub_env)
 
     @abstractmethod
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         ...
 
     @abstractmethod
@@ -49,15 +50,15 @@ class BasicSubEnv(SubEnv):
             pairs = []
         self._bindings_list = [pairs]
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         for bindings in reversed(self._bindings_list):
             ret = []
             for n, binds in bindings:
                 if n == name:
                     ret.extend(binds)
             if ret:
-                return LookupResult(ret, True)
-        return LookupResult([], False)
+                return SubEnvLookupResult(ret, True)
+        return SubEnvLookupResult([], False)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._bindings_list.append(pairs)
@@ -70,12 +71,12 @@ class ParallelSubEnv(SubEnv):
         self._branch1_sub_env = b1
         self._branch2_sub_env = b2
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         look_up_res1 = self._branch1_sub_env[name]
         look_up_res2 = self._branch2_sub_env[name]
         is_must_found = look_up_res1.must_found and look_up_res2.must_found
         found_entities = look_up_res1.found_entities + look_up_res2.found_entities
-        return LookupResult(found_entities, is_must_found)
+        return SubEnvLookupResult(found_entities, is_must_found)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         new_sub_env = BasicSubEnv(pairs)
@@ -92,7 +93,7 @@ class ContinuousSubEnv(SubEnv):
         self._forward = forward
         self._backward = backward
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         backward_lookup_res = self._backward[name]
         # print(f"finding name {name} in env {self}")
         if backward_lookup_res.must_found:
@@ -101,7 +102,7 @@ class ContinuousSubEnv(SubEnv):
             # print(f"name {name} not found continue find at {self._forward}")
             forward_lookup_res = self._forward[name]
             found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
-            return LookupResult(found_entities, forward_lookup_res.must_found)
+            return SubEnvLookupResult(found_entities, forward_lookup_res.must_found)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._backward = self._backward.create_continuous_bindings(pairs)
@@ -113,9 +114,9 @@ class OptionalSubEnv(SubEnv):
         super().__init__(sub_env.depth + 1)
         self._optional = sub_env
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         optional_lookup_res = self._optional[name]
-        return LookupResult(optional_lookup_res.found_entities, False)
+        return SubEnvLookupResult(optional_lookup_res.found_entities, False)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         new_sub_env = BasicSubEnv(pairs)
@@ -139,12 +140,17 @@ class ScopeEnv:
     def get_hooks(self) -> List[Hook]:
         return self._hooks
 
-    def __init__(self, ctx_ent: Entity, location: Location, class_ctx: "Optional[Class]" = None) -> None:
+    def __init__(self, ctx_ent: Entity, location: Location, builder: SummaryBuilder,
+                 class_ctx: "Optional[Class]" = None) -> None:
         self._ctx_ent = ctx_ent
         self._location = location
+        self._builder = builder
         self._class_ctx = class_ctx
         self._hooks: List[Hook] = []
         self._sub_envs: List[SubEnv] = [BasicSubEnv()]
+
+    def get_builder(self) -> SummaryBuilder:
+        return self._builder
 
     def add_sub_env(self, sub_env: SubEnv) -> None:
         self._sub_envs.append(sub_env)
@@ -161,16 +167,16 @@ class ScopeEnv:
     def get_class_ctx(self) -> "Optional[Class]":
         return self._class_ctx
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         ret = []
         for sub_env in reversed(self._sub_envs):
             lookup_res = sub_env[name]
             sub_ents = lookup_res.found_entities
             ret.extend(sub_ents)
             if lookup_res.must_found:
-                return LookupResult(ret, True)
+                return SubEnvLookupResult(ret, True)
 
-        return LookupResult(ret, False)
+        return SubEnvLookupResult(ret, False)
 
     def add_continuous(self, pairs: "Bindings") -> None:
         before = len(self)
@@ -184,6 +190,8 @@ class ScopeEnv:
         after = len(self)
         assert before == after
 
+
+# ScopeEnvLookupResult: TypeAlias = List[Tuple[Entity, ValueInfo, Scop-eEnv]]
 
 class EntEnv:
 
@@ -214,12 +222,12 @@ class EntEnv:
     def __init__(self, scope_env: ScopeEnv):
         self.scope_envs: List[ScopeEnv] = [scope_env]
 
-    def __getitem__(self, name: str) -> LookupResult:
+    def __getitem__(self, name: str) -> SubEnvLookupResult:
         possible_ents: AbstractValue = []
         for scope_env in reversed(self.scope_envs):
             lookup_res = scope_env[name]
             ents_in_scope = lookup_res.found_entities
             possible_ents.extend(ents_in_scope)
             if lookup_res.must_found:
-                return LookupResult(possible_ents, True)
-        return LookupResult(possible_ents, False)
+                return SubEnvLookupResult(possible_ents, True)
+        return SubEnvLookupResult(possible_ents, False)

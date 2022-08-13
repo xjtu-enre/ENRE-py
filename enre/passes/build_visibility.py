@@ -1,10 +1,10 @@
 # -*- coding:utf-8
 import re
 
+from enre.analysis.analyze_manager import RootDB
+from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Class, Function, ClassAttribute
-from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
-from enre.analysis.analyze_manager import RootDB
 
 
 class BuildVisibility:

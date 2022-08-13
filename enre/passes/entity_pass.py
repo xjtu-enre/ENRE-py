@@ -40,8 +40,10 @@ class EntityPass(DepDBPass):
                 new_refs: List[Ref] = []
                 for ref in ent.refs():
                     if isinstance(ref.target_ent, ReferencedAttribute):
-                        same_name_attr_refs = [Ref(ref.ref_kind, e, ref.lineno, ref.col_offset, False) for e in
-                                               self.attribute_dict[ref.target_ent.longname.name]]
+                        same_name_attr_refs = [
+                            Ref(ref.ref_kind, e, ref.lineno, ref.col_offset, ref.in_type_ctx, ref.expr) for e
+                            in
+                            self.attribute_dict[ref.target_ent.longname.name]]
                         # todo: make referenced attribute reference as unresolved
                         # if same_name_attr_refs == []:
                         #     unresolved = UnresolvedAttribute(ref.target_ent.longname, ref.target_ent.location,

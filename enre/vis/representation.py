@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Iterable
 from typing import List, TypedDict, Any, TypeAlias, Dict
 
-from enre.analysis.analyze_method import FunctionKind
 from enre.analysis.analyze_manager import RootDB
+from enre.analysis.analyze_method import FunctionKind
 from enre.ent.EntKind import EntKind
 from enre.ent.entity import Entity, Class, Function
 
@@ -14,7 +15,7 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "kind": str,
                               "lineno": int,
                               "col_offset": int,
-                              "in_type_context": bool,
+                              "in_type_context": bool
                               })
 
 NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
@@ -29,9 +30,6 @@ class Modifiers(Enum):
     abstract = "abstract"
     private = "private"
     readonly = "readonly"
-
-
-JsonDict: TypeAlias = Dict[str, Any]
 
 
 @dataclass
@@ -55,7 +53,11 @@ class Edge:
     kind: str
     lineno: int
     col_offset: int
-    in_type_context: bool
+    in_type_ctx: bool
+    resolved_targets: Iterable[int]
+
+
+JsonDict: TypeAlias = Dict[str, Any]
 
 
 class DepRepr:
@@ -83,20 +85,7 @@ class DepRepr:
                                         "kind": e.kind,
                                         "lineno": e.lineno,
                                         "col_offset": e.col_offset,
-                                        "in_type_context": e.in_type_context})
-        return ret
-
-    def to_json_1(self) -> JsonDict:
-        ret: JsonDict = {"variables": [], "cells": []}
-        for n in self._node_list:
-            ret["variables"].append({"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
-                                     "modifiers": n.modifiers,
-                                     "location": {"startLine": n.start_line, "endLine": n.end_line,
-                                                  "startColumn": n.start_col, "endColumn": n.end_col}})
-        for e in self._edge_list:
-            ret["cells"].append({"src": e.src,
-                                 "dest": e.dest,
-                                 "values": {"kind": e.kind, "in_type_context": e.in_type_context}})
+                                        "in_type_context": e.in_type_ctx})
         return ret
 
     @classmethod
@@ -104,11 +93,12 @@ class DepRepr:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
             modifiers = cls.get_modifiers(ent)
-            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col, ent.location.code_span.start_col,
+            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_line,
+                                   ent.location.code_span.end_line, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, modifiers))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
+                    resolved_targets = [t.id for t in ref.resolved_targets]
                     dep_repr._edge_list.append(Edge(src=ent.id,
                                                     src_name=ent.longname.longname,
                                                     dest=ref.target_ent.id,
@@ -116,7 +106,28 @@ class DepRepr:
                                                     kind=ref.ref_kind.value,
                                                     lineno=ref.lineno,
                                                     col_offset=ref.col_offset,
-                                                    in_type_context=ref.in_type_ctx))
+                                                    in_type_ctx=ref.in_type_ctx,
+                                                    resolved_targets=resolved_targets))
+
+    def to_json_1(self) -> JsonDict:
+        ret: JsonDict = {"variables": [], "cells": []}
+        for n in self._node_list:
+            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+                        "location": {"startLine": n.start_line, "endLine": n.end_line,
+                                     "startColumn": n.start_col, "endColumn": n.end_col}}
+            if exist_no_empty(n.modifiers):
+                variable["modifiers"] = n.modifiers
+            ret["variables"].append(variable)
+        for e in self._edge_list:
+            values: JsonDict = {"kind": e.kind, "in_type_context": e.in_type_ctx}
+            location = {"startLine": e.lineno, "startCol": e.col_offset}
+            if e.resolved_targets:
+                values["resolved"] = e.resolved_targets
+            ret["cells"].append({"src": e.src,
+                                 "dest": e.dest,
+                                 "values": values,
+                                 "location": location})
+        return ret
 
     @classmethod
     def from_package_db(cls, package_db: RootDB) -> "DepRepr":
@@ -153,7 +164,8 @@ class DepRepr:
                                        kind=ref.kind().name(),
                                        lineno=lineno,
                                        col_offset=col_offset,
-                                       in_type_context=False))
+                                       in_type_ctx=False,
+                                       resolved_targets=[]))
         return dep_repr
 
     @classmethod
@@ -180,3 +192,9 @@ class DepRepr:
             if ent.static_kind == FunctionKind.StaticMethod:
                 ret['modifier'].append('static method')
         return ret
+
+
+def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
+    return ('modifier' in modifiers and len(modifiers['modifier']) > 0) or \
+           ('readonlyProperty' in modifiers and len(modifiers['readonlyProperty']) > 0) or \
+           ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0)

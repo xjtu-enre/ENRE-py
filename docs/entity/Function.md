@@ -25,10 +25,10 @@ funcname                  : identifier
 ```
 
 ##### Examples
-- Global Function Definition
+###### Global Function Definition
 
 ```python
-// test_global_function.py
+//// test_global_function.py
 def func1():
     return 0
 ```
@@ -36,16 +36,16 @@ def func1():
 ```yaml
 name: GlobalFunctionDefinition
 entity:
-  exact: false
+  extra: false
   items:
-  - category: Function
+  - type: Function
     longname: test_global_function.func1
     name: func1
     loc: '1:4'
 ```
-- Class Method Definition
+###### Class Method Definition
 ```python
-// test_method_definition.py
+//// test_method_definition.py
 class ClassA:
     def method(self):
         ...
@@ -61,35 +61,35 @@ class InheritClassA(ClassA):
 ```yaml
 name: ClassMethodDefinition
 entity:
-  exact: false
+  extra: False
   items:
-  - category: Class
+  - type: Class
     longname: test_method_definition.ClassA
     name: ClassA
     loc: '1:6'
-  - category: Function
+  - type: Function
     longname: test_method_definition.ClassA.method
     name: method
     loc: '2:8'
-  - category: Class
+  - type: Class
     longname: test_method_definition.ClassB
     name: ClassB
     loc: '5:6'
-  - category: Function
+  - type: Function
     longname: test_method_definition.ClassB.method
     name: method
     loc: '6:8'
-  - category: Class
+  - type: Class
     longname: test_method_definition.InheritClassA
     name: InheritClassA
     loc: '9:5'
-  - category: Function
+  - type: Function
     longname: test_method_definition.InheritClassA.method
     name: method
     loc: '10:8'
 ```
 
-- Nested Function Definition
+###### Nested Function Definition
 ```python
 def func():
     def inner():
@@ -107,17 +107,17 @@ def func():
 ```yaml
 name: NestedFunctionDefinition
 entity:
-  exact: false
+  extra: false
   items:
-  - category: Function
+  - type: Function
     longname: test_nested_function.func
     name: func
     loc: '1:4'
-  - category: Function
+  - type: Function
     longname: test_nested_function.func.inner
     name: inner
     loc: '2:8'
-  - category: Function
+  - type: Function
     longname: test_nested_function.func.inner.inner_inner
     name: inner_inner
     loc: '4:12'

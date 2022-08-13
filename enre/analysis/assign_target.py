@@ -1,20 +1,20 @@
 import ast
-from _ast import AST
 from abc import ABC
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Tuple, TypeAlias, Callable, Optional, TYPE_CHECKING, Dict, Set
+from typing import List, Tuple, Callable, Optional, TYPE_CHECKING, Dict, Set, Iterable
 
+from enre.analysis.value_info import ValueInfo, InstanceType
+from enre.cfg.module_tree import StoreAbles, SummaryBuilder, get_named_store_able
 from enre.ent.EntKind import RefKind
+from enre.ent.entity import AbstractValue, MemberDistiller
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span, \
     get_anonymous_ent, SetContextValue, NewlyCreated
-from enre.analysis.analyze_expr import UseAvaler, SetAvaler
-from enre.ent.entity import AbstractValue, MemberDistiller
-from enre.analysis.value_info import ValueInfo, InstanceType
 from enre.ref.Ref import Ref
 
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
+    from enre.analysis.analyze_stmt import AnalyzeContext
 
 
 class PatternBuilder:
@@ -86,6 +86,10 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
     return [(get_anonymous_ent(), ValueInfo.get_any())]
 
 
+def dummy_iter_store(_: StoreAbles, builder: SummaryBuilder) -> StoreAbles:
+    return []
+
+
 def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
                     value_type: ValueInfo,
                     new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
@@ -105,6 +109,7 @@ def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
     elif isinstance(target, NewlyCreated):
         newly_define_semantic(target, value_type, new_bindings, ctx)
 
+
 def newly_define_semantic(newly_created: NewlyCreated,
                           value_type: ValueInfo,
                           new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
@@ -116,29 +121,29 @@ def newly_define_semantic(newly_created: NewlyCreated,
     tar_ent = newly_created.unknown_ent
     if isinstance(tar_ent, UnknownVar):
         if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
-            new_attr = ClassAttribute(location.to_longname(), location)
+            new_attr = ClassAttribute(ctx_ent, location.to_longname(), location)
             new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
             ctx.current_db.add_ent(new_attr)
-            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))
-            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False))
+            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
+            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
         else:
             # newly defined variable
             new_var = Variable(location.to_longname(), location)
             new_bindings.append((new_var.longname.name, [(new_var, value_type)]))
             ctx.current_db.add_ent(new_var)
-            ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False, None))
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
     elif isinstance(tar_ent, UnresolvedAttribute):
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
             new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
-            new_attr = ClassAttribute(new_location.to_longname(), new_location)
+            new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
             ctx.current_db.add_ent(new_attr)
             receiver_class.add_ref(
-                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False))
+                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
+            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
 
 
 def assign_known_target(tar_ent: Entity,
@@ -153,7 +158,7 @@ def assign_known_target(tar_ent: Entity,
         new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
         # add_target_var(target, value_type, env, self.dep_db)
         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False))
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
         # record the target assign to target entity
     elif isinstance(tar_ent, UnresolvedAttribute):
         assert False
@@ -166,7 +171,7 @@ def assign_known_target(tar_ent: Entity,
                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
     else:
-        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False))
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
 
 
 def compress_abstract_value(entities: AbstractValue) -> AbstractValue:
@@ -190,24 +195,30 @@ def flatten_bindings(bindings: "Bindings") -> "Bindings":
     return new_bindings
 
 
-def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
+def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_expr: ast.expr,
+                    r_store_ables: StoreAbles,
+                    builder: SummaryBuilder,
+                    ctx: "AnalyzeContext") -> StoreAbles:
     new_bindings: "Bindings" = []
     for _, value_type in rvalue:
         for target in lvalue:
             assign_semantic(target, value_type, new_bindings, ctx)
     new_bindings = flatten_bindings(new_bindings)
+    lhs_store_ables = []
+    for n, target_ents in new_bindings:
+        for tar, _ in target_ents:
+            lhs_store_able = get_named_store_able(tar, assigned_expr)
+            if lhs_store_able:
+                lhs_store_ables.append(lhs_store_able)
     ctx.env.get_scope().add_continuous(new_bindings)
+    return lhs_store_ables
 
 
-def unpack_list(tar_list: List[Target], distiller: MemberDistiller, ctx: "AnalyzeContext") -> None:
-    for i, tar in enumerate(tar_list):
-        rvalue = distiller(i)
-        unpack_semantic(tar, rvalue, ctx)
-
-
-def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext") -> None:
-    set_avaler = SetAvaler(ctx.manager, ctx.package_db, ctx.current_db)
-    distiller = dummy_unpack(rvalue)
+def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: StoreAbles, builder: SummaryBuilder,
+                    ctx: "AnalyzeContext") -> Iterable[Entity]:
+    from enre.analysis.analyze_expr import ExprAnalyzer, SetContext
+    set_avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, None,
+                              SetContext(False, rvalue, r_store_ables), builder, ctx.env)
     # replace pattern match to use mypy
     # match target:
     #     case LvalueTar(lvalue_expr):
@@ -220,28 +231,22 @@ def unpack_semantic(target: Target, rvalue: AbstractValue, ctx: "AnalyzeContext"
     #     case StarTar(tar):
     #         unpack_list([tar], distiller, ctx)
 
-    if isinstance(target, LvalueTar):
-        lvalue: SetContextValue = set_avaler.aval(target.lvalue_expr, ctx.env)
-        abstract_assign(lvalue, rvalue, ctx)
-    elif isinstance(target, TupleTar):
-        unpack_list(target.tar_list, distiller, ctx)
-    elif isinstance(target, ListTar):
-        unpack_list(target.tar_list, distiller, ctx)
-    elif isinstance(target, StarTar):
-        unpack_list([target.target], distiller, ctx)
+    return map(lambda v: v[0], set_avaler.aval(target)[1])
 
 
-def assign2target(target: Target, rvalue_expr: Optional[ast.expr], ctx: "AnalyzeContext") -> None:
-    avaler = UseAvaler(ctx.manager, ctx.package_db, ctx.current_db)
+def assign2target(target: ast.expr, rvalue_expr: Optional[ast.expr], builder: SummaryBuilder,
+                  ctx: "AnalyzeContext") -> Iterable[Entity]:
+    from enre.analysis.analyze_expr import ExprAnalyzer, UseContext
     rvalue: AbstractValue
+    r_store_ables: StoreAbles
     if rvalue_expr is None:
         rvalue = [(get_anonymous_ent(), ValueInfo.get_any())]
+        r_store_ables = []
     else:
-        rvalue = avaler.aval(rvalue_expr, ctx.env)
-    unpack_semantic(target, rvalue, ctx)
+        avaler = ExprAnalyzer(ctx.manager, ctx.package_db, ctx.current_db, None, UseContext(), builder, ctx.env)
+        r_store_ables, rvalue = avaler.aval(rvalue_expr)
+    return unpack_semantic(target, rvalue, r_store_ables, builder, ctx)
 
-
-from enre.analysis.analyze_stmt import AnalyzeContext
 
 if __name__ == '__main__':
     tree = ast.parse("*[(x, y), y]")

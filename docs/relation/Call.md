@@ -10,9 +10,9 @@ name: Call
 
 ##### Examples
 
-- Global Function Call
+###### Global Function Call
 ```python
-// test_global_function_call.py
+//// test_global_function_call.py
 
 def func1():
 
@@ -28,24 +28,25 @@ func1()
 ```
 
 ```yaml
+name: GlobalFunctionCall
 relation:
   items:
-  - category: Define
-    dest: test_global_function_call.func1
+  - type: Define
+    to: Function:'test_global_function_call.func1'
     loc: '2:4'
-    src: test_global_function_call
-  - category: Call
-    dest: test_global_function_call.func1
+    from: Module:'test_global_function_call'
+  - type: Call
+    to: Function:'test_global_function_call.func1'
     loc: '5:4'
-    src: test_global_function_call.func1
-  - category: Call
-    dest: test_global_function_call.func1
+    from: Function:'test_global_function_call.func1'
+  - type: Call
+    to: Function:'test_global_function_call.func1'
     loc: '10:0'
-    src: test_global_function_call
+    from: Module:'test_global_function_call'
 ```
 - Class Method Call
 ```python
-// test_method_call.py
+//// test_method_call.py
 
 class ClassA:
 
@@ -67,39 +68,41 @@ instance = ClassA()
 instance.method()
 
 ```
+
+
 ```yaml
+name: ClassMethodCall
 relation:
-  exact: false
   items:
-  - category: Define
-    dest: test_method_call.ClassA
+  - type: Define
+    to: Class:'test_method_call.ClassA'
     loc: '2:6'
-    src: test_method_call
-  - category: Define
-    dest: test_method_call.ClassA.method
+    from: Module:'test_method_call'
+  - type: Define
+    to: Function:'test_method_call.ClassA.method'
     loc: '5:4'
-    src: test_method_call.ClassA
-  - category: Define
-    dest: test_method_call.ClassB
+    from: Class:'test_method_call.ClassA'
+  - type: Define
+    to: Class:'test_method_call.ClassB'
     loc: '9:6'
-    src: test_method_call
-  - category: Define
-    dest: test_method_call.ClassB.method
+    from: Module:'test_method_call'
+  - type: Define
+    to: Function:'test_method_call.ClassB.method'
     loc: '12:4'
-    src: test_method_call.ClassB
-  - category: Define
-    dest: test_method_call.instance
+    from: Function:'test_method_call.ClassB'
+  - type: Define
+    to: Variable:'test_method_call.instance'
     loc: '16:0'
-    src: test_method_call
-  - category: Call
-    dest: test_method_call.ClassA.method
+    from: Module:'test_method_call'
+  - type: Call
+    to: Function:'test_method_call.ClassA.method'
     loc: '19:9'
-    src: test_method_call
+    from: Module:'test_method_call'
 ```
 
-- Local Function Call
+###### Local Function Call
 ```python
-// test_local_call.py
+//// test_local_call.py
 
 def func():
 
@@ -122,42 +125,42 @@ def func():
 ```
 
 ```yaml
+name: LocalFunctionCall
 relation:
-  exact: false
   items:
-  - category: Define
-    dest: test_nested_define.func
+  - type: Define
+    to: Function:'test_nested_define.func'
     loc: '2:4'
-    src: test_nested_define
-  - category: Define
-    dest: test_nested_define.func.inner
+    from: Module:'test_nested_define'
+  - type: Define
+    to: Function:'test_nested_define.func.inner'
     loc: '5:4'
-    src: test_nested_define.func
-  - category: Define
-    dest: test_nested_define.func.inner_inner
+    from: Function:'test_nested_define.func'
+  - type: Define
+    to: Function:'test_nested_define.func.inner_inner'
     loc: '8:8'
-    src: test_nested_define.func
-  - category: Call
-    dest: test_nested_define.func
+    from: Function:'test_nested_define.func'
+  - type: Call
+    to: Function:'test_nested_define.func'
     loc: '11:12'
-    src: test_nested_define.func.inner_inner
-  - category: Call
-    dest: test_nested_define.func
+    from: Function:'test_nested_define.func.inner_inner'
+  - type: Call
+    to: Function:'test_nested_define.func'
     loc: '13:8'
-    src: test_nested_define.func.inner
-  - category: Call
-    dest: test_nested_define.func.inner_inner
+    from: Function:'test_nested_define.func.inner'
+  - type: Call
+    to: Function:'test_nested_define.func.inner_inner'
     loc: '16:8'
-    src: test_nested_define.func.inner
-  - category: Call
-    dest: test_nested_define.func.inner
+    from: Function:'test_nested_define.func.inner'
+  - type: Call
+    to: Function:'test_nested_define.func.inner'
     loc: '18:4'
-    src: test_nested_define.func
+    from: Function:'test_nested_define.func'
 ```
 
-- First Order Function Call
+###### First Order Function Call
 ``` python
-// test_first_order_func_call.py
+//// test_first_order_func_call.py
 def foo():
     ...
 
@@ -170,23 +173,22 @@ acceptor(foo)
 ```yaml
 name: FirstOrderFunctionCall
 relation:
-    exact: False
-    filter: Call
+    type: Call
     items:
-    - dest: test_first_order_func_call.f
-      src: test_first_order_func_call.acceptor
+    - to: Variable:'test_first_order_func_call.f'
+      from: Function:'test_first_order_func_call.acceptor'
       loc: '5:4'
-    - dest: test_first_order_func_call.foo
-      src: test_first_order_func_call.acceptor
+    - to: Function:'test_first_order_func_call.foo'
+      from: Function:'test_first_order_func_call.acceptor'
       loc: '5:4'
-    - dest: test_first_order_func_call.acceptor
-      src: test_first_order_func_call
+    - to: Function:'test_first_order_func_call.acceptor'
+      from: Module:'test_first_order_func_call'
       loc: '7:0'
 ```
 
-- First Order Function Call
+###### First Order Function Call
 ``` python
-// test_first_order_class_call.py
+//// test_first_order_class_call.py
 class Base:
     ...
 
@@ -208,23 +210,51 @@ difficult_obj.test()
 ```yaml
 name: FirstOrderClassCall
 relation:
-    filter: Call
+    type: Call
     items:
-    - dest: test_first_order_class_call.Base
-      src: test_first_order_class_call
+    - to: Class:'test_first_order_class_call.Base'
+      from: Module:'test_first_order_class_call'
       loc: '4:7'
-    - dest: test_first_order_class_call.create_class
-      src: test_first_order_class_call
+    - to: Function:'test_first_order_class_call.create_class'
+      from: Module:'test_first_order_class_call'
       loc: '12:6'
-    - dest: test_first_order_class_call.cls
-      src: test_first_order_class_call
+    - to: Variable:'test_first_order_class_call.cls'
+      from: Module:'test_first_order_class_call'
       loc: '14:16'
-    - dest: test_first_order_class_call.create_class.Difficult.test
-      src: test_first_order_class_call
+    - to: Function:'test_first_order_class_call.create_class.Difficult.test'
+      from: Module:'test_first_order_class_call'
       loc: '16:14'
-    - dest: test_first_order_class_call.create_class.Difficult
-      src: test_first_order_class_call.create_class
+    - to: Class:'test_first_order_class_call.create_class.Difficult'
+      from: Function:'test_first_order_class_call.create_class'
       type: Define
       loc: '7:4'
 ```
 
+###### Decorator Call
+```python
+////test_decorator_call.py
+def f1(a):
+    def wrap(f):
+        return f
+    return wrap
+
+def f2(f):
+    return f
+
+@f1(arg)
+@f2
+def func(): pass
+```
+
+```yaml
+name: TestDecoratorCall
+relation:
+    type: Call
+    items:
+    - from: Module:'test_decorator_call'
+      to: Function:'test_decorator_call.f2'
+      loc: '10:1'
+    - from: Module:'test_decorator_call'
+      to: Function:'test_decorator_call.f1'
+      loc: '9:1'
+```

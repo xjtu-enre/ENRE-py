@@ -19,10 +19,10 @@ parameter                 :  identifier [":" expression]
 
 ##### Examples
 
-- Parameter Definition
+###### Parameter Definition
 
 ```python
-// test_parameter.py
+//// test_parameter.py
 def func1(x):
     ...
 
@@ -42,54 +42,54 @@ lambda t: t
 ```yaml
 name: ParameterDefinition
 entity:
-  exact: false
+  extra: false
   items:
-  - category: Function
+  - type: Function
     longname: test_parameter.func1
     name: func1
     loc: '1:4'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func1.x
     name: x
     loc: '1:10'
-  - category: Function
+  - type: Function
     longname: test_parameter.func2
     name: func2
     loc: '4:4'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func2.x
     name: x
     loc: '4:10'
-  - category: Function
+  - type: Function
     longname: test_parameter.func3
     name: func3
     loc: '7:4'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func3.x
     name: x
     loc: '7:10'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func3.y
     name: y
     loc: '7:14'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func3.z
     name: z
     loc: '7:19'
-  - category: Function
+  - type: Function
     longname: test_parameter.func4
     name: func4
     loc: '10:4'
-  - category: Parameter
+  - type: Parameter
     longname: test_parameter.func4.x
     name: x
     loc: '10:10'
-  - category: AnonymousFunction
-    longname: test_parameter.func4.(13)
-    name: null
+  - type: AnonymousFunction
+    longname: 'test_parameter.func4.(13)'
+    name: ''
     loc: '13:0'
-  - category: Lambda Parameter
-    longname: test_parameter.func4.(13).t
-    name: '13:7'
-
+  - type: LambdaParameter
+    longname: 'test_parameter.func4.(13).t'
+    name: t
+    loc: '13:7'
 ```

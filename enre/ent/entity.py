@@ -40,16 +40,23 @@ class EntLongname:
         return hash(self.longname)
 
 
-@dataclass(eq=True, frozen=True)
+@dataclass
 class Span:
-    @classmethod
-    def get_nil(cls) -> "Span":
-        return _Nil_Span
-
     start_line: int
     end_line: int
     start_col: int
     end_col: int
+
+    @classmethod
+    def get_nil(cls) -> "Span":
+        return _Nil_Span
+
+    def offset(self, offset: int) -> None:
+        assert self.end_col == -1
+        self.start_col += offset
+
+    def __hash__(self) -> int:
+        return hash((self.start_line, self.end_line, self.start_col, self.end_col))
 
 
 def get_syntactic_span(tree: ast.AST) -> Span:
@@ -58,6 +65,14 @@ def get_syntactic_span(tree: ast.AST) -> Span:
     # todo: fill correct location for compatibility before 3.8
     start_col = tree.col_offset
     end_col = tree.end_col_offset if tree.end_col_offset else -1
+    return Span(start_line, end_line, start_col, end_col)
+
+
+def get_syntactic_head(tree: ast.AST) -> Span:
+    start_line = tree.lineno
+    end_line = -1
+    start_col = tree.col_offset
+    end_col = -1
     return Span(start_line, end_line, start_col, end_col)
 
 
@@ -153,6 +168,13 @@ class Entity(ABC):
         return hash((self.longname, self.location))
 
 
+class NameSpaceEntity(ABC):
+    @property
+    @abstractmethod
+    def names(self) -> "NamespaceType":
+        ...
+
+
 # AbstractValue instance contains all possible result of a an expression
 # A possible result is a tuple of entity and entity's type.
 # If some entity, to which an expression evaluate, maybe bound to several types,
@@ -189,7 +211,7 @@ class LambdaFunction(Function):
         return EntKind.AnonymousFunction
 
 
-class Package(Entity):
+class Package(Entity, NameSpaceEntity):
     def __init__(self, file_path: Path):
         import os
         path = os.path.normpath(str(file_path))
@@ -213,7 +235,7 @@ class Package(Entity):
         super(Package, self).add_ref(ref)
 
 
-class Module(Entity):
+class Module(Entity, NameSpaceEntity):
     def __init__(self, file_path: Path):
         # file_path: relative path to root directory's parent
         import os
@@ -262,7 +284,7 @@ class ModuleAlias(Entity):
         return longname
 
     def kind(self) -> EntKind:
-        return EntKind.ModuleAlias
+        return EntKind.Alias
 
 
 class PackageAlias(Entity):
@@ -282,7 +304,7 @@ class PackageAlias(Entity):
         return longname
 
     def kind(self) -> EntKind:
-        return EntKind.ModuleAlias
+        return EntKind.Alias
 
 
 class Alias(Entity):
@@ -304,10 +326,10 @@ class Alias(Entity):
         from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
-            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False))
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False, None))
 
 
-class Class(Entity):
+class Class(Entity, NameSpaceEntity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Class, self).__init__(longname, location)
         self._names: Dict[str, List[Entity]] = defaultdict(list)
@@ -365,7 +387,7 @@ class Class(Entity):
 class UnknownVar(Entity):
     _unknown_pool: Dict[str, "UnknownVar"] = dict()
 
-    def __init__(self, name: str, loc: Optional[Location]=None):
+    def __init__(self, name: str, loc: Optional[Location] = None):
         if loc is None:
             loc = Location()
         super(UnknownVar, self).__init__(EntLongname([name]), loc)
@@ -416,7 +438,8 @@ class Anonymous(Entity):
 
 
 class ClassAttribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
+    def __init__(self, class_ent: Class, longname: EntLongname, location: Location):
+        self.class_ent: Class = class_ent
         super(ClassAttribute, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
