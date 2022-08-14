@@ -169,7 +169,7 @@ class ExprAnalyzer:
         in_class_env = isinstance(self._env.get_ctx(), Class)
         lam_span = get_syntactic_span(lam_expr)
         now_scope = self._env.get_scope().get_location()
-        new_scope = now_scope.append(f"({lam_expr.lineno})", lam_span)
+        new_scope = now_scope.append(f"({lam_expr.lineno})", lam_span, None)
         func_ent = LambdaFunction(new_scope.to_longname(), new_scope)
 
         # add function entity to dependency database
@@ -374,7 +374,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global
-        location = container.location.append(attribute, Span.get_nil())
+        location = container.location.append(attribute, Span.get_nil(), None)
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
         dep_db.add_ent(unresolved)
         # dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
@@ -395,7 +395,7 @@ def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
         # unresolved shouldn't be global
-        location = container.location.append(attribute, Span.get_nil())
+        location = container.location.append(attribute, Span.get_nil(), None)
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
         # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
         # relation in the class entity, while in a self set context.

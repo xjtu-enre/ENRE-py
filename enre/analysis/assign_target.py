@@ -115,7 +115,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
                           new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
                           ctx: "AnalyzeContext") -> None:
     location = ctx.env.get_scope().get_location()
-    location = location.append(newly_created.unknown_ent.longname.name, newly_created.span)
+    location = location.append(newly_created.unknown_ent.longname.name, newly_created.span, None)
     ctx_ent = ctx.env.get_ctx()
     target_lineno, target_col_offset = ctx.coordinate
     tar_ent = newly_created.unknown_ent
@@ -138,7 +138,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
     elif isinstance(tar_ent, UnresolvedAttribute):
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
-            new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
+            new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil(), location.file_path)
             new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
             ctx.current_db.add_ent(new_attr)
             receiver_class.add_ref(

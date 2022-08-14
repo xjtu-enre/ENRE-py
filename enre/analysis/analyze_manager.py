@@ -187,8 +187,12 @@ class AnalyzeManager:
                 if strict:
                     self.strict_analyze_module(module_ent)
                 return module_ent, self.root_db.get_path_ent(head_module_path)
-            else:
+            elif rel_path in self.root_db.package_tree:
                 package_ent = self.root_db.package_tree[rel_path]
+                return package_ent, self.root_db.get_path_ent(rel_path)
+            else:
+                package_ent = Package(rel_path)
+                self.root_db.package_tree[rel_path] = package_ent
                 return package_ent, self.root_db.get_path_ent(rel_path)
         else:
             unknown_module_name = module_identifier.split(".")[-1]

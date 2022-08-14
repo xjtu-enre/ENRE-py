@@ -82,8 +82,8 @@ _Default_Empty_Path = Path()
 
 
 class Location:
-    def append(self, name: str, new_span: Span, new_path: Path = _Default_Empty_Path) -> "Location":
-        if new_path == None:
+    def append(self, name: str, new_span: Span, new_path: Optional[Path]) -> "Location":
+        if new_path is None:
             new_path = self._file_path
         return Location(new_path, new_span, self._scope + [name])
 
@@ -117,6 +117,9 @@ class Location:
     def code_span(self) -> Span:
         return self._span
 
+    @property
+    def file_path(self) -> Path:
+        return self._file_path
 
 class Syntactic(ABC):
     @abstractmethod

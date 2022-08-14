@@ -18,7 +18,7 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "in_type_context": bool
                               })
 
-NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str,
+NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str, "file_path": str,
                               "start_line": int, "end_line": int, "start_col": int, "end_col": int})
 
 DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
@@ -37,6 +37,7 @@ class Node:
     id: int
     longname: str
     ent_type: str
+    file_path: str
     start_line: int
     end_line: int
     start_col: int
@@ -75,6 +76,7 @@ class DepRepr:
         ret: DepTy = {"Entities": [], "Dependencies": []}
         for n in self._node_list:
             ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type,
+                                    "file_path": n.file_path,
                                     "start_line": n.start_line, "end_line": n.end_line,
                                     "start_col": n.start_col, "end_col": n.end_col})
         for e in self._edge_list:
@@ -93,7 +95,9 @@ class DepRepr:
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         if ent.kind() not in helper_ent_types:
             modifiers = cls.get_modifiers(ent)
-            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value, ent.location.code_span.start_line,
+            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value,
+                                   str(ent.location.file_path).replace("\\", "/"),
+                                   ent.location.code_span.start_line,
                                    ent.location.code_span.end_line, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, modifiers))
             for ref in ent.refs():
@@ -115,6 +119,8 @@ class DepRepr:
             variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
                         "location": {"startLine": n.start_line, "endLine": n.end_line,
                                      "startColumn": n.start_col, "endColumn": n.end_col}}
+            if n.file_path != ".":
+                variable["File"] = n.file_path
             if exist_no_empty(n.modifiers):
                 variable["modifiers"] = n.modifiers
             ret["variables"].append(variable)
@@ -146,6 +152,7 @@ class DepRepr:
             dep_repr.add_node(Node(id=ent.id(),
                                    longname=ent.longname(),
                                    ent_type=ent.kindname(),
+                                   file_path=ent.file(),
                                    start_line=-1,
                                    end_line=-1,
                                    start_col=-1,

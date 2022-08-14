@@ -79,7 +79,7 @@ class Analyzer:
         in_class_env = isinstance(env.get_ctx(), Class)
         fun_code_span = span
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(name, fun_code_span)
+        new_scope = now_scope.append(name, fun_code_span, None)
         func_ent = Function(new_scope.to_longname(), new_scope)
         func_name = name
 
@@ -138,10 +138,10 @@ class Analyzer:
 
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
-        now_scope = env.get_scope().get_location()
+        now_location = env.get_scope().get_location()
         class_code_span = get_syntactic_head(class_stmt)
         class_code_span.offset(DefaultClassHeadLen)
-        new_scope = now_scope.append(class_stmt.name, class_code_span)
+        new_scope = now_location.append(class_stmt.name, class_code_span, None)
         class_ent = Class(new_scope.to_longname(), new_scope)
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
@@ -277,7 +277,7 @@ class Analyzer:
                 module_binding: Bindings = [(bound_name, [(bound_ent, PackageType(bound_ent.names))])]
                 env.get_scope().add_continuous(module_binding)
             else:
-                alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil())
+                alias_location = env.get_ctx().location.append(module_alias.asname, Span.get_nil(), None)
                 alias_ent = create_proper_alias(path_ent, alias_location)
                 self.current_db.add_ent(alias_ent)
                 alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
@@ -308,7 +308,7 @@ class Analyzer:
                     current_ctx.add_ref(
                         Ref(RefKind.ImportKind, e, import_stmt.lineno, import_stmt.col_offset, False, None))
                 if as_name is not None:
-                    location = env.get_scope().get_location().append(as_name, Span.get_nil())
+                    location = env.get_scope().get_location().append(as_name, Span.get_nil(), None)
                     alias_ent = Alias(location.to_longname(), location, imported_ents)
                     self.current_db.add_ent(alias_ent)
                     import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
@@ -323,12 +323,12 @@ class Analyzer:
             new_bindings = []
             for alias in import_stmt.names:
                 alias_code_span = get_syntactic_span(alias)
-                location = file_ent.location.append(alias.name, alias_code_span)
+                location = file_ent.location.append(alias.name, alias_code_span, None)
                 unknown_var = UnknownVar.get_unknown_var(location.to_longname().name)
                 self.package_db.add_ent_global(unknown_var)
                 file_ent.add_ref(Ref(RefKind.DefineKind, unknown_var, 0, 0, False, None))
                 if alias.asname is not None:
-                    as_location = env.get_scope().get_location().append(alias.asname, alias_code_span)
+                    as_location = env.get_scope().get_location().append(alias.asname, alias_code_span, None)
                     alias_ent = Alias(as_location.to_longname(), location, [unknown_var])
                     self.current_db.add_ent(alias_ent)
                     new_bindings.append((alias.asname, [(alias_ent, alias_ent.direct_type())]))
@@ -440,7 +440,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
 
     def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings") -> None:
         para_code_span = get_syntactic_span(a)
-        parameter_loc = location_base.append(a.arg, para_code_span)
+        parameter_loc = location_base.append(a.arg, para_code_span, current_db.module_path)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
