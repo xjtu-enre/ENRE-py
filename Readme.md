@@ -26,7 +26,7 @@ The resolved dependency types include:
 |Set|
 |Alias To|
 
-For more detailed information on python entities and dependencies, see the [doc](./doc) to get definitions and examples.
+For more detailed information on python entities and dependencies, see the [doc](./docs) to get definitions and examples.
 
 ## Usage
 
