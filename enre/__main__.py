@@ -14,12 +14,13 @@ from enre.vis.summary_repr import from_summaries
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("root path", type=str,
+    parser.add_argument("root path", type=str, nargs='?',
                         help="root package path")
     parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
     parser.add_argument("--cfg", action="store_true",
                         help="run control flow analysis and output module summaries")
     parser.add_argument("--compatible", action="store_true")
+    parser.add_argument("--version", action="store_true")
     config = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
@@ -51,7 +52,6 @@ def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> An
         else:
             repr = DepRepr.from_package_db(manager.root_db).to_json()
             json.dump(repr, file, indent=4)
-
 
     return manager
 
