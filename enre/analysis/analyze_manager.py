@@ -52,7 +52,10 @@ class ModuleDB:
 
     def parse_a_module(self, module_path: Path) -> ast.Module:
         absolute_path = self.project_root.parent.joinpath(module_path)
-        return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
+        try:
+            return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
+        except (SyntaxError, UnicodeDecodeError):
+            return ast.Module([])
 
 
 class RootDB:
