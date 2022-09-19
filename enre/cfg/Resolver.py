@@ -89,7 +89,7 @@ class Resolver:
                 """
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
                                                                                     namespace[rhs.name()])
-            case (Temporary() | VariableLocal() as lhs, Invoke() as invoke):
+            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, Invoke() as invoke):
                 """
                 invoke function
                 """
@@ -111,6 +111,9 @@ class Resolver:
             case VariableLocal() as v, FuncConst() as fc:
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
                                                                                     {self.get_const_object(fc)})
+            case VariableLocal() | Temporary() | ParameterLocal() as v, Constant() as c:
+                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
+                                                                                    {})
         return already_satisfied
 
     def resolve_add_base(self, namespace_obj: HeapObject, cls: ClassConst, bases: Sequence[StoreAble]) -> bool:

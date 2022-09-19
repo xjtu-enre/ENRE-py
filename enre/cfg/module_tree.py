@@ -304,6 +304,21 @@ class FieldAccess(StoreAble, NonConstStoreAble):
 
 
 @dataclass(frozen=True)
+class IndexAccess(StoreAble, NonConstStoreAble):
+    target: StoreAble
+    expr: ast.expr
+
+    def name(self) -> str:
+        return "index accessing {}[*]".format(self.target)
+
+    def __str__(self) -> str:
+        return self.name()
+
+    def get_syntax_location(self) -> ast.expr:
+        return self.expr
+
+
+@dataclass(frozen=True)
 class FuncConst(StoreAble):
     func: Function
 
@@ -471,6 +486,18 @@ class SummaryBuilder(object):
             else:
                 ret.append(self.add_move_temp(field_access, expr))
             # we have to return a field access here, because only this can resolve set behavior correctly
+        return ret
+
+    def load_index(self, bases: StoreAbles, context: "ExpressionContext", expr: ast.expr) -> StoreAbles:
+        from enre.analysis.analyze_expr import SetContext
+        ret: List[StoreAble] = []
+        for base in bases:
+            index_access = IndexAccess(base, expr)
+            if isinstance(context, SetContext):
+                self.add_move_temp(index_access, expr)
+                ret.append(index_access)
+            else:
+                ret.append(self.add_move_temp(index_access, expr))
         return ret
 
     def add_return(self, return_stores: StoreAbles, expr: ast.expr) -> None:

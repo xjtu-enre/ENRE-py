@@ -308,9 +308,9 @@ class ExprAnalyzer:
 
     def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
         _, _ = self.aval(subscript.slice)
-        stores, abstract_value = self.aval(subscript.value)
-
-        return [], abstract_value
+        base_stores, abstract_value = self.aval(subscript.value)
+        index_accesses = self._builder.load_index(base_stores, self._exp_ctx, subscript)
+        return index_accesses, abstract_value
 
     def get_use_avaler(self) -> "ExprAnalyzer":
         return ExprAnalyzer(self.manager, self._package_db, self._current_db, None,

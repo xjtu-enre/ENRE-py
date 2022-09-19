@@ -189,6 +189,10 @@ class InstanceMethodReference(HeapObject):
         return f"MethodReference: {self.func_obj.func_ent.longname.longname}"
 
 
+@dataclass(frozen=True)
+class ListObject:
+    ...
+
 ObjectSlot: TypeAlias = Set[HeapObject]
 ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]
 NameSpace: TypeAlias = Dict[str, ObjectSlot]
