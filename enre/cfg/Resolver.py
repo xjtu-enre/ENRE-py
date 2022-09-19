@@ -5,7 +5,7 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
     ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
-    ModuleConst, AddBase, PackageConst, ClassAttributeAccess
+    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant
 from enre.ent.entity import Class, UnknownModule
 
 
@@ -170,6 +170,8 @@ class Resolver:
                     return update_if_not_contain_all(obj.return_slot, {self.scene.summary_map[m.mod].get_object()})
                 else:
                     return True
+            case Constant():
+                return True
             case _:
                 raise NotImplementedError(f"{rule.ret_value}")
 
@@ -323,6 +325,8 @@ class Resolver:
                 return ret
             case FuncConst() as f:
                 return set()
+            case Constant():
+                return set()
             case _:
                 raise NotImplementedError(f"{field_access.target.__class__.__name__}")
 
@@ -348,6 +352,8 @@ class Resolver:
                 return {self.get_const_object(p)}
             case ClassAttributeAccess() as class_attribute_access:
                 return self.get_class_attribute(class_attribute_access)
+            case Constant():
+                return set()
             case _:
                 raise NotImplementedError(f"{store.__class__.__name__}")
 

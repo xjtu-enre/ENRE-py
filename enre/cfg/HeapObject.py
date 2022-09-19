@@ -76,7 +76,14 @@ class ClassObject(HeapObject, NameSpaceObject):
         return self.namespace
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
-        obj_slot.update(self.namespace[name])
+        this_class_member = self.namespace[name]
+        obj_slot.update(this_class_member)
+        if this_class_member:
+            # if name already contained by class object, stop further lookup
+            return
+        else:
+            for base in self.inherits:
+                base.get_member(name, obj_slot)
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)

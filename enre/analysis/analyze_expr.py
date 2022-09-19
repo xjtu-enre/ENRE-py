@@ -11,7 +11,7 @@ from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
-    ModuleSummary
+    ModuleSummary, Constant
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import AbstractValue
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
@@ -157,12 +157,19 @@ class ExprAnalyzer:
             # we don't need create call dependency here, because we will create dependencies by context in the
         args = []
         for arg in call_expr.args:
-            a, _ = self.aval(arg)
+            use_avaler = self.get_use_avaler()
+            a, _ = use_avaler.aval(arg)
             args.append(a)
         for key_word_arg in call_expr.keywords:
             self.aval(key_word_arg.value)
         ret_stores = self._builder.add_invoke(caller_stores, args, call_expr)
         return ret_stores, ret
+
+    def aval_Str(self, str_constant: ast.Str) -> Tuple[StoreAbles, AbstractValue]:
+        return [Constant(str_constant)], []
+
+    def aval_Constant(self, constant: ast.Constant) -> Tuple[StoreAbles, AbstractValue]:
+        return [Constant(constant)], []
 
     def aval_Lambda(self, lam_expr: ast.Lambda) -> Tuple[StoreAbles, AbstractValue]:
         from enre.analysis.analyze_stmt import process_parameters
@@ -304,6 +311,10 @@ class ExprAnalyzer:
         stores, abstract_value = self.aval(subscript.value)
 
         return [], abstract_value
+
+    def get_use_avaler(self) -> "ExprAnalyzer":
+        return ExprAnalyzer(self.manager, self._package_db, self._current_db, None,
+                            UseContext(), self._builder, self._env)
 
 
 def extend_known_possible_attribute(manager: AnalyzeManager,

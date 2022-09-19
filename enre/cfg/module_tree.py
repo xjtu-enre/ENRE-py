@@ -4,7 +4,7 @@ import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
+from typing import List, Iterable
 from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
@@ -55,6 +55,20 @@ class ModuleSummary:
     @abstractmethod
     def get_object(self) -> HeapObject:
         pass
+
+    def get_invokes(self) -> "Iterable[Invoke]":
+        rules = self.rules
+        invokes = set()
+        for r in rules:
+            if isinstance(r, ValueFlow) and isinstance(r.rhs, Invoke):
+                invokes.add(r.rhs)
+            elif isinstance(r, Return) and isinstance(r.ret_value, Invoke):
+                invokes.add(r.ret_value)
+            elif isinstance(r, AddBase):
+                for base in r.bases:
+                    if isinstance(base, Invoke):
+                        invokes.add(base)
+        return invokes
 
 
 class FileSummary(ModuleSummary):
@@ -334,6 +348,14 @@ class PackageConst(StoreAble):
 
 
 @dataclass(frozen=True)
+class Constant(StoreAble):
+    constant: ast.Constant | ast.Str
+
+    def __str__(self) -> str:
+        return f"Constant {self.constant}"
+
+
+@dataclass(frozen=True)
 class Invoke(StoreAble, NonConstStoreAble):
     target: StoreAble
     args: Sequence[StoreAble]
@@ -425,6 +447,7 @@ class SummaryBuilder(object):
             for store in l:
                 self.add_store_able(store)
             func_store = l[0]
+            self.add_store_able(func_store)
             args_stores = l[1:]
             invoke = Invoke(func_store, args_stores, invoke_expr)
             ret.append(self.add_move_temp(invoke, invoke_expr))
