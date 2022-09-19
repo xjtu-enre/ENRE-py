@@ -5,6 +5,7 @@ from enre.analysis.analyze_manager import RootDB
 from enre.cfg.module_tree import ModuleSummary, Scene, ClassSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import Module, Function, Class, Anonymous, Entity
+from enre.ref.Ref import Ref
 
 
 def get_target_ent(heap_obj: "HeapObject") -> Optional[Entity]:
@@ -25,21 +26,37 @@ def map_resolved_objs(heap_objs: "Iterable[HeapObject]") -> Iterable[Entity]:
 
 
 def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
+    print("aggregating cfg result to dependency")
     for file_path, module_db in root_db.tree.items():
         for ent in module_db.dep_db.ents:
-            for ref in ent.refs():
-                if ref.ref_kind in [RefKind.CallKind, RefKind.UseKind]:
-                    if isinstance(ent, (Class, Function, Module)):
-                        summary = scene.summary_map[ent]
+            aggregated_expr = set()
+            if ent in scene.summary_map:
+                summary = scene.summary_map[ent]
+                for ref in ent.refs():
+                    if ref.ref_kind in [RefKind.CallKind, RefKind.UseKind]:
                         expr = ref.expr
                         if expr is not None and expr in summary.get_syntax_namespace():
+                            aggregated_expr.add(expr)
                             name = summary.get_syntax_namespace()[expr]
                             resolved_objs = summary.get_object().namespace[name]
                             ref.resolved_targets.update(map_resolved_objs(resolved_objs))
 
-                if isinstance(ent, Class) and ref.ref_kind == RefKind.InheritKind:
-                    summary = scene.summary_map[ent]
-                    assert isinstance(summary, ClassSummary)
-                    ref.resolved_targets.update(map_resolved_objs(summary.get_object().inherits))
+                    if isinstance(ent, Class) and ref.ref_kind == RefKind.InheritKind:
+                        assert isinstance(summary, ClassSummary)
+                        ref.resolved_targets.update(map_resolved_objs(summary.get_object().inherits))
 
-
+                for invoke in summary.get_invokes():
+                    if not invoke.expr in aggregated_expr:
+                        invoke_target = summary.get_syntax_namespace()[invoke.expr]
+                        for target in summary.get_namespace()[invoke_target]:
+                            target_func: Function
+                            if isinstance(target, FunctionObject):
+                                target_func = target.func_ent
+                            elif isinstance(target, InstanceMethodReference):
+                                target_func = target.func_obj.func_ent
+                            else:
+                                continue
+                            expr = invoke.expr
+                            ent.add_ref(
+                                Ref(RefKind.CallKind, target_func, expr.lineno, expr.col_offset, False, expr,
+                                    set()))
