@@ -307,14 +307,18 @@ class Analyzer:
                 for e in imported_ents:
                     current_ctx.add_ref(
                         Ref(RefKind.ImportKind, e, import_stmt.lineno, import_stmt.col_offset, False, None))
-                if as_name is not None:
-                    location = env.get_scope().get_location().append(as_name, Span.get_nil(), None)
-                    alias_ent = Alias(location.to_longname(), location, imported_ents)
-                    self.current_db.add_ent(alias_ent)
-                    import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
+                if name == "*":
+                    for ent in imported_ents:
+                        new_bindings.append((ent.longname.name, [(ent, ent.direct_type())]))
                 else:
-                    import_binding = name, [(ent, ent.direct_type()) for ent in imported_ents]
-                new_bindings.append(import_binding)
+                    if as_name is not None:
+                        location = env.get_scope().get_location().append(as_name, Span.get_nil(), None)
+                        alias_ent = Alias(location.to_longname(), location, imported_ents)
+                        self.current_db.add_ent(alias_ent)
+                        import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
+                    else:
+                        import_binding = name, [(ent, ent.direct_type()) for ent in imported_ents]
+                    new_bindings.append(import_binding)
             env.get_scope().add_continuous(new_bindings)
         else:
             # importing entities belong to a unknown module
