@@ -427,6 +427,9 @@ class AddList(Rule):
     lst: StoreAble
     expr: ast.expr
 
+    def __str__(self) -> str:
+        return f"{self.lst} contains a list object"
+
 
 class SummaryBuilder(object):
     _rules: List[Rule]
