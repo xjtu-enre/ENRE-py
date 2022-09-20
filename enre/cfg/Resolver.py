@@ -125,13 +125,13 @@ class Resolver:
 
             case (Temporary() | VariableLocal() | ParameterLocal() as lhs, FieldAccess() as field_access):
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
-                                                                                    self.abstract_load(field_access,
-                                                                                                       namespace))
+                                                                                    abstract_load(self.scene,
+                                                                                                  field_access,
+                                                                                                  namespace))
             case (Temporary() | VariableLocal() | ParameterLocal() as lhs, IndexAccess() as index_access):
                 already_satisfied = already_satisfied and \
                                     update_if_not_contain_all(namespace[lhs.name()],
-                                                              self.abstract_load_index(index_access,
-                                                                                       namespace))
+                                                              abstract_load_index(self.scene, index_access, namespace))
             case Temporary(l_name), FuncConst() as fc:
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[l_name],
                                                                                     {get_const_object(self.scene, fc)})
@@ -165,7 +165,7 @@ class Resolver:
         return already_satisfied
 
     def abstract_store_field(self, field_access: FieldAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
-        objs = self.get_store_able_value(field_access.target, namespace)
+        objs = get_store_able_value(self.scene, field_access.target, namespace)
         field = field_access.field
         already_satisfied = True
         for obj in objs:
@@ -173,7 +173,7 @@ class Resolver:
         return already_satisfied
 
     def abstract_store_index(self, index_access: IndexAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
-        objs = self.get_store_able_value(index_access.target, namespace)
+        objs = get_store_able_value(self.scene, index_access.target, namespace)
         already_satisfied = True
         for obj in objs:
             if isinstance(obj, ListObject):
@@ -208,7 +208,7 @@ class Resolver:
                       args: Sequence[StoreAble],
                       namespace: NameSpace,
                       lhs_slot: ObjectSlot) -> bool:
-        args_slot: Sequence[ReadOnlyObjectSlot] = list(map(lambda x: self.get_store_able_value(x, namespace), args))
+        args_slot: Sequence[ReadOnlyObjectSlot] = list(map(lambda x: get_store_able_value(self.scene, x, namespace), args))
         match target:
             case FuncConst() as fc:
                 func_obj = self.scene.summary_map[fc.func].get_object()
@@ -240,7 +240,7 @@ class Resolver:
 
             case FieldAccess() as field_access:
                 all_satisfied = True
-                for func in self.abstract_load(field_access, namespace):
+                for func in abstract_load(self.scene, field_access, namespace):
                     all_satisfied = all_satisfied and \
                                     self.abstract_object_call(lhs_slot, invoke, func, args_slot, namespace)
                 return all_satisfied
@@ -318,98 +318,11 @@ class Resolver:
             if isinstance(obj, FunctionObject):
                 self.abstract_function_object_call(obj, args_slots, namespace)
 
-    def abstract_load(self, field_access: FieldAccess, namespace: NameSpace) -> Iterable[HeapObject]:
-        field = field_access.field
-        match field_access.target:
-            case VariableLocal() | Temporary() | ParameterLocal() as v:
-                ret: Set[HeapObject] = set()
-                for obj in namespace[v.name()]:
-                    obj.get_member(field, ret)
-                return ret
-            case ClassConst() as cc:
-                ret = set()
-                self.scene.summary_map[cc.cls].get_object().get_member(field, ret)
-                return ret
-            case ModuleConst() as mod:
-                if not isinstance(mod.mod, UnknownModule):
-                    ret = set()
-                    self.scene.summary_map[mod.mod].get_object().get_member(field, ret)
-                    return ret
-                else:
-                    # todo: handle unknown module
-                    return []
-            case PackageConst() as p:
-                # todo: handle package const
-                return []
-            case ClassAttributeAccess() as class_attribute_access:
-                ret = set()
-                class_ent = class_attribute_access.class_attribute.class_ent
-                class_obj = self.scene.summary_map[class_ent].get_object()
-                assert isinstance(class_obj, ClassObject)
-                class_namespace = class_obj.get_namespace()
-                for obj in class_namespace[class_attribute_access.class_attribute.longname.name]:
-                    obj.get_member(field, ret)
-                return ret
-            case FuncConst() as f:
-                return set()
-            case Constant():
-                return set()
-            case _:
-                raise NotImplementedError(f"{field_access.target.__class__.__name__}")
-
-    def abstract_load_index(self, index_access: IndexAccess, namespace: NameSpace) -> Iterable[HeapObject]:
-        match index_access.target:
-            case VariableLocal() | Temporary() | ParameterLocal() as v:
-                ret: Set[HeapObject] = set()
-                for obj in namespace[v.name()]:
-                    if isinstance(obj, ListObject):
-                        ret.update(obj.list_contents)
-                return ret
-            case _:
-                return set()
-                # todo
-
-    def get_store_able_value(self, store: StoreAble, namespace: NameSpace) -> Iterable[HeapObject]:
-        match store:
-            case VariableLocal() | Temporary() | ParameterLocal() as v:
-                return namespace[v.name()]
-            case FuncConst() as fc:
-                return {get_const_object(self.scene, fc)}
-            case ClassConst() as cc:
-                return {get_const_object(self.scene, cc)}
-            case FieldAccess() as field_access:
-                return self.abstract_load(field_access, namespace)
-            case ModuleConst() as m:
-                if not isinstance(m.mod, UnknownModule):
-                    # todo: build model for unknown module
-                    return {get_const_object(self.scene, m)}
-                else:
-                    return set()
-            case PackageConst() as p:
-                return set()
-                # todo: implement package object
-                return {get_const_object(self.scene, p)}
-            case ClassAttributeAccess() as class_attribute_access:
-                return self.get_class_attribute(class_attribute_access)
-            case Constant():
-                return set()
-            case IndexAccess() as index_access:
-                return self.abstract_load_index(index_access, namespace)
-            case _:
-                raise NotImplementedError(f"{store.__class__.__name__}")
 
     def add_all_dependencies(self, module: ModuleSummary) -> None:
         for dep in module.get_object().depend_by:
             if dep not in self.work_list:
                 self.work_list.append(dep)
-
-    def get_class_attribute(self, class_attribute_access: ClassAttributeAccess) -> Iterable[HeapObject]:
-        class_ent = class_attribute_access.class_attribute.class_ent
-        class_obj = self.scene.summary_map[class_ent].get_object()
-        attribute_name = class_attribute_access.class_attribute.longname.name
-        assert isinstance(class_obj, ClassObject)
-        class_namespace = class_obj.get_namespace()
-        return class_namespace[attribute_name]
 
     def resolve_add_list(self, lst: StoreAble, expr: ast.expr, obj: HeapObject) -> bool:
         match lst:
@@ -434,3 +347,95 @@ def get_const_object(scene: Scene, store: StoreAble) -> HeapObject:
             return scene.summary_map[m.mod].get_object()
         case _:
             raise NotImplementedError
+
+
+def abstract_load(scene: Scene, field_access: FieldAccess, namespace: NameSpace) -> Iterable[HeapObject]:
+    field = field_access.field
+    match field_access.target:
+        case VariableLocal() | Temporary() | ParameterLocal() as v:
+            ret: Set[HeapObject] = set()
+            for obj in namespace[v.name()]:
+                obj.get_member(field, ret)
+            return ret
+        case ClassConst() as cc:
+            ret = set()
+            scene.summary_map[cc.cls].get_object().get_member(field, ret)
+            return ret
+        case ModuleConst() as mod:
+            if not isinstance(mod.mod, UnknownModule):
+                ret = set()
+                scene.summary_map[mod.mod].get_object().get_member(field, ret)
+                return ret
+            else:
+                # todo: handle unknown module
+                return []
+        case PackageConst() as p:
+            # todo: handle package const
+            return []
+        case ClassAttributeAccess() as class_attribute_access:
+            ret = set()
+            class_ent = class_attribute_access.class_attribute.class_ent
+            class_obj = scene.summary_map[class_ent].get_object()
+            assert isinstance(class_obj, ClassObject)
+            class_namespace = class_obj.get_namespace()
+            for obj in class_namespace[class_attribute_access.class_attribute.longname.name]:
+                obj.get_member(field, ret)
+            return ret
+        case FuncConst() as f:
+            return set()
+        case Constant():
+            return set()
+        case _:
+            raise NotImplementedError(f"{field_access.target.__class__.__name__}")
+
+
+def get_class_attribute(scene: Scene, class_attribute_access: ClassAttributeAccess) -> Iterable[HeapObject]:
+    class_ent = class_attribute_access.class_attribute.class_ent
+    class_obj = scene.summary_map[class_ent].get_object()
+    attribute_name = class_attribute_access.class_attribute.longname.name
+    assert isinstance(class_obj, ClassObject)
+    class_namespace = class_obj.get_namespace()
+    return class_namespace[attribute_name]
+
+
+def abstract_load_index(scene: Scene, index_access: IndexAccess, namespace: NameSpace) -> Iterable[HeapObject]:
+    match index_access.target:
+        case VariableLocal() | Temporary() | ParameterLocal() as v:
+            ret: Set[HeapObject] = set()
+            for obj in namespace[v.name()]:
+                if isinstance(obj, ListObject):
+                    ret.update(obj.list_contents)
+            return ret
+        case _:
+            return set()
+            # todo
+
+
+def get_store_able_value(scene: Scene, store: StoreAble, namespace: NameSpace) -> Iterable[HeapObject]:
+    match store:
+        case VariableLocal() | Temporary() | ParameterLocal() as v:
+            return namespace[v.name()]
+        case FuncConst() as fc:
+            return {get_const_object(scene, fc)}
+        case ClassConst() as cc:
+            return {get_const_object(scene, cc)}
+        case FieldAccess() as field_access:
+            return abstract_load(scene, field_access, namespace)
+        case ModuleConst() as m:
+            if not isinstance(m.mod, UnknownModule):
+                # todo: build model for unknown module
+                return {get_const_object(scene, m)}
+            else:
+                return set()
+        case PackageConst() as p:
+            return set()
+            # todo: implement package object
+            return {get_const_object(scene, p)}
+        case ClassAttributeAccess() as class_attribute_access:
+            return get_class_attribute(scene, class_attribute_access)
+        case Constant():
+            return set()
+        case IndexAccess() as index_access:
+            return abstract_load_index(scene, index_access, namespace)
+        case _:
+            raise NotImplementedError(f"{store.__class__.__name__}")
