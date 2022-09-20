@@ -204,13 +204,14 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_exp
         for target in lvalue:
             assign_semantic(target, value_type, new_bindings, ctx)
     new_bindings = flatten_bindings(new_bindings)
+    ctx.env.get_scope().add_continuous(new_bindings)
+
     lhs_store_ables = []
     for n, target_ents in new_bindings:
         for tar, _ in target_ents:
             lhs_store_able = get_named_store_able(tar, assigned_expr)
             if lhs_store_able:
                 lhs_store_ables.append(lhs_store_able)
-    ctx.env.get_scope().add_continuous(new_bindings)
     return lhs_store_ables
 
 

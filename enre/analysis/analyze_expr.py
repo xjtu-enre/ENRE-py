@@ -286,10 +286,17 @@ class ExprAnalyzer:
         return Ref(ref_kind, target_ent, lineno, col_offset, typing_entities is not None, expr)
 
     def aval_Tuple(self, tuple_exp: ast.Tuple) -> Tuple[StoreAbles, AbstractValue]:
+        return self.aval_iterable_expr(tuple_exp.elts, tuple_exp)
+
+    def aval_List(self, list_exp: ast.List) -> Tuple[StoreAbles, AbstractValue]:
+        return self.aval_iterable_expr(list_exp.elts, list_exp)
+
+    def aval_iterable_expr(self, iterable_elts: List[ast.expr], expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
+        iterable_store = self._builder.create_list(expr)
         stores: List[StoreAble] = []
         abstract_value: AbstractValue = []
         context = self._exp_ctx
-        for index, elt in enumerate(tuple_exp.elts):
+        for index, elt in enumerate(iterable_elts):
             avaler: ExprAnalyzer
             if isinstance(context, SetContext):
                 rhs_store_ables = context.rhs_store_ables
@@ -304,7 +311,10 @@ class ExprAnalyzer:
             sub_stores, ent_objs = avaler.aval(elt)
             stores.extend(sub_stores)
             abstract_value.extend(ent_objs)
-        return stores, abstract_value
+        for store in stores:
+            index_access = self._builder.load_index_lvalue(iterable_store, expr)
+            self._builder.add_move(index_access, store)
+        return [iterable_store], [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
         _, _ = self.aval(subscript.slice)

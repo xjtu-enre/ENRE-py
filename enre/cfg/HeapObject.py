@@ -1,3 +1,4 @@
+import ast
 import typing
 from abc import abstractmethod
 from collections import defaultdict
@@ -164,6 +165,9 @@ class FunctionObject(HeapObject, NameSpaceObject):
     def representation(self) -> str:
         return f"FunctionObject: {self.func_ent.longname.longname}"
 
+    def __str__(self) -> str:
+        return self.representation()
+
 
 @dataclass(frozen=True)
 class InstanceMethodReference(HeapObject):
@@ -190,8 +194,24 @@ class InstanceMethodReference(HeapObject):
 
 
 @dataclass(frozen=True)
-class ListObject:
-    ...
+class ListObject(HeapObject):
+    list_contents: typing.Set[HeapObject]
+    expr: ast.expr
+    namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
+
+    def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
+        obj_slots.update(self.namespace[name])
+
+    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+        return update_if_not_contain_all(self.namespace[name], objs)
+
+    def representation(self) -> str:
+        return "ListObject: member list"
+
+    def __hash__(self) -> int:
+        return id(self)
+
 
 ObjectSlot: TypeAlias = Set[HeapObject]
 ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]

@@ -422,6 +422,12 @@ class AddBase(Rule):
         return f"{self.cls} is derived from [{', '.join(str(base) for base in self.bases)}]"
 
 
+@dataclass(frozen=True)
+class AddList(Rule):
+    lst: StoreAble
+    expr: ast.expr
+
+
 class SummaryBuilder(object):
     _rules: List[Rule]
 
@@ -442,11 +448,15 @@ class SummaryBuilder(object):
         self._rules.append(ValueFlow(lhs, rhs))
         return lhs
 
-    def add_move_temp(self, rhs: StoreAble, expr: ast.expr) -> Temporary:
-        self.add_store_able(rhs)
+    def create_temp(self, expr: ast.expr) -> Temporary:
         index = self._temporary_index
         self._temporary_index += 1
         temp = Temporary(f"___t_{index}", expr)
+        return temp
+
+    def add_move_temp(self, rhs: StoreAble, expr: ast.expr) -> Temporary:
+        self.add_store_able(rhs)
+        temp = self.create_temp(expr)
         self.add_move(temp, rhs)
         self.add_store_able(temp)
         return temp
@@ -500,11 +510,26 @@ class SummaryBuilder(object):
                 ret.append(self.add_move_temp(index_access, expr))
         return ret
 
+    def load_index_lvalue(self, base: StoreAble, expr: ast.expr) -> IndexAccess:
+        index_access = IndexAccess(base, expr)
+        self.add_move_temp(index_access, expr)
+        return index_access
+
     def add_return(self, return_stores: StoreAbles, expr: ast.expr) -> None:
         assert isinstance(self.mod, FunctionSummary)
         for return_store in return_stores:
             self.add_store_able(return_store)
             self._rules.append(Return(return_store, expr))
+
+    def create_list(self, expr: ast.expr) -> StoreAble:
+        temp = self.create_temp(expr)
+        self.add_list([temp], expr)
+        return temp
+
+    def add_list(self, lst_stores: StoreAbles, expr: ast.expr) -> None:
+        for lst_store in lst_stores:
+            self.add_store_able(lst_store)
+            self._rules.append(AddList(lst_store, expr))
 
     def add_child(self, summary: ModuleSummary) -> None:
         self.mod.add_child(summary)

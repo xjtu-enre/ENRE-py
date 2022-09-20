@@ -1,11 +1,12 @@
+import ast
 from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List
 
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot
+    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, ListObject
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
-    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant
+    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess
 from enre.ent.entity import Class, UnknownModule
 
 
@@ -15,6 +16,14 @@ def distill_object_of_type_and_invoke_site(lhs_slot: ObjectSlot,
     ret = []
     for obj in lhs_slot:
         if isinstance(obj, InstanceObject) and obj.class_obj == cls and obj.invoke == invoke:
+            ret.append(obj)
+    return ret
+
+
+def distill_list_of_creation_site(lst_slot: ObjectSlot, expr: ast.expr) -> Iterable[ListObject]:
+    ret = []
+    for obj in lst_slot:
+        if isinstance(obj, ListObject) and obj.expr == expr:
             ret.append(obj)
     return ret
 
@@ -72,6 +81,8 @@ class Resolver:
             return self.resolve_return(rule, obj)
         elif isinstance(rule, AddBase):
             return self.resolve_add_base(obj, rule.cls, rule.bases)
+        elif isinstance(rule, AddList):
+            return self.resolve_add_list(rule.lst, rule.expr, obj)
         else:
             assert False, f"unsupported rule type {rule.__class__}, object type {obj.__class__}"
 
@@ -99,18 +110,34 @@ class Resolver:
                 already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, namespace,
                                                                              namespace[l_name])
             case (FieldAccess() as field_access, VariableLocal() | Temporary() | ParameterLocal() as rhs):
-                already_satisfied = already_satisfied and self.abstract_store(field_access, namespace,
-                                                                              namespace[rhs.name()])
-            case (Temporary() | VariableLocal() as lhs, FieldAccess() as field_access):
+                already_satisfied = already_satisfied and self.abstract_store_field(field_access, namespace,
+                                                                                    namespace[rhs.name()])
+
+            case (FieldAccess() as field_access, FuncConst() as fc):
+                already_satisfied = already_satisfied and self.abstract_store_field(field_access, namespace,
+                                                                                    {get_const_object(self.scene, fc)})
+            case (IndexAccess() as index_access, VariableLocal() | Temporary() | ParameterLocal() as rhs):
+                already_satisfied = already_satisfied and self.abstract_store_index(index_access, namespace,
+                                                                                    namespace[rhs.name()])
+            case (IndexAccess() as index_access, FuncConst() as fc):
+                already_satisfied = already_satisfied and self.abstract_store_index(index_access, namespace,
+                                                                                    {get_const_object(self.scene, fc)})
+
+            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, FieldAccess() as field_access):
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
                                                                                     self.abstract_load(field_access,
                                                                                                        namespace))
+            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, IndexAccess() as index_access):
+                already_satisfied = already_satisfied and \
+                                    update_if_not_contain_all(namespace[lhs.name()],
+                                                              self.abstract_load_index(index_access,
+                                                                                       namespace))
             case Temporary(l_name), FuncConst() as fc:
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[l_name],
-                                                                                    {self.get_const_object(fc)})
+                                                                                    {get_const_object(self.scene, fc)})
             case VariableLocal() as v, FuncConst() as fc:
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
-                                                                                    {self.get_const_object(fc)})
+                                                                                    {get_const_object(self.scene, fc)})
             case VariableLocal() | Temporary() | ParameterLocal() as v, Constant() as c:
                 already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
                                                                                     {})
@@ -137,7 +164,7 @@ class Resolver:
                     """
         return already_satisfied
 
-    def abstract_store(self, field_access: FieldAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
+    def abstract_store_field(self, field_access: FieldAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
         objs = self.get_store_able_value(field_access.target, namespace)
         field = field_access.field
         already_satisfied = True
@@ -145,16 +172,13 @@ class Resolver:
             already_satisfied = already_satisfied and obj.write_field(field, rhs_slot)
         return already_satisfied
 
-    def get_const_object(self, store: StoreAble) -> HeapObject:
-        match store:
-            case FuncConst() as fc:
-                return self.scene.summary_map[fc.func].get_object()
-            case ClassConst() as cc:
-                return self.scene.summary_map[cc.cls].get_object()
-            case ModuleConst() as m:
-                return self.scene.summary_map[m.mod].get_object()
-            case _:
-                raise NotImplementedError
+    def abstract_store_index(self, index_access: IndexAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
+        objs = self.get_store_able_value(index_access.target, namespace)
+        already_satisfied = True
+        for obj in objs:
+            if isinstance(obj, ListObject):
+                already_satisfied = already_satisfied and update_if_not_contain_all(obj.list_contents, rhs_slot)
+        return already_satisfied
 
     def resolve_return(self, rule: Return, obj: FunctionObject) -> bool:
         match rule.ret_value:
@@ -333,30 +357,44 @@ class Resolver:
             case _:
                 raise NotImplementedError(f"{field_access.target.__class__.__name__}")
 
+    def abstract_load_index(self, index_access: IndexAccess, namespace: NameSpace) -> Iterable[HeapObject]:
+        match index_access.target:
+            case VariableLocal() | Temporary() | ParameterLocal() as v:
+                ret: Set[HeapObject] = set()
+                for obj in namespace[v.name()]:
+                    if isinstance(obj, ListObject):
+                        ret.update(obj.list_contents)
+                return ret
+            case _:
+                return set()
+                # todo
+
     def get_store_able_value(self, store: StoreAble, namespace: NameSpace) -> Iterable[HeapObject]:
         match store:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 return namespace[v.name()]
             case FuncConst() as fc:
-                return {self.get_const_object(fc)}
+                return {get_const_object(self.scene, fc)}
             case ClassConst() as cc:
-                return {self.get_const_object(cc)}
+                return {get_const_object(self.scene, cc)}
             case FieldAccess() as field_access:
-                return set(self.abstract_load(field_access, namespace))
+                return self.abstract_load(field_access, namespace)
             case ModuleConst() as m:
                 if not isinstance(m.mod, UnknownModule):
                     # todo: build model for unknown module
-                    return {self.get_const_object(m)}
+                    return {get_const_object(self.scene, m)}
                 else:
                     return set()
             case PackageConst() as p:
                 return set()
                 # todo: implement package object
-                return {self.get_const_object(p)}
+                return {get_const_object(self.scene, p)}
             case ClassAttributeAccess() as class_attribute_access:
                 return self.get_class_attribute(class_attribute_access)
             case Constant():
                 return set()
+            case IndexAccess() as index_access:
+                return self.abstract_load_index(index_access, namespace)
             case _:
                 raise NotImplementedError(f"{store.__class__.__name__}")
 
@@ -372,3 +410,27 @@ class Resolver:
         assert isinstance(class_obj, ClassObject)
         class_namespace = class_obj.get_namespace()
         return class_namespace[attribute_name]
+
+    def resolve_add_list(self, lst: StoreAble, expr: ast.expr, obj: HeapObject) -> bool:
+        match lst:
+            case VariableLocal() | Temporary() | ParameterLocal() as v:
+                lhs_slot = obj.namespace[v.name()]
+                if distill_list_of_creation_site(lhs_slot, expr):
+                    return True
+                else:
+                    lst_instance = ListObject(set(), expr)
+                    return update_if_not_contain_all(lhs_slot, [lst_instance])
+            case _:
+                return True
+
+
+def get_const_object(scene: Scene, store: StoreAble) -> HeapObject:
+    match store:
+        case FuncConst() as fc:
+            return scene.summary_map[fc.func].get_object()
+        case ClassConst() as cc:
+            return scene.summary_map[cc.cls].get_object()
+        case ModuleConst() as m:
+            return scene.summary_map[m.mod].get_object()
+        case _:
+            raise NotImplementedError
