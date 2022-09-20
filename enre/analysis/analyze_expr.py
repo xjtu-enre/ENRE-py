@@ -291,7 +291,10 @@ class ExprAnalyzer:
     def aval_List(self, list_exp: ast.List) -> Tuple[StoreAbles, AbstractValue]:
         return self.aval_iterable_expr(list_exp.elts, list_exp)
 
-    def aval_iterable_expr(self, iterable_elts: List[ast.expr], expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
+    def aval_Dict(self, dict_exp: ast.Dict) -> Tuple[StoreAbles, AbstractValue]:
+        return self.aval_iterable_expr(dict_exp.values, dict_exp)
+
+    def aval_iterable_expr(self, iterable_elts: Iterable[ast.expr], expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
         iterable_store = self._builder.create_list(expr)
         stores: List[StoreAble] = []
         abstract_value: AbstractValue = []

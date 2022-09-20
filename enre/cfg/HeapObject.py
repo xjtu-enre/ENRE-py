@@ -194,7 +194,10 @@ class InstanceMethodReference(HeapObject):
 
 
 @dataclass(frozen=True)
-class ListObject(HeapObject):
+class IndexableObject(HeapObject):
+    """
+    indexable builtin object like dict and list
+    """
     list_contents: typing.Set[HeapObject]
     expr: ast.expr
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))

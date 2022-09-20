@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List
 
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, ListObject
+    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess
@@ -20,10 +20,10 @@ def distill_object_of_type_and_invoke_site(lhs_slot: ObjectSlot,
     return ret
 
 
-def distill_list_of_creation_site(lst_slot: ObjectSlot, expr: ast.expr) -> Iterable[ListObject]:
+def distill_list_of_creation_site(lst_slot: ObjectSlot, expr: ast.expr) -> Iterable[IndexableObject]:
     ret = []
     for obj in lst_slot:
-        if isinstance(obj, ListObject) and obj.expr == expr:
+        if isinstance(obj, IndexableObject) and obj.expr == expr:
             ret.append(obj)
     return ret
 
@@ -176,7 +176,7 @@ class Resolver:
         objs = get_store_able_value(self.scene, index_access.target, namespace)
         already_satisfied = True
         for obj in objs:
-            if isinstance(obj, ListObject):
+            if isinstance(obj, IndexableObject):
                 already_satisfied = already_satisfied and update_if_not_contain_all(obj.list_contents, rhs_slot)
         return already_satisfied
 
@@ -331,7 +331,7 @@ class Resolver:
                 if distill_list_of_creation_site(lhs_slot, expr):
                     return True
                 else:
-                    lst_instance = ListObject(set(), expr)
+                    lst_instance = IndexableObject(set(), expr)
                     return update_if_not_contain_all(lhs_slot, [lst_instance])
             case _:
                 return True
@@ -403,7 +403,7 @@ def abstract_load_index(scene: Scene, index_access: IndexAccess, namespace: Name
         case VariableLocal() | Temporary() | ParameterLocal() as v:
             ret: Set[HeapObject] = set()
             for obj in namespace[v.name()]:
-                if isinstance(obj, ListObject):
+                if isinstance(obj, IndexableObject):
                     ret.update(obj.list_contents)
             return ret
         case _:
