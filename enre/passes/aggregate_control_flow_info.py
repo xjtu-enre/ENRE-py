@@ -1,5 +1,6 @@
 from typing import Optional, Iterable, Callable
 
+from enre.cfg.Resolver import get_store_able_value
 from enre.cfg.HeapObject import HeapObject, ModuleObject, FunctionObject, ClassObject, InstanceMethodReference
 from enre.analysis.analyze_manager import RootDB
 from enre.cfg.module_tree import ModuleSummary, Scene, ClassSummary
@@ -34,10 +35,10 @@ def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
                 summary = scene.summary_map[ent]
                 for ref in ent.refs():
                     if ref.ref_kind in [RefKind.CallKind, RefKind.UseKind]:
-                        expr = ref.expr
-                        if expr is not None and expr in summary.get_syntax_namespace():
-                            aggregated_expr.add(expr)
-                            name = summary.get_syntax_namespace()[expr]
+                        invoke_expr = ref.expr
+                        if invoke_expr is not None and invoke_expr in summary.get_syntax_namespace():
+                            aggregated_expr.add(invoke_expr)
+                            name = summary.get_syntax_namespace()[invoke_expr]
                             resolved_objs = summary.get_object().namespace[name]
                             ref.resolved_targets.update(map_resolved_objs(resolved_objs))
 
@@ -47,8 +48,8 @@ def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
 
                 for invoke in summary.get_invokes():
                     if not invoke.expr in aggregated_expr:
-                        invoke_target = summary.get_syntax_namespace()[invoke.expr]
-                        for target in summary.get_namespace()[invoke_target]:
+                        invoke_targets = get_store_able_value(scene, invoke.target, summary.get_namespace())
+                        for target in invoke_targets:
                             target_func: Function
                             if isinstance(target, FunctionObject):
                                 target_func = target.func_ent
@@ -56,7 +57,7 @@ def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
                                 target_func = target.func_obj.func_ent
                             else:
                                 continue
-                            expr = invoke.expr
+                            invoke_expr = invoke.expr
                             ent.add_ref(
-                                Ref(RefKind.CallKind, target_func, expr.lineno, expr.col_offset, False, expr,
+                                Ref(RefKind.CallKind, target_func, invoke_expr.lineno, invoke_expr.col_offset, False, invoke_expr,
                                     set()))
