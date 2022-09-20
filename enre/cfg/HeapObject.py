@@ -84,7 +84,11 @@ class ClassObject(HeapObject, NameSpaceObject):
             return
         else:
             for base in self.inherits:
-                base.get_member(name, obj_slot)
+                temp = set()
+                base.get_member(name, temp)
+                if temp:
+                    obj_slot.update(temp)
+                    return
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
