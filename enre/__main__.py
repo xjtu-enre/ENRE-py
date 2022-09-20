@@ -9,7 +9,7 @@ from enre.cfg.Resolver import Resolver
 from enre.cfg.module_tree import Scene
 from enre.passes.aggregate_control_flow_info import aggregate_cfg_info
 from enre.vis.representation import DepRepr
-from enre.vis.summary_repr import from_summaries
+from enre.vis.summary_repr import from_summaries, call_graph_representation
 
 
 def main() -> None:
@@ -21,10 +21,11 @@ def main() -> None:
                         help="run control flow analysis and output module summaries")
     parser.add_argument("--compatible", action="store_true")
     parser.add_argument("--builtins", action="store", help="builtins module path")
+    parser.add_argument("--cg", action="store_true")
     config = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
-    manager = enre_wrapper(root_path, config.compatible, config.cfg, config.builtins)
+    manager = enre_wrapper(root_path, config.compatible, config.cfg, config.cg, config.builtins)
     end = time.time()
 
     if config.profile:
@@ -35,7 +36,14 @@ def main() -> None:
         # print(f"analysing time: {end - start}s")
 
 
-def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool,
+def dump_call_graph(project_name: str, scene: Scene) -> None:
+    call_graph = call_graph_representation(scene)
+    out_path = f"{project_name}-call-graph-enre.json"
+    with open(out_path, "w") as file:
+        json.dump(call_graph, file, indent=4)
+
+
+def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool, need_call_graph: bool,
                  builtin_module: str) -> AnalyzeManager:
     project_name = root_path.name
     builtins_path = Path(builtin_module) if builtin_module else None
@@ -55,10 +63,8 @@ def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool,
             repr = DepRepr.from_package_db(manager.root_db).to_json()
             json.dump(repr, file, indent=4)
 
-    summary_out_path = Path(f"{project_name}-report-enre-summary.txt")
-    with open(summary_out_path, "w") as file:
-        summary_repr = from_summaries(manager.scene.summaries)
-        file.write(summary_repr)
+    if need_cfg and need_call_graph:
+        dump_call_graph(project_name, manager.scene)
 
     return manager
 
