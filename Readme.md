@@ -4,8 +4,17 @@ ENRE (ENtity Relationship Extractor) is a tool for extraction of code entity dep
 
 
 For more detailed information on python entities and dependencies, see the [doc](./docs) to get definitions and examples.
+## Features
+- Control flow analysis for python
+
+## Supported Language
+|Language|Supported Version|
+|-|-|
+|Python|3.x|
 
 ## Getting Started
+> ENRE-python has been tested to be worked with python3.x.
+
 
 
 
