@@ -430,7 +430,17 @@ class Resolver:
                 for obj in namespace[v.name()]:
                     if isinstance(obj, IndexableObject):
                         ret.update(obj.list_contents)
-
+                    elif isinstance(obj, InstanceObject):
+                        next_methods = set()
+                        obj.get_member("__next__", next_methods)
+                        for method in next_methods:
+                            if isinstance(method, InstanceMethodReference):
+                                ret.update(self.abstract_function_object_call(method.func_obj, [[obj]], namespace))
+                        iter_methods = set()
+                        obj.get_member("__iter__", iter_methods)
+                        for method in iter_methods:
+                            if isinstance(method, InstanceMethodReference):
+                                self.abstract_function_object_call(method.func_obj, [[obj]], namespace)
                 return ret
             case _:
                 return set()
