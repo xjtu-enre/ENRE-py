@@ -84,7 +84,7 @@ class ClassObject(HeapObject, NameSpaceObject):
             return
         else:
             for base in self.inherits:
-                temp = set()
+                temp: "ObjectSlot" = set()
                 base.get_member(name, temp)
                 if temp:
                     obj_slot.update(temp)

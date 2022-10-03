@@ -11,7 +11,7 @@ from enre.analysis.analyze_method import MethodVisitor
 from enre.analysis.assign_target import dummy_iter_store
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
 from enre.analysis.value_info import ValueInfo, PackageType
-from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary
+from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary, FuncConst
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Function, Module, Location, UnknownVar, Parameter, Class, ModuleAlias, \
@@ -82,7 +82,7 @@ class Analyzer:
         new_scope = now_scope.append(name, fun_code_span, None)
         func_ent = Function(new_scope.to_longname(), new_scope)
         func_name = name
-
+        parent_builder = env.get_scope().get_builder()
         # add function entity to dependency database
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
@@ -107,7 +107,8 @@ class Analyzer:
         for decorator in decorators:
             avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, None, CallContext(),
                                   env.get_scope().get_builder(), env)
-            avaler.aval(decorator)
+            decorator_stores, _ = avaler.aval(decorator)
+            parent_builder.add_invoke(decorator_stores, [[FuncConst(func_ent)]], decorator)
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
         hook_scope.add_hook(body, body_env)
         return func_ent
@@ -158,11 +159,13 @@ class Analyzer:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
                                           class_stmt.col_offset, False, base_expr))
                     # todo: handle unknown class
-        env.get_scope().get_builder().add_inherit(class_ent, bases)
+        parent_builder = env.get_scope().get_builder()
+        parent_builder.add_inherit(class_ent, bases)
         # add class to current environment
         new_binding: Bindings = [(class_name, [(class_ent, ConstructorType(class_ent))])]
         env.get_scope().add_continuous(new_binding)
         class_summary = self.manager.create_class_summary(class_ent)
+        parent_builder.add_child(class_summary)
         builder = SummaryBuilder(class_summary)
         body_env = ScopeEnv(ctx_ent=class_ent, location=new_scope, class_ctx=class_ent, builder=builder)
         body_env.add_continuous(new_binding)
@@ -200,8 +203,8 @@ class Analyzer:
         from enre.analysis.assign_target import unpack_semantic, dummy_iter
         iterable_store, iterable = self.get_default_avaler(env).aval(for_stmt.iter)
         iter_value = dummy_iter(iterable)
-        iter_store = dummy_iter_store(iterable_store, env.get_scope().get_builder())
         target_expr = for_stmt.target
+        iter_store = dummy_iter_store(iterable_store, env.get_scope().get_builder(), for_stmt.iter)
         target_lineno = target_expr.lineno
         target_col_offset = target_expr.col_offset
         unpack_semantic(target_expr, iter_value, iter_store, env.get_scope().get_builder(),

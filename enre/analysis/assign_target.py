@@ -86,8 +86,8 @@ def dummy_iter(_: AbstractValue) -> AbstractValue:
     return [(get_anonymous_ent(), ValueInfo.get_any())]
 
 
-def dummy_iter_store(_: StoreAbles, builder: SummaryBuilder) -> StoreAbles:
-    return []
+def dummy_iter_store(iterables: StoreAbles, builder: SummaryBuilder, expr: ast.expr) -> StoreAbles:
+    return builder.load_index_rvalues(iterables, expr)
 
 
 def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,

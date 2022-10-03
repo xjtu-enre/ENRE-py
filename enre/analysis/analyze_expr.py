@@ -246,8 +246,7 @@ class ExprAnalyzer:
             target_col_offset = comp.target.col_offset
             store, iterable = self.aval(comp.iter)
             iter_value = dummy_iter(iterable)
-            iter_store = dummy_iter_store(store, self._builder)
-            tar = build_target(comp.target)
+            iter_store = dummy_iter_store(store, self._builder, comp.iter)
             unpack_semantic(comp.target, iter_value, iter_store, self._builder,
                             AnalyzeContext(self._env,
                                            self.manager,
