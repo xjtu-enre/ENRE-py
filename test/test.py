@@ -1,48 +1,21 @@
-def func3(x, *y, **z):
-    ...
+def func():
+    pass
 
+class Cls:
+    def __init__(self, max=0):
+        self.max = max
 
-def bar():
-    ...
+    def __iter__(self):
+        self.n = 0
+        return self
 
+    def __next__(self):
+        if self.n > self.max:
+            raise StopIteration
 
-def foo():
-    ...
+        result = 2 ** self.n
+        self.n += 1
+        return func
 
-
-def identity(x):
-    return x
-
-
-if ...:
-    f1 = identity(identity(identity(foo)))
-else:
-    def f1():
-        ...
-
-f1()
-
-
-def create_class():
-    class Difficult:
-        def test(self):
-            ...
-
-    return Difficult
-
-
-cls = create_class()
-
-difficult_obj = cls()
-
-difficult_obj.test()
-
-
-class A():
-    def test(self):
-        ...
-
-
-a = A()
-
-a.test()
+for i in Cls():
+    i()

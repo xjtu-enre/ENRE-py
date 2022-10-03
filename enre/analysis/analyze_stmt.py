@@ -220,7 +220,6 @@ class Analyzer:
         optional_sub_env = OptionalSubEnv(sub_env)
         continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), optional_sub_env)
         env.add_sub_env(continuous_sub_env)
-        # todo: loop the for statement until stabilized
 
     def analyze_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
@@ -289,7 +288,6 @@ class Analyzer:
                                       import_stmt.col_offset, False, None))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
-        # todo: import from statement
         module_identifier = import_stmt.module
         if module_identifier is None:
             print("implicit import not implemented yet")

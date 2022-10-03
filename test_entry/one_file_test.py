@@ -17,7 +17,7 @@ def entry():
     resolver = Resolver(manager.scene)
     resolver.resolve_all()
     with open(out_path, "w") as file:
-        representation = DepRepr.from_package_db(package_db).to_json()
+        representation = DepRepr.from_package_db(package_db).to_json_1()
         json.dump(representation, file, indent=4)
     end = time.time()
     summary_out_path = Path(f"test-report-enre-summary-{end}.txt")

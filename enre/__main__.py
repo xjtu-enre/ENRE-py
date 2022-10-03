@@ -19,9 +19,9 @@ def main() -> None:
     parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
     parser.add_argument("--cfg", action="store_true",
                         help="run control flow analysis and output module summaries")
-    parser.add_argument("--compatible", action="store_true")
+    parser.add_argument("--compatible", action="store_true", help="output compatible format")
     parser.add_argument("--builtins", action="store", help="builtins module path")
-    parser.add_argument("--cg", action="store_true")
+    parser.add_argument("--cg", action="store_true", help="dump call graph in json")
     config = parser.parse_args()
     root_path = Path(sys.argv[1])
     start = time.time()
