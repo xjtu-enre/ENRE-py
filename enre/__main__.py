@@ -36,8 +36,8 @@ def main() -> None:
         # print(f"analysing time: {end - start}s")
 
 
-def dump_call_graph(project_name: str, scene: Scene) -> None:
-    call_graph = call_graph_representation(scene)
+def dump_call_graph(project_name: str, resolver: Resolver) -> None:
+    call_graph = call_graph_representation(resolver)
     out_path = f"{project_name}-call-graph-enre.json"
     with open(out_path, "w") as file:
         json.dump(call_graph, file, indent=4)
@@ -52,9 +52,11 @@ def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool, need_
     out_path = Path(f"{project_name}-report-enre.json")
     if need_cfg:
         print("dependency analysis finished, now running control flow analysis")
-        cfg_wrapper(root_path, manager.scene)
+        resolver = cfg_wrapper(root_path, manager.scene)
         print("control flow analysis finished")
-        aggregate_cfg_info(manager.root_db, manager.scene)
+        aggregate_cfg_info(manager.root_db, resolver)
+        if need_call_graph:
+            dump_call_graph(project_name, resolver)
 
     with open(out_path, "w") as file:
         if not compatible_format:
@@ -63,20 +65,18 @@ def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool, need_
             repr = DepRepr.from_package_db(manager.root_db).to_json()
             json.dump(repr, file, indent=4)
 
-    if need_cfg and need_call_graph:
-        dump_call_graph(project_name, manager.scene)
 
     return manager
 
 
-def cfg_wrapper(root_path: Path, scene: Scene) -> None:
+def cfg_wrapper(root_path: Path, scene: Scene) -> Resolver:
     resolver = Resolver(scene)
     resolver.resolve_all()
     out_path = Path(f"{root_path.name}-report-cfg.txt")
     with open(out_path, "w") as file:
         summary_repr = from_summaries(scene.summaries)
         file.write(summary_repr)
-
+    return resolver
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,6 @@
 from typing import Optional, Iterable, Callable
 
-from enre.cfg.Resolver import get_store_able_value
+from enre.cfg.Resolver import Resolver
 from enre.cfg.HeapObject import HeapObject, ModuleObject, FunctionObject, ClassObject, InstanceMethodReference
 from enre.analysis.analyze_manager import RootDB
 from enre.cfg.module_tree import ModuleSummary, Scene, ClassSummary
@@ -26,13 +26,13 @@ def map_resolved_objs(heap_objs: "Iterable[HeapObject]") -> Iterable[Entity]:
     return (ent for ent in (get_target_ent(heap_obj) for heap_obj in heap_objs) if ent is not None)
 
 
-def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
+def aggregate_cfg_info(root_db: "RootDB", resolver: "Resolver") -> None:
     print("aggregating cfg result to dependency")
     for file_path, module_db in root_db.tree.items():
         for ent in module_db.dep_db.ents:
             aggregated_expr = set()
-            if ent in scene.summary_map:
-                summary = scene.summary_map[ent]
+            if ent in resolver.scene.summary_map:
+                summary = resolver.scene.summary_map[ent]
                 for ref in ent.refs():
                     if ref.ref_kind in [RefKind.CallKind, RefKind.UseKind]:
                         invoke_expr = ref.expr
@@ -48,7 +48,7 @@ def aggregate_cfg_info(root_db: "RootDB", scene: "Scene") -> None:
 
                 for invoke in summary.get_invokes():
                     if not invoke.expr in aggregated_expr:
-                        invoke_targets = get_store_able_value(scene, invoke.target, summary.get_namespace())
+                        invoke_targets = resolver.get_store_able_value(invoke.target, summary.get_namespace())
                         for target in invoke_targets:
                             target_func: Function
                             if isinstance(target, FunctionObject):
