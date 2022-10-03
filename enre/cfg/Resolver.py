@@ -284,6 +284,8 @@ class Resolver:
             case InstanceObject(i):
                 # todo: call __call__
                 return_values = []
+            case IndexableObject():
+                return_values = []
             case _:
                 raise NotImplementedError(func.__class__.__name__)
         return update_if_not_contain_all(return_slot, return_values)

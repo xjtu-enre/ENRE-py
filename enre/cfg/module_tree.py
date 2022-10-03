@@ -513,6 +513,13 @@ class SummaryBuilder(object):
                 ret.append(self.add_move_temp(index_access, expr))
         return ret
 
+    def load_index_rvalues(self, bases: StoreAbles, expr: ast.expr) -> StoreAbles:
+        ret: List[StoreAble] = []
+        for base in bases:
+            index_access = IndexAccess(base, expr)
+            ret.append(self.add_move_temp(index_access, expr))
+        return ret
+
     def load_index_lvalue(self, base: StoreAble, expr: ast.expr) -> IndexAccess:
         index_access = IndexAccess(base, expr)
         self.add_move_temp(index_access, expr)

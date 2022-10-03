@@ -303,9 +303,11 @@ class ExprAnalyzer:
             avaler: ExprAnalyzer
             if isinstance(context, SetContext):
                 rhs_store_ables = context.rhs_store_ables
+                index_accesses = self._builder.load_index_rvalues(rhs_store_ables, elt)
                 rhs_abstract_value = context.rhs_value
                 avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities,
-                                      SetContext(False, dummy_unpack(rhs_abstract_value)(index), []), self._builder,
+                                      SetContext(context.is_define, dummy_unpack(rhs_abstract_value)(index),
+                                                 index_accesses), self._builder,
                                       self._env)
                 # todo: add unpack operation to summary
             else:
