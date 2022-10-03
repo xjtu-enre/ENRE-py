@@ -2,6 +2,7 @@ import ast
 from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List
 
+from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
     ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
@@ -37,6 +38,7 @@ class Resolver:
         self.scene = scene
         self.module_object_dict = dict()
         self.work_list: List[ModuleSummary] = scene.summaries.copy()
+        self.call_graph = CallGraph()
         # todo: create work_list by module calling dependency
 
     def do_analysis(self) -> None:
@@ -431,12 +433,12 @@ class Resolver:
                     if isinstance(obj, IndexableObject):
                         ret.update(obj.list_contents)
                     elif isinstance(obj, InstanceObject):
-                        next_methods = set()
+                        next_methods: "ObjectSlot" = set()
                         obj.get_member("__next__", next_methods)
                         for method in next_methods:
                             if isinstance(method, InstanceMethodReference):
                                 ret.update(self.abstract_function_object_call(method.func_obj, [[obj]], namespace))
-                        iter_methods = set()
+                        iter_methods: "ObjectSlot" = set()
                         obj.get_member("__iter__", iter_methods)
                         for method in iter_methods:
                             if isinstance(method, InstanceMethodReference):
