@@ -24,6 +24,10 @@ class ModuleSummary:
     def get_namespace(self) -> NameSpace:
         ...
 
+    @abstractmethod
+    def get_ent(self) -> Entity:
+        ...
+
     @property
     @abstractmethod
     def rules(self) -> "List[Rule]":
@@ -94,6 +98,9 @@ class FileSummary(ModuleSummary):
     def add_child(self, child: "ModuleSummary") -> None:
         self._children.append(child)
 
+    def get_ent(self) -> Entity:
+        return self.module
+
     def get_object(self) -> ModuleObject:
         if self._correspond_obj:
             return self._correspond_obj
@@ -149,6 +156,9 @@ class ClassSummary(ModuleSummary):
             self._correspond_obj = new_obj
             return new_obj
 
+    def get_ent(self) -> Entity:
+        return self.cls
+
     def get_namespace(self) -> NameSpace:
         return self.get_object().get_namespace()
 
@@ -175,6 +185,9 @@ class FunctionSummary(ModuleSummary):
             new_obj = FunctionObject(self.func, self)
             self._correspond_obj = new_obj
             return new_obj
+
+    def get_ent(self) -> Entity:
+        return self.func
 
     def add_child(self, child: "ModuleSummary") -> None:
         return

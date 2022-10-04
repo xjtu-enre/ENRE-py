@@ -1,6 +1,6 @@
 import ast
 from collections import defaultdict
-from typing import Dict, Set, Sequence, Iterable, List
+from typing import Dict, Set, Sequence, Iterable, List, Optional
 
 from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
@@ -8,7 +8,7 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess
-from enre.ent.entity import Class, UnknownModule
+from enre.ent.entity import Class, UnknownModule, Entity
 
 
 def distill_object_of_type_and_invoke_site(lhs_slot: ObjectSlot,
@@ -39,6 +39,7 @@ class Resolver:
         self.module_object_dict = dict()
         self.work_list: List[ModuleSummary] = scene.summaries.copy()
         self.call_graph = CallGraph()
+        self.current_module: Optional[Entity] = None
         # todo: create work_list by module calling dependency
 
     def do_analysis(self) -> None:
@@ -70,6 +71,7 @@ class Resolver:
 
     def resolve_module(self, module: ModuleSummary) -> bool:
         all_satisfied = True
+        self.current_module = module.get_ent()
         for rule in module.rules:
             singleton = module.get_object()
             rule_satisfied: bool = self.resolve_rule_in_singleton_object(rule, singleton)
@@ -295,6 +297,7 @@ class Resolver:
                                       func_obj: FunctionObject,
                                       args: Sequence[ReadOnlyObjectSlot],
                                       namespace: NameSpace) -> Iterable[HeapObject]:
+        self.call_graph.add_call(self.current_module, func_obj.func_ent)
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
         if len(args) != len(target_summary.parameter_list):
