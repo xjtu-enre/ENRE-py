@@ -86,9 +86,8 @@ class ClassObject(HeapObject, NameSpaceObject):
             for base in self.inherits:
                 temp: "ObjectSlot" = set()
                 base.get_member(name, temp)
-                if temp:
-                    obj_slot.update(temp)
-                    return
+                obj_slot.update(temp)
+                return
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
@@ -131,6 +130,7 @@ class InstanceObject(HeapObject, NameSpaceObject):
             if isinstance(obj, FunctionObject):
                 if not contain_same_ref(obj, self, slot):
                     slot.add(InstanceMethodReference(obj, self))
+                    # todo: create instance method only when it's not exist already
             else:
                 slot.add(obj)
 
