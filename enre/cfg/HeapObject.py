@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
 
 
 def update_if_not_contain_all(lhs: Set["HeapObject"], rhs: typing.Iterable["HeapObject"]) -> bool:
+    # return True if all rhs objects have been already contained
     if lhs.issuperset(rhs):
         return True
     else:
@@ -231,3 +232,7 @@ def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject, slot: ObjectSlo
             if obj.func_obj == obj1 and obj.from_obj == obj2:
                 return True
     return False
+
+
+def is_dict_update(func: FunctionObject) -> bool:
+    return func.func_ent.longname.name == "update"

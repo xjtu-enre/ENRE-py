@@ -1,10 +1,11 @@
 import ast
+import itertools
 from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List, Optional
 
 from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject
+    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess
@@ -305,7 +306,16 @@ class Resolver:
         for index, arg in enumerate(args):
             parameter_name = target_summary.parameter_list[index]
             update_if_not_contain_all(func_obj.namespace[parameter_name], arg)
+        self.handle_indexable_object_modify(func_obj, args)
         return func_obj.return_slot
+
+    def handle_indexable_object_modify(self, func: FunctionObject, args: Sequence[ReadOnlyObjectSlot]) -> bool:
+        if is_dict_update(func) and len(args) == 2:
+            for container, in_coming_container in itertools.product(args[0], args[1]):
+                if isinstance(container, IndexableObject) and isinstance(in_coming_container, IndexableObject):
+                    return update_if_not_contain_all(container.list_contents, in_coming_container.list_contents)
+
+        return True
 
     def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ReadOnlyObjectSlot],
                             namespace: NameSpace) -> HeapObject:
