@@ -4,6 +4,7 @@ import typing
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
 from typing import List, Iterable
 from typing import TypeAlias, Dict, Optional, Sequence
 
@@ -404,6 +405,12 @@ class ClassAttributeAccess(StoreAble):
         return f"class attribute: {self.class_attribute.longname}"
 
 
+class IndexableKind(Enum):
+    dct = "Dict"
+    lst = "List"
+    tpl = "Tuple"
+
+
 class Rule(ABC):
     ...
 
@@ -437,6 +444,7 @@ class AddBase(Rule):
 
 @dataclass(frozen=True)
 class AddList(Rule):
+    kind: IndexableKind
     lst: StoreAble
     expr: ast.expr
 
@@ -544,15 +552,15 @@ class SummaryBuilder(object):
             self.add_store_able(return_store)
             self._rules.append(Return(return_store, expr))
 
-    def create_list(self, expr: ast.expr) -> StoreAble:
+    def create_list(self, kind: IndexableKind, expr: ast.expr) -> StoreAble:
         temp = self.create_temp(expr)
-        self.add_list([temp], expr)
+        self.add_list(kind, [temp], expr)
         return temp
 
-    def add_list(self, lst_stores: StoreAbles, expr: ast.expr) -> None:
+    def add_list(self, kind: IndexableKind, lst_stores: StoreAbles, expr: ast.expr) -> None:
         for lst_store in lst_stores:
             self.add_store_able(lst_store)
-            self._rules.append(AddList(lst_store, expr))
+            self._rules.append(AddList(kind, lst_store, expr))
 
     def add_child(self, summary: ModuleSummary) -> None:
         self.mod.add_child(summary)

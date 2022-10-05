@@ -11,7 +11,7 @@ from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
-    ModuleSummary, Constant
+    ModuleSummary, Constant, IndexableKind
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import AbstractValue
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
@@ -285,16 +285,19 @@ class ExprAnalyzer:
         return Ref(ref_kind, target_ent, lineno, col_offset, typing_entities is not None, expr)
 
     def aval_Tuple(self, tuple_exp: ast.Tuple) -> Tuple[StoreAbles, AbstractValue]:
-        return self.aval_iterable_expr(tuple_exp.elts, tuple_exp)
+        return self.aval_iterable_expr(tuple_exp.elts, IndexableKind.tpl, tuple_exp)
 
     def aval_List(self, list_exp: ast.List) -> Tuple[StoreAbles, AbstractValue]:
-        return self.aval_iterable_expr(list_exp.elts, list_exp)
+        return self.aval_iterable_expr(list_exp.elts, IndexableKind.lst, list_exp)
 
     def aval_Dict(self, dict_exp: ast.Dict) -> Tuple[StoreAbles, AbstractValue]:
-        return self.aval_iterable_expr(dict_exp.values, dict_exp)
+        return self.aval_iterable_expr(dict_exp.values, IndexableKind.dct, dict_exp)
 
-    def aval_iterable_expr(self, iterable_elts: Iterable[ast.expr], expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
-        iterable_store = self._builder.create_list(expr)
+    def aval_iterable_expr(self,
+                           iterable_elts: Iterable[ast.expr],
+                           kind: IndexableKind,
+                           expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
+        iterable_store = self._builder.create_list(kind, expr)
         stores: List[StoreAble] = []
         abstract_value: AbstractValue = []
         context = self._exp_ctx

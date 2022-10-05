@@ -347,7 +347,7 @@ class Resolver:
                 if distill_list_of_creation_site(lhs_slot, expr):
                     return True
                 else:
-                    lst_instance = IndexableObject(set(), expr)
+                    lst_instance = IndexableObject(expr)
                     return update_if_not_contain_all(lhs_slot, [lst_instance])
             case _:
                 return True
