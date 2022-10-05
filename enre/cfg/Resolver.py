@@ -8,7 +8,7 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
     ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
-    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess
+    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo
 from enre.ent.entity import Class, UnknownModule, Entity
 
 
@@ -87,7 +87,15 @@ class Resolver:
         elif isinstance(rule, AddBase):
             return self.resolve_add_base(obj, rule.cls, rule.bases)
         elif isinstance(rule, AddList):
-            return self.resolve_add_list(rule.lst, rule.expr, obj)
+            cls = rule.info.cls
+            cls_obj: Optional[ClassObject]
+            if cls is not None:
+                obj_temp = self.scene.summary_map[cls].get_object()
+                assert isinstance(obj_temp, ClassObject)
+                cls_obj = obj_temp
+            else:
+                cls_obj = None
+            return self.resolve_add_list(rule.lst, cls_obj, rule.expr, obj)
         else:
             assert False, f"unsupported rule type {rule.__class__}, object type {obj.__class__}"
 
@@ -156,7 +164,7 @@ class Resolver:
                 case ClassConst() as c:
                     base_cls_obj = self.scene.summary_map[c.cls].get_object()
                     assert isinstance(base_cls_obj, ClassObject)
-                    already_satisfied = already_satisfied and cls_obj.add_base(base_cls_obj)
+                    already_satisfied = cls_obj.add_base(base_cls_obj) and already_satisfied
                 case VariableLocal() | Temporary() | ParameterLocal() as v:
                     base_cls_objs = namespace_obj.namespace[v.name()]
                     for base_cls_obj in base_cls_objs:
@@ -301,7 +309,7 @@ class Resolver:
         self.call_graph.add_call(self.current_module, func_obj.func_ent)
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
-        if len(args) != len(target_summary.parameter_list):
+        if len(args) > len(target_summary.parameter_list):
             return func_obj.return_slot
         for index, arg in enumerate(args):
             parameter_name = target_summary.parameter_list[index]
@@ -340,14 +348,14 @@ class Resolver:
             if dep not in self.work_list:
                 self.work_list.append(dep)
 
-    def resolve_add_list(self, lst: StoreAble, expr: ast.expr, obj: HeapObject) -> bool:
+    def resolve_add_list(self, lst: StoreAble, cls: Optional[ClassObject], expr: ast.expr, obj: HeapObject) -> bool:
         match lst:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 lhs_slot = obj.namespace[v.name()]
                 if distill_list_of_creation_site(lhs_slot, expr):
                     return True
                 else:
-                    lst_instance = IndexableObject(expr)
+                    lst_instance = IndexableObject(cls, expr)
                     return update_if_not_contain_all(lhs_slot, [lst_instance])
             case _:
                 return True

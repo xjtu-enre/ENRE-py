@@ -11,7 +11,7 @@ from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
-    ModuleSummary, Constant, IndexableKind
+    ModuleSummary, Constant, IndexableKind, IndexableInfo
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import AbstractValue
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
@@ -297,7 +297,13 @@ class ExprAnalyzer:
                            iterable_elts: Iterable[ast.expr],
                            kind: IndexableKind,
                            expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
-        iterable_store = self._builder.create_list(kind, expr)
+        class_in_builtins: Optional[Class] = None
+        if entities := self.get_from_builtins(kind.value):
+            first_result = entities[0][0]
+            if isinstance(first_result, Class):
+                class_in_builtins = first_result
+        kind_info = IndexableInfo(kind, class_in_builtins)
+        iterable_store = self._builder.create_list(kind_info, expr)
         stores: List[StoreAble] = []
         abstract_value: AbstractValue = []
         context = self._exp_ctx
@@ -335,6 +341,9 @@ class ExprAnalyzer:
     def get_use_avaler(self) -> "ExprAnalyzer":
         return ExprAnalyzer(self.manager, self._package_db, self._current_db, None,
                             UseContext(), self._builder, self._env)
+
+    def get_from_builtins(self, name: str) -> "Optional[AbstractValue]":
+        return self.manager.get_from_builtins(name)
 
 
 def extend_known_possible_attribute(manager: AnalyzeManager,

@@ -8,7 +8,7 @@ from typing import Dict, TypeAlias, Set, Iterable
 from enre.ent.entity import Class, Function, Module
 
 if typing.TYPE_CHECKING:
-    from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary, Invoke
+    from enre.cfg.module_tree import FunctionSummary, ClassSummary, ModuleSummary, Invoke, IndexableInfo
 
 
 def update_if_not_contain_all(lhs: Set["HeapObject"], rhs: typing.Iterable["HeapObject"]) -> bool:
@@ -88,7 +88,7 @@ class ClassObject(HeapObject, NameSpaceObject):
                 temp: "ObjectSlot" = set()
                 base.get_member(name, temp)
                 obj_slot.update(temp)
-                return
+            return
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
@@ -127,22 +127,7 @@ class InstanceObject(HeapObject, NameSpaceObject):
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
-        def extend_method_ref_is_not_exist(obj: "HeapObject", slot: "ObjectSlot") -> None:
-            if isinstance(obj, FunctionObject):
-                if not contain_same_ref(obj, self, slot):
-                    slot.add(InstanceMethodReference(obj, self))
-                    # todo: create instance method only when it's not exist already
-            else:
-                slot.add(obj)
-
-        if name in self.namespace:
-            obj_slot.update(self.namespace[name])
-        else:
-            cls_member: ObjectSlot = set()
-            self.class_obj.get_member(name, cls_member)
-            for obj in cls_member:
-                extend_method_ref_is_not_exist(obj, obj_slot)
-
+        get_attribute_from_class_instance(self, name, obj_slot)
     def representation(self) -> str:
         return f"InstanceObject: instance of {self.class_obj.class_ent.longname.longname}"
 
@@ -177,7 +162,7 @@ class FunctionObject(HeapObject, NameSpaceObject):
 @dataclass(frozen=True)
 class InstanceMethodReference(HeapObject):
     func_obj: FunctionObject
-    from_obj: InstanceObject
+    from_obj: "InstanceObject | IndexableObject"
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
@@ -203,13 +188,14 @@ class IndexableObject(HeapObject):
     """
     indexable builtin object like dict and list
     """
+    info: typing.Optional[ClassObject]
     expr: ast.expr
     list_contents: typing.Set[HeapObject] = field(default_factory=set)
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
     def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
-        obj_slots.update(self.namespace[name])
+        get_attribute_from_class_instance(self, name, obj_slots)
 
     def write_field(self, name: str, objs: "ObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
@@ -226,7 +212,34 @@ ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]
 NameSpace: TypeAlias = Dict[str, ObjectSlot]
 
 
-def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject, slot: ObjectSlot) -> bool:
+def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject, attr: str,
+                                      obj_slot: "ObjectSlot") -> None:
+    def extend_method_ref_is_not_exist(obj: "HeapObject", slot: "ObjectSlot") -> None:
+        if isinstance(obj, FunctionObject):
+            if not contain_same_ref(obj, instance, slot):
+                slot.add(InstanceMethodReference(obj, instance))
+                # todo: create instance method only when it's not exist already
+        else:
+            slot.add(obj)
+
+    if attr in instance.namespace:
+        obj_slot.update(instance.namespace[attr])
+    else:
+        cls_member: ObjectSlot = set()
+        class_object: typing.Optional[ClassObject]
+        if isinstance(instance, InstanceObject):
+            class_object = instance.class_obj
+        elif isinstance(instance, IndexableObject):
+            class_object = instance.info
+        else:
+            assert False
+        if class_object is not None:
+            class_object.get_member(attr, cls_member)
+            for obj in cls_member:
+                extend_method_ref_is_not_exist(obj, obj_slot)
+
+
+def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObject, slot: ObjectSlot) -> bool:
     for obj in slot:
         if isinstance(obj, InstanceMethodReference):
             if obj.func_obj == obj1 and obj.from_obj == obj2:
