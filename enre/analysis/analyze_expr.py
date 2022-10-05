@@ -323,7 +323,10 @@ class ExprAnalyzer:
     def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
         _, _ = self.aval(subscript.slice)
         base_stores, abstract_value = self.aval(subscript.value)
-        index_accesses = self._builder.load_index(base_stores, self._exp_ctx, subscript)
+        if isinstance(subscript.slice, ast.Slice):
+            index_accesses = base_stores
+        else:
+            index_accesses = self._builder.load_index(base_stores, self._exp_ctx, subscript)
         return index_accesses, abstract_value
 
     def get_use_avaler(self) -> "ExprAnalyzer":
