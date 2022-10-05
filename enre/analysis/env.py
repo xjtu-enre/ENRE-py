@@ -43,6 +43,14 @@ class SubEnv(ABC):
         ...
 
 
+def get_from_bindings(name: str, bindings: "Bindings") -> "AbstractValue":
+    ret = []
+    for n, binds in bindings:
+        if n == name:
+            ret.extend(binds)
+    return ret
+
+
 class BasicSubEnv(SubEnv):
     def __init__(self, pairs: "Optional[Bindings]" = None):
         super().__init__(1)
@@ -52,10 +60,7 @@ class BasicSubEnv(SubEnv):
 
     def __getitem__(self, name: str) -> SubEnvLookupResult:
         for bindings in reversed(self._bindings_list):
-            ret = []
-            for n, binds in bindings:
-                if n == name:
-                    ret.extend(binds)
+            ret = get_from_bindings(name, bindings)
             if ret:
                 return SubEnvLookupResult(ret, True)
         return SubEnvLookupResult([], False)

@@ -2,10 +2,10 @@ import ast
 import typing as ty
 from pathlib import Path
 
-from enre.analysis.env import EntEnv, ScopeEnv
+from enre.analysis.env import EntEnv, ScopeEnv, get_from_bindings
 from enre.cfg.module_tree import FileSummary, SummaryBuilder, ModuleSummary, ClassSummary, FunctionSummary, Scene
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function
+from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function, AbstractValue
 from enre.ref.Ref import Ref
 
 if ty.TYPE_CHECKING:
@@ -59,6 +59,13 @@ class ModuleDB:
             return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
         except (SyntaxError, UnicodeDecodeError):
             return ast.Module([])
+
+    def get_module_level_bindings(self) -> "Bindings":
+        bindings: Bindings = []
+        for name, ents in self.module_ent.names.items():
+            bound_ents = [(ent, ent.direct_type()) for ent in ents]
+            bindings.append((name, bound_ents))
+        return bindings
 
 
 class RootDB:
@@ -195,10 +202,7 @@ class AnalyzeManager:
         if self.builtins_bindings:
             scope.add_continuous(self.builtins_bindings)
             return
-        bindings: Bindings = []
-        for name, ents in module_db.module_ent.names.items():
-            bound_ents = [(ent, ent.direct_type()) for ent in ents]
-            bindings.append((name, bound_ents))
+        bindings: Bindings = module_db.get_module_level_bindings()
         bindings.append(("builtins", [(module_db.module_ent, module_db.module_ent.direct_type())]))
         scope.add_continuous(bindings)
         self.builtins_bindings = bindings
@@ -299,6 +303,12 @@ class AnalyzeManager:
         self.scene.summary_map[function_ent] = summary
         self.add_summary(summary)
         return summary
+
+    def get_from_builtins(self, name: str) -> "ty.Optional[AbstractValue]":
+        if self.builtins_bindings:
+            return get_from_bindings(name, self.builtins_bindings)
+        else:
+            return None
 
 
 def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> ty.Optional[Path]:
