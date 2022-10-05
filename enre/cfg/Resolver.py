@@ -309,6 +309,7 @@ class Resolver:
 
     def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ReadOnlyObjectSlot],
                             namespace: NameSpace) -> HeapObject:
+        self.call_graph.add_call(self.current_module, cls.class_ent)
         target_summary = cls.summary
         cls_obj = target_summary.get_object()
         instance: HeapObject = InstanceObject(cls_obj, defaultdict(set), invoke)
