@@ -102,7 +102,7 @@ class Analyzer:
         if not isinstance(current_ctx, Class):
             body_env.add_continuous(new_binding)
         # add parameters to the scope environment
-        process_parameters(args, body_env, env, self.manager, self.package_db, self.current_db, fun_summary,
+        process_parameters(args, body_env, env, self.manager, self.package_db, self.current_db, func_ent, fun_summary,
                            env.get_class_ctx())
         for decorator in decorators:
             avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, None, CallContext(),
@@ -438,7 +438,8 @@ def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: 
 
 
 def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manager: AnalyzeManager, package_db: RootDB,
-                       current_db: ModuleDB, summary: FunctionSummary, class_ctx: ty.Optional[Class] = None) -> None:
+                       current_db: ModuleDB, func_ent: Entity, summary: FunctionSummary,
+                       class_ctx: ty.Optional[Class] = None) -> None:
     location_base = scope.get_location()
     ctx_fun = scope.get_ctx()
     para_constructor = LambdaParameter if isinstance(scope.get_ctx(), LambdaFunction) else Parameter
@@ -446,7 +447,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings") -> None:
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span, current_db.module_path)
-        parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
+        parameter_ent = para_constructor(func_ent, parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))

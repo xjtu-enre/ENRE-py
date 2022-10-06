@@ -196,7 +196,7 @@ class ExprAnalyzer:
         # body_env.add_continuous([(func_ent, EntType.get_bot())])
         # add parameters to the scope environment
         process_parameters(lam_expr.args, body_env, self._env, self.manager, self._package_db, self._current_db,
-                           func_summary, self._env.get_class_ctx())
+                           func_ent, func_summary, self._env.get_class_ctx())
         hook_scope = self._env.get_scope(1) if in_class_env else self._env.get_scope()
         # type error due to member in ast node is, but due to any member in our structure is only readable,
         # this type error is safety

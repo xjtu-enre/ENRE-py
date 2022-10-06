@@ -121,6 +121,7 @@ class Location:
     def file_path(self) -> Path:
         return self._file_path
 
+
 class Syntactic(ABC):
     @abstractmethod
     def node(self) -> ast.AST:
@@ -171,10 +172,16 @@ class Entity(ABC):
         return hash((self.longname, self.location))
 
 
-class NameSpaceEntity(ABC):
+class NameSpaceEntity:
     @property
     @abstractmethod
     def names(self) -> "NamespaceType":
+        ...
+
+
+class ScopedEntity:
+    @abstractmethod
+    def get_scope(self) -> Entity:
         ...
 
 
@@ -187,12 +194,16 @@ MemberDistiller: TypeAlias = Callable[[int], AbstractValue]
 NamespaceType: TypeAlias = Dict[str, List[Entity]]
 
 
-class Variable(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
+class Variable(Entity, ScopedEntity):
+    def __init__(self, scope: Entity, longname: EntLongname, location: Location):
+        self.scope = scope
         super().__init__(longname, location)
 
     def kind(self) -> EntKind:
         return EntKind.Variable
+
+    def get_scope(self) -> Entity:
+        return self.scope
 
 
 class Function(Entity):
@@ -450,17 +461,21 @@ class UnknownModule(Module):
         return EntKind.UnknownModule
 
 
-class Parameter(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
+class Parameter(Entity, ScopedEntity):
+    def __init__(self, scope: Entity, longname: EntLongname, location: Location):
+        self.scope = scope
         super(Parameter, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
         return EntKind.Parameter
 
+    def get_scope(self) -> Entity:
+        return self.scope
+
 
 class LambdaParameter(Parameter):
-    def __init__(self, longname: EntLongname, location: Location):
-        super(LambdaParameter, self).__init__(longname, location)
+    def __init__(self, scope: Entity, longname: EntLongname, location: Location):
+        super(LambdaParameter, self).__init__(scope, longname, location)
 
     def kind(self) -> EntKind:
         return EntKind.LambdaParameter

@@ -128,7 +128,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
             ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
         else:
             # newly defined variable
-            new_var = Variable(location.to_longname(), location)
+            new_var = Variable(ctx.env.get_ctx(), location.to_longname(), location)
             new_bindings.append((new_var.longname.name, [(new_var, value_type)]))
             ctx.current_db.add_ent(new_var)
             ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
