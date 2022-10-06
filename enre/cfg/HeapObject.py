@@ -29,7 +29,7 @@ class HeapObject:
         pass
 
     @abstractmethod
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         ...
 
     @abstractmethod
@@ -53,7 +53,7 @@ class ModuleObject(HeapObject, NameSpaceObject):
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         obj_slot.update(self.namespace[name])
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_namespace(self) -> "NameSpace":
@@ -90,7 +90,7 @@ class ClassObject(HeapObject, NameSpaceObject):
                 obj_slot.update(temp)
             return
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def __hash__(self) -> int:
@@ -123,7 +123,7 @@ class InstanceObject(HeapObject, NameSpaceObject):
     def __eq__(self, other: object) -> bool:
         return isinstance(other, InstanceObject) and self.class_obj == other.class_obj and self.invoke == other.invoke
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
@@ -146,7 +146,7 @@ class FunctionObject(HeapObject, NameSpaceObject):
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         return
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def __hash__(self) -> int:
@@ -166,7 +166,7 @@ class InstanceMethodReference(HeapObject):
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
@@ -197,7 +197,7 @@ class IndexableObject(HeapObject):
     def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
         get_attribute_from_class_instance(self, name, obj_slots)
 
-    def write_field(self, name: str, objs: "ObjectSlot") -> bool:
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def representation(self) -> str:

@@ -8,7 +8,8 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
     ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
-    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo
+    ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo, \
+    VariableOuter
 from enre.ent.entity import Class, UnknownModule, Entity
 
 
@@ -144,14 +145,45 @@ class Resolver:
                 already_satisfied = already_satisfied and \
                                     update_if_not_contain_all(namespace[lhs.name()],
                                                               self.abstract_load_index(index_access, namespace))
-            case Temporary(l_name), FuncConst() as fc:
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[l_name],
+            case Temporary() | VariableLocal() | ParameterLocal() as lhs, FuncConst() as fc:
+                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
                                                                                     {self.get_const_object(fc)})
-            case VariableLocal() as v, FuncConst() as fc:
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
+            case VariableLocal() | Temporary() | ParameterLocal() as lhs, Constant() as c:
+                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
+                                                                                    {})
+        return already_satisfied
+
+    def resolve_flow_into_variable(self, var_object_slot: ObjectSlot,
+                                   rhs_store: StoreAble, current_namespace: NameSpace) -> bool:
+        already_satisfied = True
+        match rhs_store:
+            case VariableLocal() | Temporary() | ParameterLocal() as rhs:
+                """
+                simple assignment
+                """
+                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                                                                                    current_namespace[rhs.name()])
+            case Invoke() as invoke:
+                """
+                invoke function
+                """
+                target = invoke.target
+                args = invoke.args
+                already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, current_namespace,
+                                                                             var_object_slot)
+            case FieldAccess() as field_access:
+                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                                                                                    self.abstract_load(field_access,
+                                                                                                       current_namespace))
+            case IndexAccess() as index_access:
+                already_satisfied = already_satisfied and \
+                                    update_if_not_contain_all(var_object_slot,
+                                                              self.abstract_load_index(index_access, current_namespace))
+            case FuncConst() as fc:
+                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
                                                                                     {self.get_const_object(fc)})
-            case VariableLocal() | Temporary() | ParameterLocal() as v, Constant() as c:
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[v.name()],
+            case Constant() as c:
+                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
                                                                                     {})
         return already_satisfied
 
