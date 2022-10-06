@@ -291,14 +291,15 @@ class ParameterLocal(StoreAble, NonConstStoreAble):
 
 
 class VariableOuter(StoreAble):
-    def __init__(self, variable: VariableLocal, func: FunctionSummary) -> None:
+    def __init__(self, variable: Variable, scope: Entity) -> None:
         self._varialbe = variable
+        self._scope = scope
 
     def name(self) -> str:
-        return self._varialbe.name()
+        return self._varialbe.longname.longname
 
     def __str__(self) -> str:
-        return self.name()
+        return f"outer variable: {self.name()}"
 
 
 @dataclass(frozen=True)
@@ -572,11 +573,14 @@ class SummaryBuilder(object):
         self.mod.add_child(summary)
 
 
-def get_named_store_able(ent: Entity, named_node: ast.expr) -> Optional[StoreAble]:
+def get_named_store_able(current_module: Entity, ent: Entity, named_node: ast.expr) -> Optional[StoreAble]:
     ret: Optional[StoreAble] = None
     match ent:
         case Variable() as v:
-            ret = VariableLocal(v, named_node)
+            if v.get_scope() == current_module:
+                ret = VariableLocal(v, named_node)
+            else:
+                ret = VariableOuter(v, v.get_scope())
         case Class() as cls:
             ret = ClassConst(cls)
         case Module() as mod:
@@ -595,9 +599,9 @@ def get_named_store_able(ent: Entity, named_node: ast.expr) -> Optional[StoreAbl
             ret = None
             # todo: handle alias case here
         case ModuleAlias() as ma:
-            ret = get_named_store_able(ma.module_ent, named_node)
+            ret = get_named_store_able(current_module, ma.module_ent, named_node)
         case PackageAlias() as pa:
-            ret = get_named_store_able(pa.package_ent, named_node)
+            ret = get_named_store_able(current_module, pa.package_ent, named_node)
         case _ as e:
             raise NotImplementedError(f"{e} not implemented yet")
     return ret

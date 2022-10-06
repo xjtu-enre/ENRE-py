@@ -103,7 +103,7 @@ class ExprAnalyzer:
             if ent_objs:
                 store_ables: List[StoreAble] = []
                 for ent, _ in ent_objs:
-                    s = get_named_store_able(ent, name_expr)
+                    s = get_named_store_able(self._env.get_ctx(), ent, name_expr)
                     if s:
                         store_ables.append(s)
                 return store_ables, ent_objs

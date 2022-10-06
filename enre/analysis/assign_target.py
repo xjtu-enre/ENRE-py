@@ -209,7 +209,7 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_exp
     lhs_store_ables = []
     for n, target_ents in new_bindings:
         for tar, _ in target_ents:
-            lhs_store_able = get_named_store_able(tar, assigned_expr)
+            lhs_store_able = get_named_store_able(ctx.env.get_ctx(), tar, assigned_expr)
             if lhs_store_able:
                 lhs_store_ables.append(lhs_store_able)
     return lhs_store_ables
