@@ -153,15 +153,15 @@ class Resolver:
                                                                                     {})
         return already_satisfied
 
-    def resolve_flow_into_variable(self, var_object_slot: ObjectSlot,
-                                   rhs_store: StoreAble, current_namespace: NameSpace) -> bool:
+    def resolve_flow_into_object_slot(self, object_slot: ObjectSlot,
+                                      rhs_store: StoreAble, current_namespace: NameSpace) -> bool:
         already_satisfied = True
         match rhs_store:
             case VariableLocal() | Temporary() | ParameterLocal() as rhs:
                 """
                 simple assignment
                 """
-                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     current_namespace[rhs.name()])
             case Invoke() as invoke:
                 """
@@ -170,20 +170,20 @@ class Resolver:
                 target = invoke.target
                 args = invoke.args
                 already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, current_namespace,
-                                                                             var_object_slot)
+                                                                             object_slot)
             case FieldAccess() as field_access:
-                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     self.abstract_load(field_access,
                                                                                                        current_namespace))
             case IndexAccess() as index_access:
                 already_satisfied = already_satisfied and \
-                                    update_if_not_contain_all(var_object_slot,
+                                    update_if_not_contain_all(object_slot,
                                                               self.abstract_load_index(index_access, current_namespace))
             case FuncConst() as fc:
-                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     {self.get_const_object(fc)})
             case Constant() as c:
-                already_satisfied = already_satisfied and update_if_not_contain_all(var_object_slot,
+                already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     {})
         return already_satisfied
 
