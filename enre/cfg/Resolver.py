@@ -106,23 +106,14 @@ class Resolver:
 
     def resolve_value_flow_namespace(self, rule: ValueFlow, namespace: NameSpace) -> bool:
         already_satisfied = True
+        match rule.lhs:
+            case VariableLocal() | Temporary() | ParameterLocal() as lhs:
+                self.resolve_flow_into_object_slot(rule.rhs, namespace, namespace[lhs.name()])
+            case VariableOuter() as lhs:
+                lhs_object_slot = self.scene.summary_map[lhs.scope].get_namespace()[lhs.name()]
+                self.resolve_flow_into_object_slot(rule.rhs, namespace, lhs_object_slot)
+
         match rule.lhs, rule.rhs:
-            case VariableLocal() | Temporary() | ParameterLocal() as lhs, \
-                 VariableLocal() | Temporary() | ParameterLocal() as rhs:
-                """
-                simple assignment
-                """
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
-                                                                                    namespace[rhs.name()])
-            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, Invoke() as invoke):
-                """
-                invoke function
-                """
-                l_name = lhs.name()
-                target = invoke.target
-                args = invoke.args
-                already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, namespace,
-                                                                             namespace[l_name])
             case (FieldAccess() as field_access, VariableLocal() | Temporary() | ParameterLocal() as rhs):
                 already_satisfied = already_satisfied and self.abstract_store_field(field_access, namespace,
                                                                                     namespace[rhs.name()])
@@ -136,25 +127,10 @@ class Resolver:
             case (IndexAccess() as index_access, FuncConst() as fc):
                 already_satisfied = already_satisfied and self.abstract_store_index(index_access, namespace,
                                                                                     {self.get_const_object(fc)})
-
-            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, FieldAccess() as field_access):
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
-                                                                                    self.abstract_load(field_access,
-                                                                                                       namespace))
-            case (Temporary() | VariableLocal() | ParameterLocal() as lhs, IndexAccess() as index_access):
-                already_satisfied = already_satisfied and \
-                                    update_if_not_contain_all(namespace[lhs.name()],
-                                                              self.abstract_load_index(index_access, namespace))
-            case Temporary() | VariableLocal() | ParameterLocal() as lhs, FuncConst() as fc:
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
-                                                                                    {self.get_const_object(fc)})
-            case VariableLocal() | Temporary() | ParameterLocal() as lhs, Constant() as c:
-                already_satisfied = already_satisfied and update_if_not_contain_all(namespace[lhs.name()],
-                                                                                    {})
         return already_satisfied
 
-    def resolve_flow_into_object_slot(self, object_slot: ObjectSlot,
-                                      rhs_store: StoreAble, current_namespace: NameSpace) -> bool:
+    def resolve_flow_into_object_slot(self, rhs_store: StoreAble, current_namespace: NameSpace,
+                                      object_slot: ObjectSlot) -> bool:
         already_satisfied = True
         match rhs_store:
             case VariableLocal() | Temporary() | ParameterLocal() as rhs:
@@ -163,6 +139,9 @@ class Resolver:
                 """
                 already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     current_namespace[rhs.name()])
+            case VariableOuter() as rhs:
+                rhs_object_slot = self.scene.summary_map[rhs.scope].get_namespace()[rhs.name()]
+                already_satisfied = already_satisfied and update_if_not_contain_all(object_slot, rhs_object_slot)
             case Invoke() as invoke:
                 """
                 invoke function
@@ -258,7 +237,7 @@ class Resolver:
                 func_obj = self.scene.summary_map[fc.func].get_object()
                 assert isinstance(func_obj, FunctionObject)
                 return update_if_not_contain_all(lhs_slot,
-                                                 self.abstract_function_object_call(func_obj, args_slot, namespace))
+                                                 self.abstract_function_object_call(func_obj, args_slot))
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 all_satisfied = True
                 for func in namespace[v.name()]:
@@ -310,12 +289,12 @@ class Resolver:
         return_values: Iterable[HeapObject]
         match func:
             case FunctionObject() as f:
-                return_values = self.abstract_function_object_call(f, args, namespace)
+                return_values = self.abstract_function_object_call(f, args)
             case InstanceMethodReference() as ref:
                 instance: HeapObject = ref.from_obj
                 first_arg: List[ReadOnlyObjectSlot] = [{instance}]
                 args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
-                return_values = self.abstract_function_object_call(ref.func_obj, args_slots, namespace)
+                return_values = self.abstract_function_object_call(ref.func_obj, args_slots)
             case ClassObject() as c:
                 if not (objs := distill_object_of_type_and_invoke_site(return_slot, c.class_ent, invoke)):
                     # create new object if the return slot doesn't contain object of same type and invoke site
@@ -336,8 +315,7 @@ class Resolver:
 
     def abstract_function_object_call(self,
                                       func_obj: FunctionObject,
-                                      args: Sequence[ReadOnlyObjectSlot],
-                                      namespace: NameSpace) -> Iterable[HeapObject]:
+                                      args: Sequence[ReadOnlyObjectSlot]) -> Iterable[HeapObject]:
         self.call_graph.add_call(self.current_module, func_obj.func_ent)
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
@@ -373,7 +351,7 @@ class Resolver:
         args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
         for obj in initializer:
             if isinstance(obj, FunctionObject):
-                self.abstract_function_object_call(obj, args_slots, namespace)
+                self.abstract_function_object_call(obj, args_slots)
 
     def add_all_dependencies(self, module: ModuleSummary) -> None:
         for dep in module.get_object().depend_by:
@@ -407,6 +385,8 @@ class Resolver:
         match store:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 return namespace[v.name()]
+            case VariableOuter() as v:
+                return self.scene.summary_map[v.scope].get_namespace()[v.name()]
             case FuncConst() as fc:
                 return {self.get_const_object(fc)}
             case ClassConst() as cc:
@@ -438,6 +418,11 @@ class Resolver:
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 ret: Set[HeapObject] = set()
                 for obj in namespace[v.name()]:
+                    obj.get_member(field, ret)
+                return ret
+            case VariableOuter() as v:
+                ret = set()
+                for obj in self.scene.summary_map[v.scope].get_namespace()[v.name()]:
                     obj.get_member(field, ret)
                 return ret
             case ClassConst() as cc:
@@ -480,24 +465,23 @@ class Resolver:
         return class_namespace[attribute_name]
 
     def abstract_load_index(self, index_access: IndexAccess, namespace: NameSpace) -> Iterable[HeapObject]:
-        match index_access.target:
-            case VariableLocal() | Temporary() | ParameterLocal() as v:
-                ret: Set[HeapObject] = set()
-                for obj in namespace[v.name()]:
-                    if isinstance(obj, IndexableObject):
-                        ret.update(obj.list_contents)
-                    elif isinstance(obj, InstanceObject):
-                        next_methods: "ObjectSlot" = set()
-                        obj.get_member("__next__", next_methods)
-                        for method in next_methods:
-                            if isinstance(method, InstanceMethodReference):
-                                ret.update(self.abstract_function_object_call(method.func_obj, [[obj]], namespace))
-                        iter_methods: "ObjectSlot" = set()
-                        obj.get_member("__iter__", iter_methods)
-                        for method in iter_methods:
-                            if isinstance(method, InstanceMethodReference):
-                                self.abstract_function_object_call(method.func_obj, [[obj]], namespace)
-                return ret
-            case _:
-                return set()
-                # todo
+        target_slot = self.get_store_able_value(index_access.target, namespace)
+        return self.get_index_of_object_slot(target_slot)
+
+    def get_index_of_object_slot(self, obj_slot: ReadOnlyObjectSlot) -> ReadOnlyObjectSlot:
+        ret = set()
+        for obj in obj_slot:
+            if isinstance(obj, IndexableObject):
+                ret.update(obj.list_contents)
+            elif isinstance(obj, InstanceObject):
+                next_methods: "ObjectSlot" = set()
+                obj.get_member("__next__", next_methods)
+                for method in next_methods:
+                    if isinstance(method, InstanceMethodReference):
+                        ret.update(self.abstract_function_object_call(method.func_obj, [[obj]]))
+                iter_methods: "ObjectSlot" = set()
+                obj.get_member("__iter__", iter_methods)
+                for method in iter_methods:
+                    if isinstance(method, InstanceMethodReference):
+                        self.abstract_function_object_call(method.func_obj, [[obj]])
+        return ret

@@ -293,10 +293,10 @@ class ParameterLocal(StoreAble, NonConstStoreAble):
 class VariableOuter(StoreAble):
     def __init__(self, variable: Variable, scope: Entity) -> None:
         self._varialbe = variable
-        self._scope = scope
+        self.scope = scope
 
     def name(self) -> str:
-        return self._varialbe.longname.longname
+        return self._varialbe.longname.name
 
     def __str__(self) -> str:
         return f"outer variable: {self.name()}"
