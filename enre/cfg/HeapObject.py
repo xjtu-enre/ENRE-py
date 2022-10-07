@@ -224,7 +224,7 @@ class ConstantInstance(HeapObject):
         return update_if_not_contain_all(self.namespace[name], objs)
 
     def representation(self) -> str:
-        return "Constant"
+        return f"Constant :{self.expr.value.__repr__()}"
 
     def __hash__(self) -> int:
         return id(self)
