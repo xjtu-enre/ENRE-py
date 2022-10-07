@@ -380,6 +380,7 @@ class PackageConst(StoreAble):
 @dataclass(frozen=True)
 class Constant(StoreAble):
     constant: ast.Constant | ast.Str
+    constant_cls: "Optional[Class]"
 
     def __str__(self) -> str:
         return f"Constant {self.constant}"
@@ -416,6 +417,11 @@ class IndexableKind(Enum):
 class IndexableInfo:
     kind: IndexableKind
     cls: Optional[Class]
+
+
+class ConstantKind(Enum):
+    integer = "int"
+    string = "str"
 
 
 class Rule(ABC):

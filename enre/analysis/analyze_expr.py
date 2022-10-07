@@ -11,7 +11,7 @@ from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
-    ModuleSummary, Constant, IndexableKind, IndexableInfo
+    ModuleSummary, Constant, IndexableKind, IndexableInfo, ConstantKind
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import AbstractValue
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
@@ -166,10 +166,11 @@ class ExprAnalyzer:
         return ret_stores, ret
 
     def aval_Str(self, str_constant: ast.Str) -> Tuple[StoreAbles, AbstractValue]:
-        return [Constant(str_constant)], []
+        str_cls = self.get_class_from_builtins(ConstantKind.string.value)
+        return [Constant(str_constant, str_cls)], []
 
     def aval_Constant(self, constant: ast.Constant) -> Tuple[StoreAbles, AbstractValue]:
-        return [Constant(constant)], []
+        return [Constant(constant, None)], []
 
     def aval_Lambda(self, lam_expr: ast.Lambda) -> Tuple[StoreAbles, AbstractValue]:
         from enre.analysis.analyze_stmt import process_parameters
@@ -297,11 +298,7 @@ class ExprAnalyzer:
                            iterable_elts: Iterable[ast.expr],
                            kind: IndexableKind,
                            expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
-        class_in_builtins: Optional[Class] = None
-        if entities := self.get_from_builtins(kind.value):
-            first_result = entities[0][0]
-            if isinstance(first_result, Class):
-                class_in_builtins = first_result
+        class_in_builtins: Optional[Class] = self.get_class_from_builtins(kind.value)
         kind_info = IndexableInfo(kind, class_in_builtins)
         iterable_store = self._builder.create_list(kind_info, expr)
         stores: List[StoreAble] = []
@@ -344,6 +341,13 @@ class ExprAnalyzer:
 
     def get_from_builtins(self, name: str) -> "Optional[AbstractValue]":
         return self.manager.get_from_builtins(name)
+
+    def get_class_from_builtins(self, name: str) -> "Optional[Class]":
+        if entities := self.get_from_builtins(name):
+            first_result = entities[0][0]
+            if isinstance(first_result, Class):
+                return first_result
+        return None
 
 
 def extend_known_possible_attribute(manager: AnalyzeManager,
