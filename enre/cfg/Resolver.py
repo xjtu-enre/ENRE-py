@@ -1,11 +1,13 @@
 import ast
+import functools
 import itertools
 from collections import defaultdict
 from typing import Dict, Set, Sequence, Iterable, List, Optional
 
 from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
-    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update
+    ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update, \
+    ConstantInstance
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo, \
@@ -13,12 +15,32 @@ from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace
 from enre.ent.entity import Class, UnknownModule, Entity
 
 
+def is_object_of_type(cls: Class, lhs: HeapObject) -> bool:
+    if isinstance(lhs, InstanceObject) and lhs.class_obj.class_ent == cls:
+        return True
+    elif isinstance(lhs, IndexableObject) and lhs.info and lhs.info.class_ent == cls:
+        return True
+    elif isinstance(lhs, ConstantInstance) and lhs.info and lhs.info.class_ent == cls:
+        return True
+    else:
+        return False
+
+
+def distill_object_of_type(lhs_slot: ObjectSlot, cls: Class) -> Iterable[HeapObject]:
+    ret: List[HeapObject] = []
+    # for obj in lhs_slot:
+    #     if is_object_of_type(cls, obj):
+    #         ret.append(obj)
+    ret = list(filter(functools.partial(is_object_of_type, cls), lhs_slot))
+    return ret
+
+
 def distill_object_of_type_and_invoke_site(lhs_slot: ObjectSlot,
                                            cls: Class,
                                            invoke: Invoke) -> Iterable[InstanceObject]:
     ret = []
     for obj in lhs_slot:
-        if isinstance(obj, InstanceObject) and obj.class_obj == cls and obj.invoke == invoke:
+        if isinstance(obj, InstanceObject) and obj.class_obj.class_ent == cls and obj.invoke == invoke:
             ret.append(obj)
     return ret
 
@@ -162,6 +184,14 @@ class Resolver:
                 already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     {self.get_const_object(fc)})
             case Constant() as c:
+                if cls := c.constant_cls:
+                    cls_obj = self.scene.summary_map[cls].get_object()
+                    assert isinstance(cls_obj, ClassObject)
+                    same_type_obj = distill_object_of_type(object_slot, cls)
+                    if not same_type_obj:
+                        constant_instance: HeapObject = ConstantInstance(cls_obj, c.constant)
+                        return update_if_not_contain_all(object_slot,
+                                                         {constant_instance})
                 already_satisfied = already_satisfied and update_if_not_contain_all(object_slot,
                                                                                     {})
         return already_satisfied

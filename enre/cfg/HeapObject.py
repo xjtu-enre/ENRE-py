@@ -162,7 +162,7 @@ class FunctionObject(HeapObject, NameSpaceObject):
 @dataclass(frozen=True)
 class InstanceMethodReference(HeapObject):
     func_obj: FunctionObject
-    from_obj: "InstanceObject | IndexableObject"
+    from_obj: "InstanceObject | IndexableObject | ConstantInstance"
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)
 
@@ -207,12 +207,37 @@ class IndexableObject(HeapObject):
         return id(self)
 
 
+@dataclass(frozen=True)
+class ConstantInstance(HeapObject):
+    """
+    constant instance
+    """
+    info: typing.Optional[ClassObject]
+    expr: ast.Constant | ast.Str
+    namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
+    depend_by: Set["ModuleSummary"] = field(default_factory=set)
+
+    def get_member(self, name: str, obj_slots: "ObjectSlot") -> None:
+        get_attribute_from_class_instance(self, name, obj_slots)
+
+    def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
+        return update_if_not_contain_all(self.namespace[name], objs)
+
+    def representation(self) -> str:
+        return "Constant"
+
+    def __hash__(self) -> int:
+        return id(self)
+
+
+
+
 ObjectSlot: TypeAlias = Set[HeapObject]
 ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]
 NameSpace: TypeAlias = Dict[str, ObjectSlot]
 
 
-def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject, attr: str,
+def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject | ConstantInstance, attr: str,
                                       obj_slot: "ObjectSlot") -> None:
     def extend_method_ref_is_not_exist(obj: "HeapObject", slot: "ObjectSlot") -> None:
         if isinstance(obj, FunctionObject):
@@ -231,6 +256,8 @@ def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject
             class_object = instance.class_obj
         elif isinstance(instance, IndexableObject):
             class_object = instance.info
+        elif isinstance(instance, ConstantInstance):
+            class_object = instance.info
         else:
             assert False
         if class_object is not None:
@@ -239,7 +266,7 @@ def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject
                 extend_method_ref_is_not_exist(obj, obj_slot)
 
 
-def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObject, slot: ObjectSlot) -> bool:
+def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObject | ConstantInstance, slot: ObjectSlot) -> bool:
     for obj in slot:
         if isinstance(obj, InstanceMethodReference):
             if obj.func_obj == obj1 and obj.from_obj == obj2:

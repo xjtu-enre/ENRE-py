@@ -167,10 +167,15 @@ class ExprAnalyzer:
 
     def aval_Str(self, str_constant: ast.Str) -> Tuple[StoreAbles, AbstractValue]:
         str_cls = self.get_class_from_builtins(ConstantKind.string.value)
-        return [Constant(str_constant, str_cls)], []
+        s = self._builder.add_move_temp(Constant(str_constant, str_cls), str_constant)
+        return [s], []
 
     def aval_Constant(self, constant: ast.Constant) -> Tuple[StoreAbles, AbstractValue]:
-        return [Constant(constant, None)], []
+        constant_cls: Optional[Class] = None
+        if isinstance(constant.value, str):
+            constant_cls = self.get_class_from_builtins(ConstantKind.string.value)
+        s = self._builder.add_move_temp(Constant(constant, constant_cls), constant)
+        return [s], []
 
     def aval_Lambda(self, lam_expr: ast.Lambda) -> Tuple[StoreAbles, AbstractValue]:
         from enre.analysis.analyze_stmt import process_parameters
