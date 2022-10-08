@@ -7,7 +7,7 @@ from typing import Dict, Set, Sequence, Iterable, List, Optional
 from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
     ClassObject, NameSpaceObject, update_if_not_contain_all, ReadOnlyObjectSlot, IndexableObject, is_dict_update, \
-    ConstantInstance
+    ConstantInstance, is_list_append
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo, \
@@ -362,7 +362,10 @@ class Resolver:
             for container, in_coming_container in itertools.product(args[0], args[1]):
                 if isinstance(container, IndexableObject) and isinstance(in_coming_container, IndexableObject):
                     return update_if_not_contain_all(container.list_contents, in_coming_container.list_contents)
-
+        elif is_list_append(func) and len(args) == 2:
+            for container, new_element in itertools.product(args[0], args[1]):
+                if isinstance(container, IndexableObject):
+                    return update_if_not_contain_all(container.list_contents, {new_element})
         return True
 
     def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ReadOnlyObjectSlot],

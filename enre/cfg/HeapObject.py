@@ -128,6 +128,7 @@ class InstanceObject(HeapObject, NameSpaceObject):
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
         get_attribute_from_class_instance(self, name, obj_slot)
+
     def representation(self) -> str:
         return f"InstanceObject: instance of {self.class_obj.class_ent.longname.longname}"
 
@@ -230,8 +231,6 @@ class ConstantInstance(HeapObject):
         return id(self)
 
 
-
-
 ObjectSlot: TypeAlias = Set[HeapObject]
 ReadOnlyObjectSlot: TypeAlias = Iterable[HeapObject]
 NameSpace: TypeAlias = Dict[str, ObjectSlot]
@@ -266,7 +265,8 @@ def get_attribute_from_class_instance(instance: InstanceObject | IndexableObject
                 extend_method_ref_is_not_exist(obj, obj_slot)
 
 
-def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObject | ConstantInstance, slot: ObjectSlot) -> bool:
+def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObject | ConstantInstance,
+                     slot: ObjectSlot) -> bool:
     for obj in slot:
         if isinstance(obj, InstanceMethodReference):
             if obj.func_obj == obj1 and obj.from_obj == obj2:
@@ -276,3 +276,7 @@ def contain_same_ref(obj1: FunctionObject, obj2: InstanceObject | IndexableObjec
 
 def is_dict_update(func: FunctionObject) -> bool:
     return func.func_ent.longname.name == "update"
+
+
+def is_list_append(func: FunctionObject) -> bool:
+    return func.func_ent.longname.name == "append"
