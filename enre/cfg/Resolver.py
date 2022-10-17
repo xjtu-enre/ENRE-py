@@ -2,7 +2,7 @@ import ast
 import functools
 import itertools
 from collections import defaultdict
-from typing import Dict, Set, Sequence, Iterable, List, Optional
+from typing import Dict, Set, Sequence, Iterable, List, Optional, Tuple
 
 from enre.cfg.call_graph import CallGraph
 from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, ObjectSlot, InstanceMethodReference, \
@@ -11,7 +11,7 @@ from enre.cfg.HeapObject import HeapObject, InstanceObject, FunctionObject, Obje
 from enre.cfg.module_tree import ModuleSummary, FunctionSummary, Rule, NameSpace, ValueFlow, \
     VariableLocal, Temporary, FuncConst, Scene, Return, StoreAble, ClassConst, Invoke, ParameterLocal, FieldAccess, \
     ModuleConst, AddBase, PackageConst, ClassAttributeAccess, Constant, AddList, IndexAccess, IndexableInfo, \
-    VariableOuter
+    VariableOuter, Arguments
 from enre.ent.entity import Class, UnknownModule, Entity
 
 
@@ -169,7 +169,7 @@ class Resolver:
                 invoke function
                 """
                 target = invoke.target
-                args = invoke.args.args
+                args = invoke.args
                 already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, current_namespace,
                                                                              object_slot)
             case FieldAccess() as field_access:
@@ -258,20 +258,25 @@ class Resolver:
     def abstract_call(self,
                       invoke: Invoke,
                       target: StoreAble,
-                      args: Sequence[StoreAble],
+                      args: Arguments,
                       namespace: NameSpace,
                       lhs_slot: ObjectSlot) -> bool:
-        args_slot: Sequence[ReadOnlyObjectSlot] = list(map(lambda x: self.get_store_able_value(x, namespace), args))
+        positional_args_slot: Sequence[ReadOnlyObjectSlot] = \
+            list(map(lambda x: self.get_store_able_value(x, namespace), args.args))
+        keyword_args = list(map(lambda x: (x[0], self.get_store_able_value(x[1], namespace)), args.kwargs))
         match target:
             case FuncConst() as fc:
                 func_obj = self.scene.summary_map[fc.func].get_object()
                 assert isinstance(func_obj, FunctionObject)
                 return update_if_not_contain_all(lhs_slot,
-                                                 self.abstract_function_object_call(func_obj, args_slot))
+                                                 self.abstract_function_object_call(func_obj,
+                                                                                    positional_args_slot,
+                                                                                    keyword_args))
             case VariableLocal() | Temporary() | ParameterLocal() as v:
                 all_satisfied = True
                 for func in namespace[v.name()]:
-                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func, args_slot,
+                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func,
+                                                                                positional_args_slot, keyword_args,
                                                                                 namespace)
                 return all_satisfied
             case ClassConst() as cc:
@@ -280,7 +285,8 @@ class Resolver:
                 if not distill_object_of_type_and_invoke_site(lhs_slot, cc.cls, invoke):
                     # if not contain instance of class, create new instance
                     return update_if_not_contain_all(lhs_slot,
-                                                     {self.abstract_class_call(invoke, cls_obj, args_slot, namespace)})
+                                                     {self.abstract_class_call(invoke, cls_obj, positional_args_slot,
+                                                                               keyword_args, namespace)})
                 else:
                     # if already contain instance of class, call initializer
                     # return True because no new instance is created, if an object is changed, the function changing the
@@ -288,14 +294,16 @@ class Resolver:
                     for obj in lhs_slot:
                         if isinstance(obj, InstanceObject):
                             if obj.class_obj.class_ent == cc.cls:
-                                self.call_initializer_on_instance(obj.class_obj, obj, args_slot, namespace)
+                                self.call_initializer_on_instance(obj.class_obj, obj, positional_args_slot,
+                                                                  keyword_args, namespace)
                     return True
 
             case FieldAccess() as field_access:
                 all_satisfied = True
                 for func in self.abstract_load(field_access, namespace):
                     all_satisfied = all_satisfied and \
-                                    self.abstract_object_call(lhs_slot, invoke, func, args_slot, namespace)
+                                    self.abstract_object_call(lhs_slot, invoke, func, positional_args_slot,
+                                                              keyword_args, namespace)
                 return all_satisfied
             case ClassAttributeAccess() as class_attribute_access:
                 class_ent = class_attribute_access.class_attribute.class_ent
@@ -304,7 +312,8 @@ class Resolver:
                 class_namespace = class_obj.get_namespace()
                 all_satisfied = True
                 for func in class_namespace[class_attribute_access.class_attribute.longname.name]:
-                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func, args_slot,
+                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func,
+                                                                                positional_args_slot, keyword_args,
                                                                                 namespace)
                 return all_satisfied
             case _:
@@ -315,24 +324,25 @@ class Resolver:
                              invoke: Invoke,
                              func: HeapObject,
                              args: Sequence[ReadOnlyObjectSlot],
+                             kwargs: Sequence[Tuple[str, ReadOnlyObjectSlot]],
                              namespace: NameSpace) -> bool:
         return_values: Iterable[HeapObject]
         match func:
             case FunctionObject() as f:
-                return_values = self.abstract_function_object_call(f, args)
+                return_values = self.abstract_function_object_call(f, args, kwargs)
             case InstanceMethodReference() as ref:
                 instance: HeapObject = ref.from_obj
                 first_arg: List[ReadOnlyObjectSlot] = [{instance}]
                 args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
-                return_values = self.abstract_function_object_call(ref.func_obj, args_slots)
+                return_values = self.abstract_function_object_call(ref.func_obj, args_slots, kwargs)
             case ClassObject() as c:
                 if not (objs := distill_object_of_type_and_invoke_site(return_slot, c.class_ent, invoke)):
                     # create new object if the return slot doesn't contain object of same type and invoke site
-                    return_values = {self.abstract_class_call(invoke, c, args, namespace)}
+                    return_values = {self.abstract_class_call(invoke, c, args, kwargs, namespace)}
                 else:
                     # just invoke initializer on the object with same type and invoke site
                     for obj in objs:
-                        self.call_initializer_on_instance(obj.class_obj, obj, args, namespace)
+                        self.call_initializer_on_instance(obj.class_obj, obj, args, kwargs, namespace)
                     return_values = {}
             case InstanceObject(i):
                 # todo: call __call__
@@ -345,7 +355,8 @@ class Resolver:
 
     def abstract_function_object_call(self,
                                       func_obj: FunctionObject,
-                                      args: Sequence[ReadOnlyObjectSlot]) -> Iterable[HeapObject]:
+                                      args: Sequence[ReadOnlyObjectSlot],
+                                      kwargs: Sequence[Tuple[str, ReadOnlyObjectSlot]]) -> Iterable[HeapObject]:
         self.call_graph.add_call(self.current_module, func_obj.func_ent)
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
@@ -369,22 +380,24 @@ class Resolver:
         return True
 
     def abstract_class_call(self, invoke: Invoke, cls: ClassObject, args: Sequence[ReadOnlyObjectSlot],
+                            kwargs: Sequence[Tuple[str, ReadOnlyObjectSlot]],
                             namespace: NameSpace) -> HeapObject:
         self.call_graph.add_call(self.current_module, cls.class_ent)
         target_summary = cls.summary
         cls_obj = target_summary.get_object()
         instance: HeapObject = InstanceObject(cls_obj, defaultdict(set), invoke)
-        self.call_initializer_on_instance(cls_obj, instance, args, namespace)
+        self.call_initializer_on_instance(cls_obj, instance, args, kwargs, namespace)
         return instance
 
     def call_initializer_on_instance(self, cls_obj: ClassObject, instance: HeapObject,
-                                     args: Sequence[ReadOnlyObjectSlot], namespace: NameSpace) -> None:
+                                     args: Sequence[ReadOnlyObjectSlot],
+                                     kwargs: Sequence[Tuple[str, ReadOnlyObjectSlot]], namespace: NameSpace) -> None:
         initializer = cls_obj.namespace["__init__"]
         first_arg: List[ReadOnlyObjectSlot] = [{instance}]
         args_slots: List[ReadOnlyObjectSlot] = first_arg + list(args)
         for obj in initializer:
             if isinstance(obj, FunctionObject):
-                self.abstract_function_object_call(obj, args_slots)
+                self.abstract_function_object_call(obj, args_slots, kwargs)
 
     def add_all_dependencies(self, module: ModuleSummary) -> None:
         for dep in module.get_object().depend_by:
@@ -511,10 +524,10 @@ class Resolver:
                 obj.get_member("__next__", next_methods)
                 for method in next_methods:
                     if isinstance(method, InstanceMethodReference):
-                        ret.update(self.abstract_function_object_call(method.func_obj, [[obj]]))
+                        ret.update(self.abstract_function_object_call(method.func_obj, [[obj]], []))
                 iter_methods: "ObjectSlot" = set()
                 obj.get_member("__iter__", iter_methods)
                 for method in iter_methods:
                     if isinstance(method, InstanceMethodReference):
-                        self.abstract_function_object_call(method.func_obj, [[obj]])
+                        self.abstract_function_object_call(method.func_obj, [[obj]], [])
         return ret
