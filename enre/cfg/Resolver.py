@@ -169,7 +169,7 @@ class Resolver:
                 invoke function
                 """
                 target = invoke.target
-                args = invoke.args
+                args = invoke.args.args
                 already_satisfied = already_satisfied and self.abstract_call(invoke, target, args, current_namespace,
                                                                              object_slot)
             case FieldAccess() as field_access:

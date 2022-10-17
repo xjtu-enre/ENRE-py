@@ -108,7 +108,7 @@ class Analyzer:
             avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, None, CallContext(),
                                   env.get_scope().get_builder(), env)
             decorator_stores, _ = avaler.aval(decorator)
-            parent_builder.add_invoke(decorator_stores, [[FuncConst(func_ent)]], decorator)
+            parent_builder.add_invoke(decorator_stores, [[FuncConst(func_ent)]], [], decorator)
         hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
         hook_scope.add_hook(body, body_env)
         return func_ent

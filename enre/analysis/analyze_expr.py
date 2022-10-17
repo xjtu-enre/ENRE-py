@@ -160,9 +160,13 @@ class ExprAnalyzer:
             use_avaler = self.get_use_avaler()
             a, _ = use_avaler.aval(arg)
             args.append(a)
+        kwargs = []
         for key_word_arg in call_expr.keywords:
-            self.aval(key_word_arg.value)
-        ret_stores = self._builder.add_invoke(caller_stores, args, call_expr)
+            key = key_word_arg.arg
+            a, _ = self.aval(key_word_arg.value)
+            if key is not None:
+                kwargs.append((key, a))
+        ret_stores = self._builder.add_invoke(caller_stores, args, kwargs, call_expr)
         return ret_stores, ret
 
     def aval_Str(self, str_constant: ast.Str) -> Tuple[StoreAbles, AbstractValue]:

@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Iterable
+from typing import List, Iterable, Tuple
 from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
@@ -387,13 +387,19 @@ class Constant(StoreAble):
 
 
 @dataclass(frozen=True)
+class Arguments:
+    args: Sequence[StoreAble]
+    kwargs: Tuple[Tuple[str, StoreAble], ...]
+
+
+@dataclass(frozen=True)
 class Invoke(StoreAble, NonConstStoreAble):
     target: StoreAble
-    args: Sequence[StoreAble]
+    args: Arguments
     expr: ast.expr
 
     def __str__(self) -> str:
-        return f"function invoke: {self.target}({', '.join(str(arg) for arg in self.args)})"
+        return f"function invoke: {self.target}({', '.join(str(arg) for arg in self.args.args)})"
 
     def get_syntax_location(self) -> ast.expr:
         return self.expr
@@ -498,21 +504,32 @@ class SummaryBuilder(object):
         self.add_store_able(temp)
         return temp
 
-    def add_invoke(self, func: StoreAbles, args: List[StoreAbles], invoke_expr: ast.expr) -> StoreAbles:
+    def add_invoke(self, func: StoreAbles, args: List[StoreAbles],
+                   kwargs: List[Tuple[str, StoreAbles]], invoke_expr: ast.expr) -> StoreAbles:
         ret: List[StoreAble] = []
         args_stores: Sequence[StoreAble]
         func_store: StoreAble
         if not func:
             # invoke nothing if func contains no StoreAble
             return []
+        kwargs1: List[List[Tuple[str, StoreAble]]] = []
+        keys = list(map(lambda x: x[0], kwargs))
+        arg_of_key_args = list(map(lambda x: x[1], kwargs))
+        for l in list(itertools.product(*arg_of_key_args)):
+            kwargs1.append(list(zip(keys, l)))
+        if not kwargs1:
+            kwargs1.append([])
+
         for l in list(itertools.product(*([func] + args))):
             for store in l:
                 self.add_store_able(store)
             func_store = l[0]
             self.add_store_able(func_store)
             args_stores = l[1:]
-            invoke = Invoke(func_store, args_stores, invoke_expr)
-            ret.append(self.add_move_temp(invoke, invoke_expr))
+            for key_args in kwargs1:
+                arguments = Arguments(args_stores, tuple(key_args))
+                invoke = Invoke(func_store, arguments, invoke_expr)
+                ret.append(self.add_move_temp(invoke, invoke_expr))
         return ret
 
     def add_inherit(self, cls: Class, args: List[StoreAbles]) -> None:
