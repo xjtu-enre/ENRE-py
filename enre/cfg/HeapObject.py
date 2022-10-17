@@ -145,10 +145,12 @@ class FunctionObject(HeapObject, NameSpaceObject):
         return self.namespace
 
     def get_member(self, name: str, obj_slot: "ObjectSlot") -> None:
+        # We can't get member of function yet
         return
 
     def write_field(self, name: str, objs: "ReadOnlyObjectSlot") -> bool:
-        return update_if_not_contain_all(self.namespace[name], objs)
+        # We can't write member of function yet
+        return True
 
     def __hash__(self) -> int:
         return id(self)

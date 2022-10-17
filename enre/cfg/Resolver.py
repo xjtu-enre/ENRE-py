@@ -234,26 +234,8 @@ class Resolver:
         return already_satisfied
 
     def resolve_return(self, rule: Return, obj: FunctionObject) -> bool:
-        match rule.ret_value:
-            case VariableLocal(v):
-                return update_if_not_contain_all(obj.return_slot, obj.namespace[v.longname.name])
-            case Temporary(name):
-                return update_if_not_contain_all(obj.return_slot, obj.namespace[name])
-            case ParameterLocal() as p:
-                return update_if_not_contain_all(obj.return_slot, obj.namespace[p.name()])
-            case FuncConst() as fc:
-                return update_if_not_contain_all(obj.return_slot, {self.scene.summary_map[fc.func].get_object()})
-            case ClassConst() as cc:
-                return update_if_not_contain_all(obj.return_slot, {self.scene.summary_map[cc.cls].get_object()})
-            case ModuleConst() as m:
-                if not isinstance(m.mod, UnknownModule):
-                    return update_if_not_contain_all(obj.return_slot, {self.scene.summary_map[m.mod].get_object()})
-                else:
-                    return True
-            case Constant():
-                return True
-            case _:
-                raise NotImplementedError(f"{rule.ret_value}")
+        ret_value = self.get_store_able_value(rule.ret_value, obj.namespace)
+        return update_if_not_contain_all(obj.return_slot, ret_value)
 
     def abstract_call(self,
                       invoke: Invoke,
