@@ -342,10 +342,10 @@ class Resolver:
         self.call_graph.add_call(self.current_module, func_obj.func_ent)
         target_summary = func_obj.summary
         # todo: pull parameter passing out, and add packing semantic in parameter passing
-        if len(args) > len(target_summary.parameter_list):
+        if len(args) > len(target_summary.positional_para_list):
             return func_obj.return_slot
         for index, arg in enumerate(args):
-            parameter_name = target_summary.parameter_list[index]
+            parameter_name = target_summary.positional_para_list[index]
             update_if_not_contain_all(func_obj.namespace[parameter_name], arg)
         self.handle_indexable_object_modify(func_obj, args)
         return func_obj.return_slot

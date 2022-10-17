@@ -175,7 +175,9 @@ class FunctionSummary(ModuleSummary):
     def __init__(self, func: Function) -> None:
         self.func = func
         self._rules: List[Rule] = []
-        self.parameter_list: List[str] = list()
+        self.positional_para_list: List[str] = list()
+        self.var_para: Optional[str] = None
+        self.kwarg: Optional[str] = None
         self._correspond_obj: Optional[FunctionObject] = None
         self._syntax_namespace: SyntaxNameSpace = dict()
 

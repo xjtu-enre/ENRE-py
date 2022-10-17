@@ -126,7 +126,8 @@ class Analyzer:
     def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
         func_span = get_syntactic_head(def_stmt)
         func_span.offset(DefaultAsyncDefHeadLen)
-        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span, def_stmt.decorator_list, env)
+        func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span,
+                                         def_stmt.decorator_list, env)
         if def_stmt.returns is not None:
             process_annotation(func_ent, self.manager, self.package_db, self.current_db, def_stmt.returns, env)
 
@@ -437,6 +438,12 @@ def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: 
         avaler.aval(annotation)
 
 
+ArgKind = int
+PArg = 0
+VarArg = 1
+KWArg = 2
+
+
 def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manager: AnalyzeManager, package_db: RootDB,
                        current_db: ModuleDB, func_ent: Entity, summary: FunctionSummary,
                        class_ctx: ty.Optional[Class] = None) -> None:
@@ -444,14 +451,21 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     ctx_fun = scope.get_ctx()
     para_constructor = LambdaParameter if isinstance(scope.get_ctx(), LambdaFunction) else Parameter
 
-    def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings") -> None:
+    def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings", arg_kind: ArgKind) -> None:
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span, current_db.module_path)
         parameter_ent = para_constructor(func_ent, parameter_loc.to_longname(), parameter_loc)
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
-        summary.parameter_list.append(a.arg)
+        if arg_kind == PArg:
+            summary.positional_para_list.append(a.arg)
+        elif arg_kind == VarArg:
+            summary.var_para = a.arg
+        elif arg_kind == KWArg:
+            summary.kwarg = a.arg
+        else:
+            assert False, "never reach"
         ctx_fun.add_ref(
             Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
         process_annotation(parameter_ent, manager, package_db, current_db, a.annotation, env)
@@ -459,7 +473,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     args_binding: "Bindings" = []
 
     for arg in args.posonlyargs:
-        process_helper(arg, ValueInfo.get_any(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding, PArg)
 
     if len(args.args) >= 1:
         first_arg = args.args[0].arg
@@ -468,23 +482,23 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
                 class_type: ValueInfo = InstanceType(class_ctx)
             else:
                 class_type = ValueInfo.get_any()
-            process_helper(args.args[0], class_type, args_binding)
+            process_helper(args.args[0], class_type, args_binding, PArg)
         elif first_arg == "cls":
             if class_ctx is not None:
                 constructor_type: ValueInfo = ConstructorType(class_ctx)
             else:
                 constructor_type = ValueInfo.get_any()
-            process_helper(args.args[0], constructor_type, args_binding)
+            process_helper(args.args[0], constructor_type, args_binding, PArg)
         else:
-            process_helper(args.args[0], ValueInfo.get_any(), args_binding)
+            process_helper(args.args[0], ValueInfo.get_any(), args_binding, PArg)
 
     for arg in args.args[1:]:
-        process_helper(arg, ValueInfo.get_any(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding, PArg)
     if args.vararg is not None:
-        process_helper(args.vararg, ValueInfo.get_any(), args_binding)
+        process_helper(args.vararg, ValueInfo.get_any(), args_binding, VarArg)
     for arg in args.kwonlyargs:
-        process_helper(arg, ValueInfo.get_any(), args_binding)
+        process_helper(arg, ValueInfo.get_any(), args_binding, KWArg)
     if args.kwarg is not None:
-        process_helper(args.kwarg, ValueInfo.get_any(), args_binding)
+        process_helper(args.kwarg, ValueInfo.get_any(), args_binding, KWArg)
 
     scope.add_continuous(args_binding)
