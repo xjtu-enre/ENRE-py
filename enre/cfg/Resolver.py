@@ -144,10 +144,10 @@ class Resolver:
                 already_satisfied = already_satisfied and self.abstract_store_field(field_access, namespace,
                                                                                     {self.get_const_object(fc)})
             case (IndexAccess() as index_access, VariableLocal() | Temporary() | ParameterLocal() as rhs):
-                already_satisfied = already_satisfied and self.abstract_store_index(index_access, namespace,
+                already_satisfied = already_satisfied and self.abstract_store_index(index_access.target, namespace,
                                                                                     namespace[rhs.name()])
             case (IndexAccess() as index_access, FuncConst() as fc):
-                already_satisfied = already_satisfied and self.abstract_store_index(index_access, namespace,
+                already_satisfied = already_satisfied and self.abstract_store_index(index_access.target, namespace,
                                                                                     {self.get_const_object(fc)})
         return already_satisfied
 
@@ -225,8 +225,13 @@ class Resolver:
             already_satisfied = already_satisfied and obj.write_field(field, rhs_slot)
         return already_satisfied
 
-    def abstract_store_index(self, index_access: IndexAccess, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
-        objs = self.get_store_able_value(index_access.target, namespace)
+    def abstract_store_index(self, access_target: StoreAble, namespace: NameSpace, rhs_slot: ObjectSlot) -> bool:
+        objs = self.get_store_able_value(access_target, namespace)
+        return self.abstract_store_index_to_objects(objs, rhs_slot)
+
+    def abstract_store_index_to_objects(self,
+                                        objs: ReadOnlyObjectSlot,
+                                        rhs_slot: ReadOnlyObjectSlot) -> bool:
         already_satisfied = True
         for obj in objs:
             if isinstance(obj, IndexableObject):
@@ -344,9 +349,37 @@ class Resolver:
         # todo: pull parameter passing out, and add packing semantic in parameter passing
         if len(args) > len(target_summary.positional_para_list):
             return func_obj.return_slot
-        for index, arg in enumerate(args):
-            parameter_name = target_summary.positional_para_list[index]
+        next_index = 0
+        while next_index < len(target_summary.positional_para_list) and next_index < len(args):
+            # passing all positional argument
+            parameter_name = target_summary.positional_para_list[next_index]
+            arg = args[next_index]
             update_if_not_contain_all(func_obj.namespace[parameter_name], arg)
+            next_index += 1
+
+        while next_index < len(target_summary.positional_para_list):
+            parameter_name = target_summary.positional_para_list[next_index]
+            non_matched_kwargs = list(filter(lambda x: x[0] != parameter_name, kwargs))
+            matched_kwargs = list(filter(lambda x: x[0] == parameter_name, kwargs))
+            if matched_kwargs:
+                kwargs = non_matched_kwargs
+                update_if_not_contain_all(func_obj.namespace[parameter_name], matched_kwargs[0][1])
+                next_index += 1
+            else:
+                break
+
+        if func_obj.summary.var_para:
+            var_para_objs = func_obj.namespace[func_obj.summary.var_para]
+            while next_index < len(args):
+                arg = args[next_index]
+                self.abstract_store_index_to_objects(var_para_objs, arg)
+                next_index += 1
+
+        if func_obj.summary.kwarg:
+            kw_para_objs = func_obj.namespace[func_obj.summary.kwarg]
+            for key, arg in kwargs:
+                self.abstract_store_index_to_objects(kw_para_objs, arg)
+
         self.handle_indexable_object_modify(func_obj, args)
         return func_obj.return_slot
 

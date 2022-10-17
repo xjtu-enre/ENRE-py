@@ -192,7 +192,7 @@ class IndexableObject(HeapObject):
     indexable builtin object like dict and list
     """
     info: typing.Optional[ClassObject]
-    expr: ast.expr
+    expr: typing.Optional[ast.expr]
     list_contents: typing.Set[HeapObject] = field(default_factory=set)
     namespace: "NameSpace" = field(default_factory=lambda: defaultdict(set))
     depend_by: Set["ModuleSummary"] = field(default_factory=set)

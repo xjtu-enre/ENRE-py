@@ -185,8 +185,13 @@ class FunctionSummary(ModuleSummary):
         if self._correspond_obj:
             return self._correspond_obj
         else:
+            from enre.cfg.HeapObject import IndexableObject
             new_obj = FunctionObject(self.func, self)
             self._correspond_obj = new_obj
+            if self.var_para:
+                new_obj.namespace[self.var_para].add(IndexableObject(None, None))
+            if self.kwarg:
+                new_obj.namespace[self.kwarg].add(IndexableObject(None, None))
             return new_obj
 
     def get_ent(self) -> Entity:
