@@ -1,4 +1,5 @@
 import ast
+import datetime
 import itertools
 import typing
 from abc import abstractmethod, ABC
@@ -522,8 +523,10 @@ class SummaryBuilder(object):
         kwargs1: List[List[Tuple[str, StoreAble]]] = []
         keys = list(map(lambda x: x[0], kwargs))
         arg_of_key_args = list(map(lambda x: x[1], kwargs))
-        for l in list(itertools.product(*arg_of_key_args)):
-            kwargs1.append(list(zip(keys, l)))
+        if len(arg_of_key_args)<=7:
+            # todo: remove this by self implemented product
+            for l in list(itertools.product(*arg_of_key_args)):
+                kwargs1.append(list(zip(keys, l)))
         if not kwargs1:
             kwargs1.append([])
 
