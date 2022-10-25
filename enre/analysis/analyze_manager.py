@@ -219,12 +219,14 @@ class AnalyzeManager:
                                   EntEnv(ScopeEnv(module_ent, module_ent.location,
                                                   SummaryBuilder(module_summary))))
 
+    def need_analyze(self, rel_path: Path) -> bool:
+        return self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path)
+
     def import_module(self, from_module_ent: Module, module_identifier: str,
                       lineno: int, col_offset: int, strict: bool) -> ty.Tuple[
         ty.Union[Module, Package], ty.Union[Module, Package]]:
         rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
-        if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
-
+        if self.need_analyze(rel_path):
             return self.root_db[rel_path].module_ent, self.root_db.get_path_ent(head_module_path)
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
             if p.is_file():
@@ -234,6 +236,8 @@ class AnalyzeManager:
                 return module_ent, self.root_db.get_path_ent(head_module_path)
             elif rel_path in self.root_db.package_tree:
                 package_ent = self.root_db.package_tree[rel_path]
+                if p.joinpath("__init__.py").exists():
+                    return self.import_module(from_module_ent, f"{module_identifier}.__init__", lineno, col_offset, strict)
                 return package_ent, self.root_db.get_path_ent(rel_path)
             else:
                 package_ent = Package(rel_path)

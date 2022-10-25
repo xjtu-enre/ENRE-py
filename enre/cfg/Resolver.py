@@ -303,6 +303,14 @@ class Resolver:
                                                                                 positional_args_slot, keyword_args,
                                                                                 namespace)
                 return all_satisfied
+            case VariableOuter() as v:
+                targets = self.scene.summary_map[v.scope].get_namespace()[v.name()]
+                all_satisfied = True
+                for func in targets:
+                    all_satisfied = all_satisfied and self.abstract_object_call(lhs_slot, invoke, func,
+                                                                                positional_args_slot, keyword_args,
+                                                                                namespace)
+                return all_satisfied
             case _:
                 raise NotImplementedError(target.__class__.__name__)
 

@@ -316,9 +316,14 @@ class Analyzer:
                     if as_name is not None:
                         location = env.get_scope().get_location().append(as_name, Span.get_nil(), None)
                         alias_ent = Alias(location.to_longname(), location, imported_ents)
+                        env.get_ctx().add_ref(Ref(RefKind.DefineKind, alias_ent, import_stmt.lineno,
+                                                  import_stmt.col_offset, False, None))
                         self.current_db.add_ent(alias_ent)
                         import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
                     else:
+                        for ent in imported_ents:
+                            env.get_ctx().add_ref(Ref(RefKind.ContainKind, ent, import_stmt.lineno,
+                                                      import_stmt.col_offset, False, None))
                         import_binding = name, [(ent, ent.direct_type()) for ent in imported_ents]
                     new_bindings.append(import_binding)
             env.get_scope().add_continuous(new_bindings)
