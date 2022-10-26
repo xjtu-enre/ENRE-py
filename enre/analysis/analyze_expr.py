@@ -145,7 +145,7 @@ class ExprAnalyzer:
     def aval_Call(self, call_expr: ast.Call) -> Tuple[StoreAbles, AbstractValue]:
         call_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db, self._typing_entities,
                                    CallContext(), self._builder, self._env)
-        caller_stores, possible_callees = call_avaler.aval(call_expr.func)
+        callee_stores, possible_callees = call_avaler.aval(call_expr.func)
         ret: AbstractValue = []
         for callee, func_type in possible_callees:
             if isinstance(func_type, ConstructorType):
@@ -166,7 +166,7 @@ class ExprAnalyzer:
             a, _ = self.aval(key_word_arg.value)
             if key is not None:
                 kwargs.append((key, a))
-        ret_stores = self._builder.add_invoke(caller_stores, args, kwargs, call_expr)
+        ret_stores = self._builder.add_invoke(callee_stores, args, kwargs, call_expr)
         return ret_stores, ret
 
     def aval_Str(self, str_constant: ast.Str) -> Tuple[StoreAbles, AbstractValue]:

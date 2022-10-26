@@ -194,6 +194,8 @@ class Analyzer:
             self.analyze(stmt, env)
             branch_env = env.pop_sub_env()
             body_env = ParallelSubEnv(body_env, branch_env)
+        if not if_stmt.orelse:
+            body_env = ParallelSubEnv(body_env, BasicSubEnv())
         forward_env = env.pop_sub_env()
         env.add_sub_env(ContinuousSubEnv(forward_env, body_env))
         out_len = len(env.get_scope())
