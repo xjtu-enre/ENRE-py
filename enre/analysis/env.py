@@ -35,7 +35,7 @@ class SubEnv(ABC):
         return ParallelSubEnv(self, sub_env)
 
     @abstractmethod
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
+    def get(self, name: str) -> SubEnvLookupResult:
         ...
 
     @abstractmethod
@@ -58,7 +58,7 @@ class BasicSubEnv(SubEnv):
             pairs = []
         self._bindings_list = [pairs]
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
+    def get(self, name: str) -> SubEnvLookupResult:
         for bindings in reversed(self._bindings_list):
             ret = get_from_bindings(name, bindings)
             if ret:
@@ -76,9 +76,9 @@ class ParallelSubEnv(SubEnv):
         self._branch1_sub_env = b1
         self._branch2_sub_env = b2
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        look_up_res1 = self._branch1_sub_env[name]
-        look_up_res2 = self._branch2_sub_env[name]
+    def get(self, name: str) -> SubEnvLookupResult:
+        look_up_res1 = self._branch1_sub_env.get(name)
+        look_up_res2 = self._branch2_sub_env.get(name)
         is_must_found = look_up_res1.must_found and look_up_res2.must_found
         found_entities = look_up_res1.found_entities + look_up_res2.found_entities
         return SubEnvLookupResult(found_entities, is_must_found)
@@ -98,14 +98,14 @@ class ContinuousSubEnv(SubEnv):
         self._forward = forward
         self._backward = backward
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        backward_lookup_res = self._backward[name]
+    def get(self, name: str) -> SubEnvLookupResult:
+        backward_lookup_res = self._backward.get(name)
         # print(f"finding name {name} in env {self}")
         if backward_lookup_res.must_found:
             return backward_lookup_res
         else:
             # print(f"name {name} not found continue find at {self._forward}")
-            forward_lookup_res = self._forward[name]
+            forward_lookup_res = self._forward.get(name)
             found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
             return SubEnvLookupResult(found_entities, forward_lookup_res.must_found)
 
@@ -119,8 +119,8 @@ class OptionalSubEnv(SubEnv):
         super().__init__(sub_env.depth + 1)
         self._optional = sub_env
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        optional_lookup_res = self._optional[name]
+    def get(self, name: str) -> SubEnvLookupResult:
+        optional_lookup_res = self._optional.get(name)
         return SubEnvLookupResult(optional_lookup_res.found_entities, False)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
@@ -172,10 +172,10 @@ class ScopeEnv:
     def get_class_ctx(self) -> "Optional[Class]":
         return self._class_ctx
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
+    def get(self, name: str) -> SubEnvLookupResult:
         ret = []
         for sub_env in reversed(self._sub_envs):
-            lookup_res = sub_env[name]
+            lookup_res = sub_env.get(name)
             sub_ents = lookup_res.found_entities
             ret.extend(sub_ents)
             if lookup_res.must_found:
@@ -227,10 +227,10 @@ class EntEnv:
     def __init__(self, scope_env: ScopeEnv):
         self.scope_envs: List[ScopeEnv] = [scope_env]
 
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
+    def get(self, name: str) -> SubEnvLookupResult:
         possible_ents: AbstractValue = []
         for scope_env in reversed(self.scope_envs):
-            lookup_res = scope_env[name]
+            lookup_res = scope_env.get(name)
             ents_in_scope = lookup_res.found_entities
             possible_ents.extend(ents_in_scope)
             if lookup_res.must_found:
