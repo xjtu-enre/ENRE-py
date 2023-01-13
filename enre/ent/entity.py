@@ -52,7 +52,8 @@ class Span:
         return _Nil_Span
 
     def offset(self, offset: int) -> None:
-        assert self.end_col == -1
+        # assert self.end_col == -1
+        self.end_col += offset
         self.start_col += offset
 
     def __hash__(self) -> int:
@@ -70,9 +71,9 @@ def get_syntactic_span(tree: ast.AST) -> Span:
 
 def get_syntactic_head(tree: ast.AST) -> Span:
     start_line = tree.lineno
-    end_line = -1
+    end_line = start_line
     start_col = tree.col_offset
-    end_col = -1
+    end_col = start_col + len(tree.name)
     return Span(start_line, end_line, start_col, end_col)
 
 
