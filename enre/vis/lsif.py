@@ -1,6 +1,4 @@
 import sys
-
-from enre.ent.EntKind import EntKind, RefKind
 sys.path.append('D:/2022/ENRE-py')
 import json
 import base64
@@ -9,6 +7,7 @@ from typing import Literal
 from enre.__main__ import enre_wrapper
 
 from enre.analysis.analyze_manager import RootDB
+from enre.ent.EntKind import EntKind, RefKind
 
 def to_lsif(package_db: RootDB):
 
@@ -99,6 +98,7 @@ def to_lsif(package_db: RootDB):
             idMap[ent.id] = entRange['id']
 
             # textDocument/hover
+            # TODO: cant show builtin function
             entHover = registerEntry('vertex', 'hoverResult',{
                 'result': {
                     'contents': [
@@ -131,9 +131,12 @@ def to_lsif(package_db: RootDB):
 
                 idMap[module_db.module_ent.id]['contains'].append(refRange['id'])
 
+                print(f"{refRange['id']}  kind: {ref.ref_kind.value}")
+
                 # process according to the relation kind
+                # TODO: do call kind need hover? 
                 # defination
-                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind:
+                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.InheritKind:
                     # TODO：可以直接ref的next指向targer_ent的resultset，然后resultset的go to defination指向targer_ent的defination result(直接在遍历entity的时候生成)(忽略了多个定义的情况)
                     definitionResult = registerEntry('vertex', 'definitionResult', {})
                     definitionEdge = registerEntry('edge', 'textDocument/definition', {'outV': refRange['id'], 'inV': definitionResult['id']})
@@ -141,9 +144,21 @@ def to_lsif(package_db: RootDB):
                     result.append(definitionResult['content'])
                     result.append(definitionEdge['content'])
 
-                    result.append(registerEntry('edge', 'item', {'outV': definitionResult['id'], 'inV': [idMap[ref.target_ent.id]]})['content'])
+                    result.append(registerEntry('edge', 'item', {'outV': definitionResult['id'], 'inVs': [idMap[ref.target_ent.id]]})['content'])
 
                     # TODO: add reference to ent's references
+                
+                # typedefinitaion
+                elif ref.ref_kind == RefKind.Annotate:
+                    typeDefinitionResult = registerEntry('vertex', 'typeDefinitionResult', {})
+                    typeDefinitionEdge = registerEntry('edge', 'textDocument/typeDefinition', {'outV': refRange['id'], 'inV': typeDefinitionResult['id']})
+
+                    result.append(typeDefinitionResult['content'])
+                    result.append(typeDefinitionEdge['content'])
+
+                    result.append(registerEntry('edge', 'item', {'outV': typeDefinitionResult['id'], 'inVs': [idMap[ref.target_ent.id]]})['content'])
+
+
 
 
 
