@@ -99,7 +99,7 @@ def to_lsif(package_db: RootDB):
             result.append(entRange['content'])
             result.append(resultSet['content'])
             result.append(nextEdge['content'])
-            idMap[ent.id] = {'id': entRange['id'], 'result_set': resultSet['id'], 'references': set()}
+            idMap[ent.id] = {'id': entRange['id'], 'result_set': resultSet['id'], 'references': []}
 
             # textDocument/hover
             # TODO: cant show builtin function
@@ -127,10 +127,12 @@ def to_lsif(package_db: RootDB):
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
 
+                # TODO: fix the wrong location of class in RefKind.define and RefKind.Inherit
                 location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
                         'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
                 refRange = registerEntry('vertex', 'range', location)
 
+                # ent is not package entity, so ref.target_ent.id must have the result_set
                 resultSet = idMap[ref.target_ent.id]['result_set'] if 'result_set' in idMap[ref.target_ent.id] else None
                 nextEdge = registerEntry('edge', 'next', {'outV': refRange['id'], 'inV': resultSet})
 
@@ -139,18 +141,11 @@ def to_lsif(package_db: RootDB):
 
                 idMap[module_db.module_ent.id]['contains'].append(refRange['id'])
 
-                print(f"{refRange['id']}  kind: {ref.ref_kind.value}")
+                print(f"{refRange['id']}  kind: {ref.ref_kind.value}, location: {location}")
 
-                # add reference to ent's references
-                # enre's entities qualified names are different from each other,
-                # so there is no need to add property: definitions (yes?)
-                references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
-                references.add(refRange['id'])
-
-                
                 # process according to the relation kind
                 # defination
-                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.InheritKind:
+                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind:
                     definitionResult = registerEntry('vertex', 'definitionResult', {})
                     definitionEdge = registerEntry('edge', 'textDocument/definition', {'outV': resultSet, 'inV': definitionResult['id']})
 
@@ -158,6 +153,12 @@ def to_lsif(package_db: RootDB):
                     result.append(definitionEdge['content'])
 
                     result.append(registerEntry('edge', 'item', {'outV': definitionResult['id'], 'inVs': [idMap[ref.target_ent.id]['id']]})['content'])
+
+                    # add reference to ent's references
+                    # enre's entities qualified names are different from each other,
+                    # so there is no need to add property: definitions (yes?)
+                    references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
+                    references.append(refRange['id'])
                 
                 # typedefinitaion
                 elif ref.ref_kind == RefKind.Annotate:
@@ -169,6 +170,16 @@ def to_lsif(package_db: RootDB):
 
                     result.append(registerEntry('edge', 'item', {'outV': typeDefinitionResult['id'], 'inVs': [idMap[ref.target_ent.id]['id']]})['content'])
 
+                    references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
+                    references.append(refRange['id'])
+
+                elif ref.ref_kind == RefKind.InheritKind:
+                    # there is no need to add add reference to ent's references
+                    # because it's added in the ref.ref_kind == RefKind.UseKind
+                    # that's the reason why I have to move the 'add references' to the inner of process of Refkind
+                    # and with this I dont have to filter the references list to remove repeted locations
+                    ...
+
 
     # add references to referenceResult('property': 'references', ignore 'definitaions')
     for rel_path, module_db in package_db.tree.items():
@@ -176,7 +187,7 @@ def to_lsif(package_db: RootDB):
             entry = idMap[ent.id]
             if 'references' in entry and len(entry['references']) > 0:
                 resultSet = entry['result_set']
-                references = list(entry['references'])
+                references = entry['references']
                 referenceResult = registerEntry('vertex', 'referenceResult', {})
                 referenceEdge = registerEntry('edge', 'textDocument/references', {'outV': resultSet, 'inV': referenceResult['id']})
                 itemEdge = registerEntry('edge', 'item', {'outV': referenceResult['id'], 'inVs': references, 'property': 'references'})
