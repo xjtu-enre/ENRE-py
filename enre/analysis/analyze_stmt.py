@@ -147,7 +147,7 @@ class Analyzer:
         class_ent = Class(new_scope.to_longname(), new_scope)
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset, False, None))
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_code_span.start_line, class_code_span.start_col, False, None))
         bases = []
         for base_expr in class_stmt.bases:
             store_ables, avalue = avaler.aval(base_expr)

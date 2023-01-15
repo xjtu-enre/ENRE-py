@@ -127,7 +127,7 @@ def to_lsif(package_db: RootDB):
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
 
-                # TODO: fix the wrong location of class in RefKind.define and RefKind.Inherit
+                # TODO: fix the wrong location of class in RefKind.Inherit(necessary?)
                 location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
                         'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
                 refRange = registerEntry('vertex', 'range', location)
