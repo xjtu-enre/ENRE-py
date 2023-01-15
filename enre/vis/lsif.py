@@ -37,7 +37,8 @@ def to_lsif(package_db: RootDB):
         type: Literal['vertex', 'edge'],
         # TODO: need to add other labels here with the support of textDocument/xxx
         label: Literal['metaData', 'source', 'capabilities', '$event', 'project', 'document', 'resultSet', 'range', 
-                    'hoverResult', 'definitionResult', 'contains', 'item', 'textDocument/hover', 'textDocument/definition'],
+                    'hoverResult', 'definitionResult', 'referenceResult', 'typeDefinitionResult', 'contains', 'item', 'next', 
+                    'textDocument/hover', 'textDocument/definition', 'textDocument/references', 'textDocument/typeDefinition'],
         extra: dict
     ) -> dict:
         id = counter.next()
@@ -72,9 +73,8 @@ def to_lsif(package_db: RootDB):
             # This could be removed if we no longer use that vscode extension (which requires this to display the document text)
                                     'contents': base64.b64encode(file.read()).decode('utf-8')})
 
-        # idMap: two kinds(1.module: {'id':, 'contains':} 2. entity: 'id')
-        # TODO: we can add a resultset for each entity
-        # TODO: entity's idMap valus should add attribute 'references': [] which contains all the references
+        # idMap: two kinds(1.module: {'id':, 'contains':} 2. entity:{'id':,'result_set':,'references':} )
+        # entity's idMap: 'references': [] which contains all the references
         idMap[module_db.module_ent.id] = {'id': fileEntry['id'], 'contains': []}
         result.append(fileEntry['content'])
 
@@ -92,10 +92,14 @@ def to_lsif(package_db: RootDB):
             location = {'start': {'line': ent.location.code_span.start_line - 1, 'character': ent.location.code_span.start_col},
                         'end': {'line': ent.location.code_span.end_line - 1, 'character': ent.location.code_span.end_col}}
             entRange = registerEntry('vertex', 'range', location) # TODO tag
+            resultSet = registerEntry('vertex', 'resultSet', {})
+            nextEdge = registerEntry('edge', 'next', {'outV': entRange['id'], 'inV': resultSet['id']})
 
             ranges.append(entRange['id'])
             result.append(entRange['content'])
-            idMap[ent.id] = entRange['id']
+            result.append(resultSet['content'])
+            result.append(nextEdge['content'])
+            idMap[ent.id] = {'id': entRange['id'], 'result_set': resultSet['id'], 'references': set()}
 
             # textDocument/hover
             # TODO: cant show builtin function
@@ -109,7 +113,7 @@ def to_lsif(package_db: RootDB):
             })
             
             result.append(entHover['content'])
-            result.append(registerEntry('edge', 'textDocument/hover', {'outV': entRange['id'], 'inV': entHover['id']})['content'])
+            result.append(registerEntry('edge', 'textDocument/hover', {'outV': resultSet['id'], 'inV': entHover['id']})['content'])
 
 
     # visit relation
@@ -127,40 +131,59 @@ def to_lsif(package_db: RootDB):
                         'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
                 refRange = registerEntry('vertex', 'range', location)
 
+                resultSet = idMap[ref.target_ent.id]['result_set'] if 'result_set' in idMap[ref.target_ent.id] else None
+                nextEdge = registerEntry('edge', 'next', {'outV': refRange['id'], 'inV': resultSet})
+
                 result.append(refRange['content'])
+                result.append(nextEdge['content'])
 
                 idMap[module_db.module_ent.id]['contains'].append(refRange['id'])
 
                 print(f"{refRange['id']}  kind: {ref.ref_kind.value}")
 
+                # add reference to ent's references
+                # enre's entities qualified names are different from each other,
+                # so there is no need to add property: definitions (yes?)
+                references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
+                references.add(refRange['id'])
+
+                
                 # process according to the relation kind
-                # TODO: do call kind need hover? 
                 # defination
                 if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.InheritKind:
-                    # TODO：可以直接ref的next指向targer_ent的resultset，然后resultset的go to defination指向targer_ent的defination result(直接在遍历entity的时候生成)(忽略了多个定义的情况)
                     definitionResult = registerEntry('vertex', 'definitionResult', {})
-                    definitionEdge = registerEntry('edge', 'textDocument/definition', {'outV': refRange['id'], 'inV': definitionResult['id']})
+                    definitionEdge = registerEntry('edge', 'textDocument/definition', {'outV': resultSet, 'inV': definitionResult['id']})
 
                     result.append(definitionResult['content'])
                     result.append(definitionEdge['content'])
 
-                    result.append(registerEntry('edge', 'item', {'outV': definitionResult['id'], 'inVs': [idMap[ref.target_ent.id]]})['content'])
-
-                    # TODO: add reference to ent's references
+                    result.append(registerEntry('edge', 'item', {'outV': definitionResult['id'], 'inVs': [idMap[ref.target_ent.id]['id']]})['content'])
                 
                 # typedefinitaion
                 elif ref.ref_kind == RefKind.Annotate:
                     typeDefinitionResult = registerEntry('vertex', 'typeDefinitionResult', {})
-                    typeDefinitionEdge = registerEntry('edge', 'textDocument/typeDefinition', {'outV': refRange['id'], 'inV': typeDefinitionResult['id']})
+                    typeDefinitionEdge = registerEntry('edge', 'textDocument/typeDefinition', {'outV': resultSet, 'inV': typeDefinitionResult['id']})
 
                     result.append(typeDefinitionResult['content'])
                     result.append(typeDefinitionEdge['content'])
 
-                    result.append(registerEntry('edge', 'item', {'outV': typeDefinitionResult['id'], 'inVs': [idMap[ref.target_ent.id]]})['content'])
+                    result.append(registerEntry('edge', 'item', {'outV': typeDefinitionResult['id'], 'inVs': [idMap[ref.target_ent.id]['id']]})['content'])
 
 
+    # add references to referenceResult('property': 'references', ignore 'definitaions')
+    for rel_path, module_db in package_db.tree.items():
+        for ent in module_db.dep_db.ents:
+            entry = idMap[ent.id]
+            if 'references' in entry and len(entry['references']) > 0:
+                resultSet = entry['result_set']
+                references = list(entry['references'])
+                referenceResult = registerEntry('vertex', 'referenceResult', {})
+                referenceEdge = registerEntry('edge', 'textDocument/references', {'outV': resultSet, 'inV': referenceResult['id']})
+                itemEdge = registerEntry('edge', 'item', {'outV': referenceResult['id'], 'inVs': references, 'property': 'references'})
 
-
+                result.append(referenceResult['content'])
+                result.append(referenceEdge['content'])
+                result.append(itemEdge['content'])
 
     # add contains edge
     for rel_path, module_db in package_db.tree.items():
