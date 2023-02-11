@@ -75,11 +75,11 @@ class Analyzer:
                 self.analyze(value, env)
 
     def analyze_function(self, name: str, args: ast.arguments, body: ty.List[ast.stmt], span: Span,
-                         decorators: ty.List[ast.expr], env: EntEnv) -> Function:
+                         decorators: ty.List[ast.expr], env: EntEnv, head_end_col: int) -> Function:
         in_class_env = isinstance(env.get_ctx(), Class)
         fun_code_span = span
         now_scope = env.get_scope().get_location()
-        new_scope = now_scope.append(name, fun_code_span, None)
+        new_scope = now_scope.append(name, fun_code_span, None, head_end_col)
         func_ent = Function(new_scope.to_longname(), new_scope)
         func_name = name
         parent_builder = env.get_scope().get_builder()
@@ -87,7 +87,7 @@ class Analyzer:
         self.current_db.add_ent(func_ent)
         # add reference of current contest to the function entity
         current_ctx = env.get_ctx()
-        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, span.start_line, span.start_col, False, None))
+        current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, span.start_line, head_end_col, False, None))
         # create a function summary
         fun_summary = self.manager.create_function_summary(func_ent)
         env.get_scope().get_builder().add_child(fun_summary)
@@ -114,20 +114,22 @@ class Analyzer:
         return func_ent
 
     def analyze_FunctionDef(self, def_stmt: ast.FunctionDef, env: EntEnv) -> None:
-        func_span = get_syntactic_head(def_stmt)
-        func_span.offset(DefaultDefHeadLen)
+        func_span = get_syntactic_span(def_stmt)
+        func_head_col = func_span.start_col + DefaultDefHeadLen
+        # func_span.offset(DefaultDefHeadLen)
         func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span,
-                                         def_stmt.decorator_list, env)
+                                         def_stmt.decorator_list, env, func_head_col)
 
         if def_stmt.returns is not None:
             process_annotation(func_ent, self.manager, self.package_db, self.current_db, def_stmt.returns, env)
         self.set_method_info(def_stmt, func_ent)
 
     def analyze_AsyncFunctionDef(self, def_stmt: ast.AsyncFunctionDef, env: EntEnv) -> None:
-        func_span = get_syntactic_head(def_stmt)
-        func_span.offset(DefaultAsyncDefHeadLen)
+        func_span = get_syntactic_span(def_stmt)
+        func_head_col = func_span.start_col + DefaultAsyncDefHeadLen
+        # func_span.offset(DefaultAsyncDefHeadLen)
         func_ent = self.analyze_function(def_stmt.name, def_stmt.args, def_stmt.body, func_span,
-                                         def_stmt.decorator_list, env)
+                                         def_stmt.decorator_list, env, func_head_col)
         if def_stmt.returns is not None:
             process_annotation(func_ent, self.manager, self.package_db, self.current_db, def_stmt.returns, env)
 
@@ -141,13 +143,14 @@ class Analyzer:
     def analyze_ClassDef(self, class_stmt: ast.ClassDef, env: EntEnv) -> None:
         avaler = self.get_default_avaler(env)
         now_location = env.get_scope().get_location()
-        class_code_span = get_syntactic_head(class_stmt)
-        class_code_span.offset(DefaultClassHeadLen)
-        new_scope = now_location.append(class_stmt.name, class_code_span, None)
+        class_code_span = get_syntactic_span(class_stmt)
+        # class_code_span.offset(DefaultClassHeadLen) # no need
+        class_head_col = class_code_span.start_col + DefaultClassHeadLen
+        new_scope = now_location.append(class_stmt.name, class_code_span, None, class_head_col)
         class_ent = Class(new_scope.to_longname(), new_scope)
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_code_span.start_line, class_code_span.start_col, False, None))
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_code_span.start_line, class_head_col, False, None))
         bases = []
         for base_expr in class_stmt.bases:
             store_ables, avalue = avaler.aval(base_expr)

@@ -53,7 +53,6 @@ class Span:
 
     def offset(self, offset: int) -> None:
         # assert self.end_col == -1
-        self.end_col += offset
         self.start_col += offset
 
     def __hash__(self) -> int:
@@ -83,21 +82,22 @@ _Default_Empty_Path = Path()
 
 
 class Location:
-    def append(self, name: str, new_span: Span, new_path: Optional[Path]) -> "Location":
+    def append(self, name: str, new_span: Span, new_path: Optional[Path], head_col: int = -1) -> "Location":
         if new_path is None:
             new_path = self._file_path
-        return Location(new_path, new_span, self._scope + [name])
+        return Location(new_path, new_span, self._scope + [name], head_col)
 
     def to_longname(self) -> EntLongname:
         return EntLongname(self._scope)
 
     def __init__(self, file_path: Path = _Default_Empty_Path, code_span: Span = _Nil_Span,
-                 scope: Optional[List[str]] = None):
+                 scope: Optional[List[str]] = None, head_col: int = -1):
         if scope is None:
             scope = []
         self._scope: List[str] = scope
         self._span = code_span
         self._file_path = file_path
+        self._head_col = head_col
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Location) and len(other._scope) == len(self._scope):
@@ -108,7 +108,7 @@ class Location:
         return False
 
     def __hash__(self) -> int:
-        return hash((".".join(self._scope), self._file_path, self._span))
+        return hash((".".join(self._scope), self._file_path, self._span, self._head_col))
 
     @classmethod
     def global_name(cls, name: str) -> "Location":
@@ -117,6 +117,10 @@ class Location:
     @property
     def code_span(self) -> Span:
         return self._span
+
+    @property
+    def head_col(self) -> int:
+        return self._head_col
 
     @property
     def file_path(self) -> Path:

@@ -73,12 +73,13 @@ def to_lsif(package_db: RootDB):
             # This could be removed if we no longer use that vscode extension (which requires this to display the document text)
                                     'contents': base64.b64encode(file.read()).decode('utf-8')})
 
-        # idMap: two kinds(1.module: {'id':, 'contains':} 2. entity:{'id':,'result_set':,'definition':,'references':} )
+        # idMap: two kinds(1.module: {'id':, 'contains':, 'foldings':} 2. entity:{'id':,'result_set':,'definition':,'references':} )
         # entity's idMap: 'references': [] which contains all the references    'definition':[] which contains the definition's id
-        idMap[module_db.module_ent.id] = {'id': fileEntry['id'], 'contains': []}
+        idMap[module_db.module_ent.id] = {'id': fileEntry['id'], 'contains': [], 'foldings': []}
         result.append(fileEntry['content'])
 
         ranges: list = idMap[module_db.module_ent.id]['contains']
+        folding_ranges: list = idMap[module_db.module_ent.id]['foldings']
         
         # same with representation.py write_ent_repr()
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous, EntKind.Module]
@@ -89,9 +90,21 @@ def to_lsif(package_db: RootDB):
             # ignore some unresolved attribuite and module kind
             if ent.kind() in helper_ent_types:
                 continue
-            location = {'start': {'line': ent.location.code_span.start_line - 1, 'character': ent.location.code_span.start_col},
-                        'end': {'line': ent.location.code_span.end_line - 1, 'character': ent.location.code_span.end_col}}
-            entRange = registerEntry('vertex', 'range', location) # TODO tag
+            
+            full_range = {'start': {'line': ent.location.code_span.start_line - 1, 'character': ent.location.code_span.start_col},
+                            'end': {'line': ent.location.code_span.end_line - 1, 'character': ent.location.code_span.end_col}}
+            # add tag and foldingRange(support Class and Func only for now)
+            if ent.kind() == EntKind.Class or ent.kind() == EntKind.Function:
+                # class:5 func: 12
+                kind = 12 if ent.kind() == EntKind.Function else 5
+                folding_ranges.append(full_range)
+                location = {'start': {'line': ent.location.code_span.start_line - 1, 'character': ent.location.head_col},
+                        'end': {'line': ent.location.code_span.start_line - 1, 'character': ent.location.head_col + len(ent.longname.name)},
+                        'tag': {'type': "definition", 'text': ent.longname.name, 'kind': kind, 'fullRange': full_range}}
+            else:
+                location = full_range
+            
+            entRange = registerEntry('vertex', 'range', location)
             resultSet = registerEntry('vertex', 'resultSet', {})
             nextEdge = registerEntry('edge', 'next', {'outV': entRange['id'], 'inV': resultSet['id']})
 
@@ -127,7 +140,6 @@ def to_lsif(package_db: RootDB):
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
 
-                # TODO: fix the wrong location of class in and RefKind.Inherit and RefKind.Aliasto
                 location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
                         'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
                 refRange = registerEntry('vertex', 'range', location)
@@ -235,6 +247,11 @@ def to_lsif(package_db: RootDB):
     for rel_path, module_db in package_db.tree.items():
         fileEntry = idMap[module_db.module_ent.id]
         result.append(registerEntry('edge', 'contains', {'outV': fileEntry['id'], 'inVs': fileEntry['contains']})['content'])
+        # add foldingRangeResult
+        foldingRangeResult = registerEntry('vertex', 'foldingRangeResult', {'result': fileEntry['foldings']})
+        result.append(foldingRangeResult['content'])
+        result.append(registerEntry('edge', 'textDocument/foldingRange', {'outV': fileEntry['id'], 'inV': foldingRangeResult['id']})['content'])
+
     
     return result
 
