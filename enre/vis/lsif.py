@@ -139,6 +139,9 @@ def to_lsif(package_db: RootDB):
             for ref in ent.refs():
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
+                
+                # TODO 这里应该去重？（因为都是同一个位置，只是ref类别不同）每个module里一个map来去重，可以算location的hash值
+                # 去重应该只是不去添加refRange，下面对每个refKind的处理还是要进行的（不进行的话会丢失一些特殊操作，或许可以设置一个flag，让重复的非特殊的ref只操作一次）
 
                 location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
                         'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
@@ -166,12 +169,17 @@ def to_lsif(package_db: RootDB):
 
                 # process according to the relation kind
                 # defination
-                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.ImportKind or ref.ref_kind == RefKind.SetKind:
+                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.ContainKind or ref.ref_kind == RefKind.SetKind:
                     # add reference to ent's references
                     # enre's entities qualified names are different from each other,
                     # so there is no need to add property: definitions (yes?)
                     references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
                     references.append(refRange['id'])
+
+                elif ref.ref_kind == RefKind.ImportKind:
+                    # no need to add references because import from would add define or contain kind, so add references above
+                    # TODO: is import xx should be consider?
+                    ...
                 
                 # typedefinitaion
                 elif ref.ref_kind == RefKind.Annotate:
