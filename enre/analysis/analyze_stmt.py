@@ -290,8 +290,8 @@ class Analyzer:
                 self.current_db.add_ent(alias_ent)
                 alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
                 env.get_scope().add_continuous(alias_binding)
-            env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, import_stmt.lineno,
-                                      import_stmt.col_offset, False, None))
+            env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, module_alias.lineno,
+                                      module_alias.col_offset, False, None))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:
         module_identifier = import_stmt.module
@@ -313,7 +313,7 @@ class Analyzer:
                 import_binding: Binding
                 for e in imported_ents:
                     current_ctx.add_ref(
-                        Ref(RefKind.ImportKind, e, import_stmt.lineno, import_stmt.col_offset, False, None))
+                        Ref(RefKind.ImportKind, e, alias.lineno, alias.col_offset, False, None))
                 if name == "*":
                     for ent in imported_ents:
                         new_bindings.append((ent.longname.name, [(ent, ent.direct_type())]))

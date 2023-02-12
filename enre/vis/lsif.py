@@ -149,6 +149,9 @@ def to_lsif(package_db: RootDB):
                     references.append(idMap[ref.target_ent.id]['id'])
                     # no need to add range vertex because it's added above
                     continue
+                elif ref.ref_kind == RefKind.ContainKind:
+                    # no need to add range unless we need to add package info
+                    continue
 
                 # TODO 或许可以设置一个flag，让重复的非特殊的ref只操作一次(这里还会有重复记录吗？)
                 refRange_span = Span(ref.lineno - 1, ref.col_offset, ref.lineno - 1, ref.col_offset + len(ref.target_ent.longname.name))
@@ -183,7 +186,7 @@ def to_lsif(package_db: RootDB):
 
                 # process according to the relation kind
                 # defination
-                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.ContainKind or ref.ref_kind == RefKind.SetKind:
+                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.SetKind or ref.ref_kind == RefKind.ImportKind:
                     # add reference to ent's references
                     # enre's entities qualified names are different from each other,
                     # so there is no need to add property: definitions (yes?)
@@ -191,8 +194,7 @@ def to_lsif(package_db: RootDB):
                     references.append(refRange['id'])
 
                 elif ref.ref_kind == RefKind.ImportKind:
-                    # no need to add references because import from would add define or contain kind, so add references above
-                    # TODO: is import xx should be consider?
+                    # TODO: is import xx and from xx import * should be consider?
                     ...
                 
                 # typedefinitaion
