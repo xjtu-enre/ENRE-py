@@ -8,6 +8,7 @@ from enre.__main__ import enre_wrapper
 
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind, RefKind
+from enre.ent.entity import Span
 
 def to_lsif(package_db: RootDB):
 
@@ -131,6 +132,8 @@ def to_lsif(package_db: RootDB):
 
     # visit relation
     for rel_path, module_db in package_db.tree.items():
+        # rangeMap: avoid repeated adding range vertex of the same location
+        rangeMap: dict = {}
         helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
         # this section may put into the section of visiting entity?
         for ent in module_db.dep_db.ents:
@@ -140,36 +143,47 @@ def to_lsif(package_db: RootDB):
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
                 
-                # TODO 这里应该去重？（因为都是同一个位置，只是ref类别不同）每个module里一个map来去重，可以算location的hash值
-                # 去重应该只是不去添加refRange，下面对每个refKind的处理还是要进行的（不进行的话会丢失一些特殊操作，或许可以设置一个flag，让重复的非特殊的ref只操作一次）
-
-                location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
-                        'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
-                refRange = registerEntry('vertex', 'range', location)
-
-                result.append(refRange['content'])
-
-                # ent is not package entity, so ref.target_ent.id must have the result_set
-                try:
-                    resultSet = idMap[ref.target_ent.id]['result_set'] if 'result_set' in idMap[ref.target_ent.id] else None
-                except:
-                    # TODO some builtin and unknown ent dont have idMap[ref.target_ent.id]
-                    # so there will throw error
-                    # print("--------error----------------")
-                    # print(ref.target_ent.longname.longname, ent.longname.longname)
-                    # print(f"{refRange['id']}  kind: {ref.ref_kind.value}, location: {location}")
+                # defineKind
+                if ref.ref_kind == RefKind.DefineKind:
+                    references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
+                    references.append(idMap[ref.target_ent.id]['id'])
+                    # no need to add range vertex because it's added above
                     continue
-                
-                nextEdge = registerEntry('edge', 'next', {'outV': refRange['id'], 'inV': resultSet})
-                result.append(nextEdge['content'])
 
-                idMap[module_db.module_ent.id]['contains'].append(refRange['id'])
+                # TODO 或许可以设置一个flag，让重复的非特殊的ref只操作一次(这里还会有重复记录吗？)
+                refRange_span = Span(ref.lineno - 1, ref.col_offset, ref.lineno - 1, ref.col_offset + len(ref.target_ent.longname.name))
 
-                # print(f"{refRange['id']}  kind: {ref.ref_kind.value}, location: {location}")
+                if refRange_span not in rangeMap:
+                    location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
+                            'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
+                    refRange = registerEntry('vertex', 'range', location)
+
+                    result.append(refRange['content'])
+
+                    rangeMap[refRange_span] = refRange
+
+                    # ent is not package entity, so ref.target_ent.id must have the result_set
+                    try:
+                        resultSet = idMap[ref.target_ent.id]['result_set'] if 'result_set' in idMap[ref.target_ent.id] else None
+                    except:
+                        # TODO some builtin and unknown ent dont have idMap[ref.target_ent.id]
+                        # so there will throw error
+                        # print("--------error----------------")
+                        # print(ref.target_ent.longname.longname, ent.longname.longname)
+                        # print(f"{refRange['id']}  kind: {ref.ref_kind.value}, location: {location}")
+                        continue
+                    
+                    nextEdge = registerEntry('edge', 'next', {'outV': refRange['id'], 'inV': resultSet})
+                    result.append(nextEdge['content'])
+
+                    idMap[module_db.module_ent.id]['contains'].append(refRange['id'])
+                else:
+                    refRange = rangeMap[refRange_span]
+
 
                 # process according to the relation kind
                 # defination
-                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.ContainKind or ref.ref_kind == RefKind.SetKind:
+                if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.ContainKind or ref.ref_kind == RefKind.SetKind:
                     # add reference to ent's references
                     # enre's entities qualified names are different from each other,
                     # so there is no need to add property: definitions (yes?)
