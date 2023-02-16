@@ -21,7 +21,7 @@ For more detailed information on python entities and dependencies, see the [doc]
 ## Usage
 Use `-h` or `--help` option to check usable options.
 ```shell
-usage: enre.exe [-h] [--profile] [--cfg] [--compatible] [--builtins BUILTINS] [--cg] [root path]
+usage: enre.exe [-h] [--profile] [--cfg] [--output] [--compatible] [--builtins BUILTINS] [--cg] [root path]
 
 positional arguments:
   root path            root package path
@@ -30,6 +30,7 @@ options:
   -h, --help           show this help message and exit
   --profile            output consumed time in json format
   --cfg                run control flow analysis and output module summaries
+  --output             choose '.json' (default) or '.lsif' to specify format
   --compatible         output compatible format
   --builtins BUILTINS  builtins module path
   --cg                 dump call graph in json

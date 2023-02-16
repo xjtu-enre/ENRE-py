@@ -1,10 +1,7 @@
-import sys
-sys.path.append('D:/2022/ENRE-py')
 import json
 import base64
 from pathlib import Path
 from typing import Literal
-from enre.__main__ import enre_wrapper
 
 from enre.analysis.analyze_manager import RootDB
 from enre.ent.EntKind import EntKind, RefKind
@@ -278,23 +275,4 @@ def to_lsif(package_db: RootDB):
 
     
     return result
-
-
-
-
-
-if __name__ == '__main__':
-    root_path = Path(sys.argv[1])
-    
-    manager = enre_wrapper(root_path, True, False, False, None)
-    
-    print("------------------start-----------------------")
-    ret = to_lsif(manager.root_db)
-
-    # print(str(ret))
-
-    with open(root_path.absolute().joinpath('output.lsif'), 'w') as file:
-        for line in ret:
-            file.write(line)
-            file.write('\n')
     
