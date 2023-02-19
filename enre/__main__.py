@@ -73,7 +73,7 @@ def enre_wrapper(root_path: Path, output_format: str, compatible_format: bool, n
         repr = to_lsif(manager.root_db)
         with open(out_path, 'w') as file:
             for line in repr:
-                file.write(line)
+                json.dump(line, file)
                 file.write('\n')
 
     return manager
