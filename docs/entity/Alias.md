@@ -42,3 +42,8 @@ entity:
     loc: '2:19'
 ```
 
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
+

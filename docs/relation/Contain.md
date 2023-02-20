@@ -43,3 +43,8 @@ relation:
     loc: 'file3'
     type: Contain
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

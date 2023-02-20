@@ -68,3 +68,8 @@ entity:
     name: attribute_f
     loc: '11:13'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

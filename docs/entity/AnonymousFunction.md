@@ -27,3 +27,8 @@ entity:
     name: ''
     loc: '1:0'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

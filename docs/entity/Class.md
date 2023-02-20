@@ -106,30 +106,38 @@ entity:
 
 ```python
 //// test_abstract_class.py
+from abc import abstractmethod, ABCMeta, ABC
+
+
 class A(ABC):
     ...
 
 
 class B:
     class Inner:
+        __metaclass__ = ABCMeta
+
+        @abstractmethod
         def __init__(self):
-            if self.__class__.__name__ == "inner":
+            if self.__class__.__name__ == "Inner":
                 raise NotImplementedError("You can't instantiate this abstract class. Derive it, please.")
 
-        def __new__(self):
-            if self.__class__.__name__ == "inner":
+        @abstractmethod
+        def __new__(cls):
+            if cls.__class__.__name__ == "Inner":
                 raise NotImplementedError("You can't instantiate this abstract class. Derive it, please.")
 
+        @abstractmethod
         def func1(self):
-            raise NotImplementedError("You can't instantiate this abstract class. Derive it, please.")
+            pass
 
         def func2(self):
-            a = 1
-            raise NotImplementedError("You can't instantiate this abstract class. Derive it, please.")
+            ...
 
     @abstractmethod
     def func3(self):
         ...
+
 ```
 
 ```yaml
@@ -140,44 +148,46 @@ entity:
     - type: Class
       longname: test_abstract_class.A
       name: A
-      loc: '1:6'
-      abstract_class: True
-      abstract_method_list: None
+      loc: '4:6'
+      abstract: true
     - type: Class
       longname: test_abstract_class.B
       name: B
-      loc: '5:6'
-      abstract_class: True
-      abstract_method_list: func3
+      loc: '8:6'
+      abstract: true
     - type: Class
       longname: test_abstract_class.B.Inner
       name: Inner
-      loc: '6:10'
-      abstract_class: True
-      abstract_method_list: __init__, __new__, func1
+      loc: '9:10'
+      abstract: true
     - type: Function
       longname: test_abstract_class.B.Inner.__init__
       name: __init__
-      loc: '7:12'
-      method_kind: Abstract Constructor
+      loc: '13:12'
+      abstract: true
     - type: Function
       longname: test_abstract_class.B.Inner.__new__
       name: __new__
-      loc: '11:12'
-      method_kind: Abstract Constructor
+      loc: '18:12'
+      abstract: true
     - type: Function
       longname: test_abstract_class.B.Inner.func1
       name: func1
-      loc: '14:12'
-      method_kind: Abstract Method
+      loc: '23:12'
+      abstract: true
     - type: Function
       longname: test_abstract_class.B.Inner.func2
       name: func2
-      loc: '17:12'
-      method_kind: None
+      loc: '26:12'
     - type: Function
       longname: test_abstract_class.B.func3
       name: func3
-      loc: '22:8'
-      method_kind: Abstract Method
+      loc: '30:8'
+      abstract: true
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
+| isAbstract | Indicates whether the class or function is abstract. | `boolean` | `false` |

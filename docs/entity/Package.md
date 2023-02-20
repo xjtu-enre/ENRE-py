@@ -54,3 +54,8 @@ entity:
     type: Package
 ```
 
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
+

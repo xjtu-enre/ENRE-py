@@ -9,3 +9,8 @@ name: Alias
 
 ##### Examples
 Same as the [Import](Import.md)
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

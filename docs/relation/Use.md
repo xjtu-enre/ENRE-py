@@ -371,3 +371,8 @@ relation:
       loc: '10:21'
 
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
