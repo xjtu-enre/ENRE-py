@@ -122,3 +122,8 @@ relation:
     to: Module:'module_c'
     loc: 'file1:6:11'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

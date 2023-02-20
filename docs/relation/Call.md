@@ -258,3 +258,8 @@ relation:
       to: Function:'test_decorator_call.f1'
       loc: '9:1'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

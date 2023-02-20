@@ -318,3 +318,8 @@ relation:
     to: AnonymousFunction:'test_define_anonnymous.ClassA'[@loc=7]
     loc: '7:4'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

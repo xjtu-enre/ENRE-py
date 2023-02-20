@@ -42,3 +42,8 @@ relation:
     to: Class:'test_annotation.ClassA'
     loc: '10:11'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

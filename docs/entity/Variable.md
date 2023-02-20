@@ -189,3 +189,8 @@ entity:
     name: d
     loc: '7:11'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

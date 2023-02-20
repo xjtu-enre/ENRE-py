@@ -93,3 +93,8 @@ entity:
     name: t
     loc: '13:7'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|

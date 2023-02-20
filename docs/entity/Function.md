@@ -122,3 +122,54 @@ entity:
     name: inner_inner
     loc: '4:12'
 ```
+
+###### Abstract Function Definition
+```python
+//// test_abstract_function.py
+from abc import ABC, abstractmethod
+
+
+class Foo(ABC):
+    @abstractmethod
+    def foo1(self):
+        pass
+
+    @abstractmethod
+    def foo2(self):
+        pass
+
+    def foo3(self):
+        ...
+
+```
+```yaml
+name: AbstractFunctionDefinition
+entity:
+  extra: false
+  items:
+  - type: Class
+    longname: test_abstract_function.Foo
+    name: Foo
+    loc: '4:6'
+    abstract: true
+  - type: Function
+    longname: test_abstract_function.foo1
+    name: foo1
+    loc: '6:8'
+    abstract: true
+  - type: Function
+    longname: test_abstract_function.foo2
+    name: foo2
+    loc: '10:8'
+    abstract: true
+  - type: Function
+    longname: test_abstract_function.foo3
+    name: foo3
+    loc: '13:8'
+```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
+| isAbstract | Indicates whether the class or function is abstract. | `boolean` | `false` |

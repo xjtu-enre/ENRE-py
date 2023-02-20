@@ -83,3 +83,8 @@ relation:
     to: Attribute:'test_set_attribute.Base.static_attr'
     loc: '16:5'
 ```
+
+### Properties
+
+| Name | Description | Type | Default |
+|---|---|:---:|:---:|
