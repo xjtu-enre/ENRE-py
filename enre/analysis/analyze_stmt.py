@@ -173,7 +173,7 @@ class Analyzer:
         env.pop_scope()
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
-        # known the class's attribute
+        # know the class's attribute
 
     def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
         in_len = len(env.get_scope())
@@ -296,7 +296,7 @@ class Analyzer:
         current_ctx = env.get_ctx()
         new_bindings: "Bindings"
         if not isinstance(file_ent, UnknownModule):
-            # if the imported module can found in package
+            # if the imported module can be found in package
             frame_entities: ty.List[ty.Tuple[Entity, ValueInfo]]
             new_bindings = []
             for alias in import_stmt.names:
@@ -317,7 +317,7 @@ class Analyzer:
                 new_bindings.append(import_binding)
             env.get_scope().add_continuous(new_bindings)
         else:
-            # importing entities belong to a unknown module
+            # importing entities belong to an unknown module
             self.package_db.add_ent_global(file_ent)
             frame_entities = []
             new_bindings = []

@@ -3,20 +3,24 @@ import itertools
 from abc import ABC
 from dataclasses import dataclass
 from typing import Sequence, Optional, Iterable
-from typing import Tuple, List
+from typing import Tuple, List, TYPE_CHECKING
+import typeshed_client
 
+from enre.analysis.analyze_builtins import BuiltinsVisitor
 from enre.analysis.analyze_manager import RootDB, ModuleDB, AnalyzeManager
 # AValue stands for Abstract Value
 from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
+if TYPE_CHECKING:
+    from enre.analysis.env import Bindings
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
     ModuleSummary
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import AbstractValue
+from enre.ent.entity import AbstractValue, Variable
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue, \
-    Function
+    Function, BuiltinsEnt, EntLongname
 from enre.ref.Ref import Ref
 
 AnonymousFakeName = "$"
@@ -95,6 +99,7 @@ class ExprAnalyzer:
         lookup_res = self._env[name_expr.id]
         ent_objs = lookup_res.found_entities
         ctx = self._env.get_ctx()
+
         for ent, ent_type in ent_objs:
             ctx.add_ref(self.create_ref_by_ctx(ent, name_expr.lineno, name_expr.col_offset, self._typing_entities,
                                                self._exp_ctx, name_expr))
@@ -108,12 +113,28 @@ class ExprAnalyzer:
                         store_ables.append(s)
                 return store_ables, ent_objs
             else:
-                unknown_var = UnknownVar.get_unknown_var(name_expr.id)
-                self._current_db.add_ent(unknown_var)
+                # No builtins cache, create builtins cache.
+                var = BuiltinsVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
+                store_ables: List[StoreAble] = []
+
+                if not var:
+                    var = UnknownVar.get_unknown_var(name_expr.id)
+                    self._current_db.add_ent(var)
+                    ent_objs = [(var, ValueInfo.get_any())]
+                else:
+                    # Search in builtins cache.
+                    lookup_res = self.manager.builtins_env[name_expr.id]
+                    ent_objs = lookup_res.found_entities
+                    if ent_objs:
+                        for ent, _ in ent_objs:
+                            s = get_named_store_able(ent, name_expr)
+                            if s:
+                                store_ables.append(s)
+
                 ctx.add_ref(
-                    self.create_ref_by_ctx(unknown_var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
+                    self.create_ref_by_ctx(var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
                                            self._exp_ctx, name_expr))
-                return [], [(unknown_var, ValueInfo.get_any())]
+                return store_ables, ent_objs
         else:
             lhs_objs: SetContextValue = []
             if ent_objs:
@@ -127,6 +148,8 @@ class ExprAnalyzer:
                                                              self._current_db,
                                                              (name_expr.lineno, name_expr.col_offset), False))
             return lhs_store_ables, ent_objs
+
+
 
     def aval_Attribute(self, attr_expr: ast.Attribute) -> Tuple[StoreAbles, AbstractValue]:
         use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db,

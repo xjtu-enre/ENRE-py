@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
+
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
 if typing.TYPE_CHECKING:
     from enre.ref.Ref import Ref
+    from enre.analysis.env import Bindings
 
 _EntityID = 0
 
@@ -239,11 +241,11 @@ class Package(Entity, NameSpaceEntity):
 
 
 class Module(Entity, NameSpaceEntity):
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path, hard_longname: Optional[List[str]] = None):
         # file_path: relative path to root directory's parent
         import os
         path = os.path.normpath(str(file_path)[:-len(".py")])
-        path_list = path.split(os.sep)
+        path_list = path.split(os.sep) if hard_longname is None else hard_longname
         longname = EntLongname(path_list)
         location = Location(file_path, Span.get_nil(), path_list)
         super(Module, self).__init__(longname, location)
@@ -268,6 +270,8 @@ class Module(Entity, NameSpaceEntity):
 
     def direct_type(self) -> "ModuleType":
         return ModuleType(self.names)
+
+
 
 
 class ModuleAlias(Entity):
@@ -406,6 +410,25 @@ class UnknownVar(Entity):
             unknown_var = UnknownVar(name)
             cls._unknown_pool[name] = unknown_var
             return unknown_var
+
+
+class BuiltinsEnt(Entity):
+    _builtins_pool: Dict[str, "BuiltinsEnt"] = dict()
+
+    def __init__(self, name: str):
+        self._name = name
+
+    def kind(self) -> EntKind:
+        return EntKind.Builtins
+
+    @classmethod
+    def get_builtins_var(cls, name: str) -> bool:
+        if name in cls._builtins_pool.keys():
+            return True
+        else:
+            builtins_var = BuiltinsEnt(name)
+            cls._builtins_pool[name] = builtins_var
+            return False
 
 
 class UnknownModule(Module):

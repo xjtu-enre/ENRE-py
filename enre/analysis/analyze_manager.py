@@ -1,12 +1,24 @@
 import ast
+import os
 import typing as ty
 from pathlib import Path
+
+if ty.TYPE_CHECKING:
+    from enre.analysis.env import Bindings
 
 from enre.analysis.env import EntEnv, ScopeEnv
 from enre.cfg.module_tree import FileSummary, SummaryBuilder, ModuleSummary, ClassSummary, FunctionSummary, Scene
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function
+from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function, Location, _Nil_Span
 from enre.ref.Ref import Ref
+import enre.typeshed_client as typeshed_client
+from enre.typeshed_client.typeshed.frozen_path import app_path
+
+
+typeshed_path = Path(app_path("\stdlib"))
+ctx = typeshed_client.get_search_context(typeshed=typeshed_path)
+builtins_stub_names = typeshed_client.get_stub_names("builtins", search_context=ctx)
+builtins_stub_file = typeshed_client.get_stub_file("builtins", search_context=ctx)
 
 
 class ModuleStack:
@@ -56,6 +68,13 @@ class ModuleDB:
             return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
         except (SyntaxError, UnicodeDecodeError):
             return ast.Module([])
+
+    def get_module_level_bindings(self) -> "Bindings":
+        bindings: Bindings = []
+        for name, ents in self.module_ent.names.items():
+            bound_ents = [(ent, ent.direct_type()) for ent in ents]
+            bindings.append((name, bound_ents))
+        return bindings
 
 
 class RootDB:
@@ -118,10 +137,18 @@ def merge_db(package_db: RootDB) -> "DepDB":
 
 class AnalyzeManager:
     def __init__(self, root_path: Path):
+        self.builtins_bindings = None
         self.project_root = root_path
         self.root_db = RootDB(root_path)
         self.module_stack = ModuleStack()
         self.scene: Scene = Scene()
+
+        builtins_module = Module(builtins_stub_file, hard_longname=["builtins"])
+        builtins_module_summary = self.create_file_summary(builtins_module)
+        module_db = ModuleDB(builtins_stub_file, builtins_module)
+        self.root_db.tree[builtins_stub_file] = module_db
+        self.builtins_env = EntEnv(ScopeEnv(ctx_ent=builtins_module, location=Location(builtins_stub_file, _Nil_Span, ["builtins"]),
+                                            builder=SummaryBuilder(builtins_module_summary)))
 
     def dir_structure_init(self, file_path: ty.Optional[Path] = None) -> bool:
         in_package = False
@@ -172,10 +199,23 @@ class AnalyzeManager:
                 self.module_stack.push(rel_path)
                 module_summary = self.create_file_summary(module_ent)
                 builder = SummaryBuilder(module_summary)
+
+                builtins_module_db = self.root_db[builtins_stub_file]
+                top_scope = ScopeEnv(module_ent, module_ent.location, SummaryBuilder(module_summary))
+                self.add_builtins_binding_to_scope(builtins_module_db, top_scope)
+
                 checker.analyze_top_stmts(checker.current_db.tree.body, builder,
-                                          EntEnv(ScopeEnv(module_ent, module_ent.location,
-                                                          SummaryBuilder(module_summary))))
+                                          EntEnv(top_scope))
                 self.module_stack.pop()
+
+    def add_builtins_binding_to_scope(self, module_db: ModuleDB, scope: ScopeEnv) -> None:
+        if self.builtins_bindings:
+            scope.add_continuous(self.builtins_bindings)
+            return
+        bindings: Bindings = module_db.get_module_level_bindings()
+        bindings.append(("builtins", [(module_db.module_ent, module_db.module_ent.direct_type())]))
+        scope.add_continuous(bindings)
+        self.builtins_bindings = bindings
 
     def import_module(self, from_module_ent: Module, module_identifier: str,
                       lineno: int, col_offset: int, strict: bool) -> ty.Tuple[

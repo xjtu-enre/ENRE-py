@@ -32,6 +32,7 @@ class EntKind(Enum):
     ReferencedAttr = "Referenced Attribute"
     AmbiguousAttr = "Ambiguous Attribute"
     Anonymous = "Anonymous"
+    Builtins = "Builtins"
 
 # KindSet is a kind for `Set` relation
 # like
