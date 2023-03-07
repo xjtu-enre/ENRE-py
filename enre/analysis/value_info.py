@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from enre.ent.entity import Class, Entity, NamespaceType
+    from enre.ent.entity import Class, Entity, NamespaceType, Attribute
 
 
 class ValueInfo:
@@ -28,6 +28,37 @@ class InstanceType(ValueInfo):
 
     def lookup_attr(self, attr: str) -> List["Entity"]:
         return self.class_ent.get_attribute(attr)
+
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        ...
+
+    def get_class_ent(self):
+        return self.class_ent
+
+
+class AttrInstanceType(ValueInfo):
+    def __init__(self, attr_ent: "Attribute"):
+        self.attr_ent = attr_ent
+
+    def lookup_attr(self, attr: str) -> List["Entity"]:
+        return self.attr_ent.get_attribute(attr)
+
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        ...
+
+    def get_attr_ent(self):
+        return self.attr_ent
+
+
+class AttributeType(ValueInfo):
+    def __init__(self, attr_ent: "Attribute"):
+        self.attr_ent = attr_ent
+
+    def lookup_attr(self, attr: str) -> List["Entity"]:
+        return self.attr_ent.get_attribute(attr)
+
+    def to_attr_type(self) -> AttrInstanceType:
+        return AttrInstanceType(self.attr_ent)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         ...

@@ -93,7 +93,7 @@ def dummy_iter_store(_: StoreAbles, builder: SummaryBuilder) -> StoreAbles:
 def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
                     value_type: ValueInfo,
                     new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
-                    ctx: "AnalyzeContext") -> None:
+                    ctx: "AnalyzeContext") -> Entity:
     """
     Depends on which kind of the context entity is, define/set/use variable entity of the environment or
     the current.
@@ -105,15 +105,15 @@ def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
     """
     if isinstance(target, tuple):
         tar_ent, _ = target
-        assign_known_target(tar_ent, value_type, new_bindings, ctx)
+        return assign_known_target(tar_ent, value_type, new_bindings, ctx)
     elif isinstance(target, NewlyCreated):
-        newly_define_semantic(target, value_type, new_bindings, ctx)
+        return newly_define_semantic(target, value_type, new_bindings, ctx)
 
 
 def newly_define_semantic(newly_created: NewlyCreated,
                           value_type: ValueInfo,
                           new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
-                          ctx: "AnalyzeContext") -> None:
+                          ctx: "AnalyzeContext") -> Entity:
     location = ctx.env.get_scope().get_location()
     location = location.append(newly_created.unknown_ent.longname.name, newly_created.span, None)
     ctx_ent = ctx.env.get_ctx()
@@ -126,15 +126,19 @@ def newly_define_semantic(newly_created: NewlyCreated,
             ctx.current_db.add_ent(new_attr)
             ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
             ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
+            return new_attr
         else:
             # newly defined variable
             new_var = Variable(location.to_longname(), location)
+            # add type to this newly variable
+            new_var.add_type(value_type)
             new_bindings.append((new_var.longname.name, [(new_var, value_type)]))
             ctx.current_db.add_ent(new_var)
             ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False, None))
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
+            return new_var
     elif isinstance(tar_ent, UnresolvedAttribute):
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
@@ -144,17 +148,21 @@ def newly_define_semantic(newly_created: NewlyCreated,
             receiver_class.add_ref(
                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
+            return new_attr
 
 
 def assign_known_target(tar_ent: Entity,
                         value_type: ValueInfo,
                         new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
-                        ctx: "AnalyzeContext") -> None:
+                        ctx: "AnalyzeContext") -> Entity:
     target_lineno, target_col_offset = ctx.coordinate
     # target should be the entity which the target_expr could possibl   y eval to
     if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
         # if target entity is a defined variable or parameter, just add the target new type to the environment
         # env.add(target, value_type)
+
+        # add type to this known variable
+        tar_ent.add_type(value_type)
         new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
         # add_target_var(target, value_type, env, self.dep_db)
         # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
@@ -172,6 +180,7 @@ def assign_known_target(tar_ent: Entity,
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
     else:
         ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
+    return tar_ent
 
 
 def compress_abstract_value(entities: AbstractValue) -> AbstractValue:
@@ -198,11 +207,13 @@ def flatten_bindings(bindings: "Bindings") -> "Bindings":
 def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_expr: ast.expr,
                     r_store_ables: StoreAbles,
                     builder: SummaryBuilder,
-                    ctx: "AnalyzeContext") -> StoreAbles:
+                    ctx: "AnalyzeContext") -> (StoreAbles, List[AbstractValue]):
     new_bindings: "Bindings" = []
+    ents: "AbstractValue" = []
     for _, value_type in rvalue:
         for target in lvalue:
-            assign_semantic(target, value_type, new_bindings, ctx)
+            ent = assign_semantic(target, value_type, new_bindings, ctx)
+            ents.append((ent, ent.direct_type()))
     new_bindings = flatten_bindings(new_bindings)
     lhs_store_ables = []
     for n, target_ents in new_bindings:
@@ -211,7 +222,7 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_exp
             if lhs_store_able:
                 lhs_store_ables.append(lhs_store_able)
     ctx.env.get_scope().add_continuous(new_bindings)
-    return lhs_store_ables
+    return lhs_store_ables, ents
 
 
 def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: StoreAbles, builder: SummaryBuilder,
@@ -230,8 +241,14 @@ def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: Stor
     #         unpack_list(tar_list, distiller, ctx)
     #     case StarTar(tar):
     #         unpack_list([tar], distiller, ctx)
-
-    return map(lambda v: v[0], set_avaler.aval(target)[1])
+    temp_map = set_avaler.aval(target)[1]
+    for var in temp_map:
+        if isinstance(var, tuple):
+            var = var[0] if isinstance(var[0], Variable) else var[1]
+        if isinstance(var, Variable):
+            for value_info in rvalue:
+                var.add_type(value_info[1])
+    return map(lambda v: v[0], temp_map)
 
 
 def assign2target(target: ast.expr, rvalue_expr: Optional[ast.expr], builder: SummaryBuilder,

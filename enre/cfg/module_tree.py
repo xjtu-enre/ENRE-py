@@ -9,8 +9,8 @@ from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
 from enre.ent.entity import Class, Entity, Parameter, Module, UnknownVar, \
-    ClassAttribute, Package, Alias, ModuleAlias, PackageAlias
-from enre.ent.entity import Function, Variable
+    ClassAttribute, Package, Alias, ModuleAlias, PackageAlias, Attribute
+from enre.ent.entity import Function, Variable, ReferencedAttribute
 
 if typing.TYPE_CHECKING:
     from enre.analysis.analyze_expr import ExpressionContext
@@ -486,6 +486,10 @@ def get_named_store_able(ent: Entity, named_node: ast.expr) -> Optional[StoreAbl
             ret = get_named_store_able(ma.module_ent, named_node)
         case PackageAlias() as pa:
             ret = get_named_store_able(pa.package_ent, named_node)
+        case ReferencedAttribute() as ra:
+            ret = ClassAttributeAccess(ra)
+        case Attribute() as attr:
+            ret = ClassAttributeAccess(attr)
         case _ as e:
             raise NotImplementedError(f"{e} not implemented yet")
     return ret

@@ -2,25 +2,27 @@ import ast
 import itertools
 from abc import ABC
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence, Optional, Iterable
 from typing import Tuple, List, TYPE_CHECKING
 import typeshed_client
 
-from enre.analysis.analyze_builtins import BuiltinsVisitor
+from enre.analysis.analyze_builtins import NameInfoVisitor
 from enre.analysis.analyze_manager import RootDB, ModuleDB, AnalyzeManager
 # AValue stands for Abstract Value
 from enre.analysis.assign_target import dummy_unpack
 from enre.analysis.env import EntEnv, ScopeEnv
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
-from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType
+from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType, \
+    AttributeType, AttrInstanceType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
     ModuleSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.entity import AbstractValue, Variable
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue, \
-    Function, BuiltinsEnt, EntLongname
+    Function, BuiltinsEnt, EntLongname, Attribute
 from enre.ref.Ref import Ref
 
 AnonymousFakeName = "$"
@@ -114,7 +116,7 @@ class ExprAnalyzer:
                 return store_ables, ent_objs
             else:
                 # No builtins cache, create builtins cache.
-                var = BuiltinsVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
+                var = NameInfoVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
                 store_ables: List[StoreAble] = []
 
                 if not var:
@@ -141,12 +143,13 @@ class ExprAnalyzer:
                 lhs_objs.extend(ent_objs)
             else:
                 lhs_objs.extend([NewlyCreated(get_syntactic_span(name_expr), UnknownVar(name_expr.id))])
-            lhs_store_ables = abstract_assign(lhs_objs, self._exp_ctx.rhs_value, name_expr,
+            lhs_store_ables, ents = abstract_assign(lhs_objs, self._exp_ctx.rhs_value, name_expr,
                                               self._exp_ctx.rhs_store_ables,
                                               self._builder,
                                               AnalyzeContext(self._env, self.manager, self._package_db,
                                                              self._current_db,
                                                              (name_expr.lineno, name_expr.col_offset), False))
+            ent_objs = ents
             return lhs_store_ables, ent_objs
 
 
@@ -173,18 +176,33 @@ class ExprAnalyzer:
         for callee, func_type in possible_callees:
             if isinstance(func_type, ConstructorType):
                 ret.append((get_anonymous_ent(), func_type.to_class_type()))
+            elif isinstance(func_type, AttributeType):
+                ret.append((get_anonymous_ent(), func_type.to_attr_type()))
             else:
                 ret.append((get_anonymous_ent(), ValueInfo.get_any()))
             # self._env.get_ctx().add_ref(
             #     create_ref_by_ctx(callee, call_expr.lineno, call_expr.col_offset, CallContext(), call_expr))
-            # we don't need create call dependency here, because we will create dependencies by context in the
+            # we don't need to create call dependency here, because we will create dependencies by context in the
         args = []
+        args_info = []
         for arg in call_expr.args:
             a, _ = self.aval(arg)
             args.append(a)
+            args_info.append(_)
         for key_word_arg in call_expr.keywords:
             self.aval(key_word_arg.value)
         ret_stores = self._builder.add_invoke(caller_stores, args, call_expr)
+        """When calling function, we can replenish
+        function parameter type with arg info
+        """
+        if args_info:
+            # print(args_info)
+            for callee, func_type in possible_callees:
+                if isinstance(callee, Function) and callee.length_parameters() == len(args_info):
+                    for i in range(callee.length_parameters()):
+                        if args_info[i] and isinstance(args_info[i][0], tuple):
+                            ent, info = args_info[i][0]
+                            callee.get_parameters(i).add_type(info)
         return ret_stores, ret
 
     def aval_Lambda(self, lam_expr: ast.Lambda) -> Tuple[StoreAbles, AbstractValue]:
@@ -349,13 +367,29 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
             process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, PackageType):
             package_level_ents = ent_type.namespace[attribute]
-            process_known_attr(package_level_ents, attribute, ret, current_db, ent, ent_type)
+            process_known_attr(package_level_ents, attribute, ret, current_db, ent, ent_type, manager)
+        elif isinstance(ent_type, AttrInstanceType) or isinstance(ent_type, AttributeType):
+            class_attrs = ent_type.lookup_attr(attribute)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.attr_ent, ent_type)
         elif isinstance(ent_type, AnyType):
+
+            # now_scope = current_db._env.get_scope().get_location()
+            # new_scope = now_scope.append(attribute, Span.get_nil(), None)
+            # new_attr = ReferencedAttribute(new_scope.to_longname(), Location())
+            #
+            # new_binding: "Bindings" = [(new_attr.longname.name, [(new_attr, ValueInfo.get_any())])]
+            # current_ctx = current_db._env.get_ctx()
+            # current_db.add_ent(new_attr)
+            # current_ctx.add_ref(Ref(RefKind.ImportKind, new_attr, -1, -1, False, None))
+            # current_db._env.get_scope().add_continuous(new_binding)
+
             location = Location.global_name(attribute)
             referenced_attr = ReferencedAttribute(location.to_longname(), location)
             current_db.add_ent(referenced_attr)
             ret.append((referenced_attr, ValueInfo.get_any()))
+            # ret.append((new_attr, ValueInfo.get_any()))
         else:
+            # print(ent_type)
             raise NotImplementedError("attribute receiver entity matching not implemented")
 
 
@@ -379,7 +413,10 @@ def extend_known_or_new_possible_attribute(manager: AnalyzeManager,
             process_known_or_newly_created_attr(module_level_ents, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, PackageType):
             package_level_ents = ent_type.namespace[attribute]
-            process_known_or_newly_created_attr(package_level_ents, attribute, ret, current_db, ent, ent_type)
+            process_known_or_newly_created_attr(package_level_ents, attribute, ret, current_db, ent, ent_type, manager)
+        elif isinstance(ent_type, AttributeType):
+            attrs = ent_type.lookup_attr(attribute)
+            process_known_or_newly_created_attr(attrs, attribute, ret, current_db, ent, ent_type)
         elif isinstance(ent_type, AnyType):
             location = Location.global_name(attribute)
             referenced_attr = ReferencedAttribute(location.to_longname(), location)
@@ -390,20 +427,38 @@ def extend_known_or_new_possible_attribute(manager: AnalyzeManager,
 
 
 def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, dep_db: ModuleDB,
-                       container: Entity, receiver_type: ValueInfo) -> None:
+                       container: Entity, receiver_type: ValueInfo, manager=None) -> None:
     if attr_ents:
         # when get attribute of another entity, presume
 
         ret.extend([(ent_x, ent_x.direct_type()) for ent_x in attr_ents])
     else:
+        if manager:
+            stub_path = Path(container.longname.name + '.py')
+            stub_db = manager.root_db.tree[stub_path] if stub_path in manager.root_db.tree else None
+            if stub_db:
+                env = stub_db._env
+                get_stub = stub_db._get_stub
+                stub_file = stub_db._stub_file
+                bv = NameInfoVisitor(attribute, get_stub, manager, dep_db,
+                                     env, stub_file)
+                attr_info = get_stub.get(attribute) if get_stub else None
+                ent = bv.generic_analyze(attribute, attr_info)
+                # print(ent)
+                ret.append((ent, ent.direct_type()))
+                return None
         # unresolved shouldn't be global
         location = container.location.append(attribute, Span.get_nil(), None)
-        unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
-        dep_db.add_ent(unresolved)
-        # dep_db.add_ref(container, Ref(RefKind.DefineKind, unresolved, 0, 0))
+        # unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
+        attr = Attribute(location.to_longname(), location)
+        # print("process_known_attr", attr)
+        dep_db.add_ent(attr)
+        dep_db.module_ent.add_ref(Ref(RefKind.DefineKind, attr, -1, -1, False, None))
         # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
         # relation in the class entity, while in a self set context.
-        ret.append((unresolved, ValueInfo.get_any()))
+
+        # ret.append((attr, ValueInfo.get_any()))
+        ret.append((attr, AttributeType(attr)))
 
 
 def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
@@ -420,6 +475,7 @@ def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
         # unresolved shouldn't be global
         location = container.location.append(attribute, Span.get_nil(), None)
         unresolved = UnresolvedAttribute(location.to_longname(), location, receiver_type)
+        # print("process_known_or_newly_created_attr", unresolved)
         # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
         # relation in the class entity, while in a self set context.
         ret.append(NewlyCreated(Span.get_nil(), unresolved))

@@ -18,7 +18,7 @@ EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "in_type_context": bool
                               })
 
-NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_type": str, "file_path": str,
+NodeTy = TypedDict("NodeTy", {"id": int, "longname": str, "ent_kind": str, "ent_type": str, "file_path": str,
                               "start_line": int, "end_line": int, "start_col": int, "end_col": int})
 
 DepTy = TypedDict("DepTy", {"Entities": List[NodeTy], "Dependencies": List[EdgeTy]})
@@ -36,13 +36,15 @@ class Modifiers(Enum):
 class Node:
     id: int
     longname: str
-    ent_type: str
+    ent_kind: str
     file_path: str
     start_line: int
     end_line: int
     start_col: int
     end_col: int
     modifiers: Dict[str, List[str]]
+    ent_type: List[str]
+    func_return_type: List[str]
 
 
 @dataclass
@@ -75,7 +77,8 @@ class DepRepr:
     def to_json(self) -> DepTy:
         ret: DepTy = {"Entities": [], "Dependencies": []}
         for n in self._node_list:
-            ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_type": n.ent_type,
+            ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_kind": n.ent_kind,
+                                    "ent_type": n.ent_type,
                                     "file_path": n.file_path,
                                     "start_line": n.start_line, "end_line": n.end_line,
                                     "start_col": n.start_col, "end_col": n.end_col})
@@ -92,14 +95,15 @@ class DepRepr:
 
     @classmethod
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
-        helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
+        helper_ent_types = [EntKind.Anonymous, EntKind.ReferencedAttr]
         if ent.kind() not in helper_ent_types:
             modifiers = cls.get_modifiers(ent)
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value,
                                    str(ent.location.file_path).replace("\\", "/"),
                                    ent.location.code_span.start_line,
                                    ent.location.code_span.end_line, ent.location.code_span.start_col,
-                                   ent.location.code_span.end_col, modifiers))
+                                   ent.location.code_span.end_col, modifiers,
+                                   cls.get_types(ent), cls.get_return_types(ent)))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     resolved_targets = [t.id for t in ref.resolved_targets]
@@ -116,13 +120,18 @@ class DepRepr:
     def to_json_1(self) -> JsonDict:
         ret: JsonDict = {"variables": [], "cells": []}
         for n in self._node_list:
-            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_type,
+            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_kind,
                         "location": {"startLine": n.start_line, "endLine": n.end_line,
                                      "startColumn": n.start_col, "endColumn": n.end_col}}
+            if need_type(n):
+                variable["type"] = n.ent_type
+
             if n.file_path != ".":
                 variable["File"] = n.file_path
             if exist_no_empty(n.modifiers):
                 variable["modifiers"] = n.modifiers
+            if n.func_return_type:
+                variable["return"] = n.func_return_type
             ret["variables"].append(variable)
         for e in self._edge_list:
             values: JsonDict = {"kind": e.kind, "in_type_context": e.in_type_ctx}
@@ -151,12 +160,12 @@ class DepRepr:
         for ent in und_db.ents():
             dep_repr.add_node(Node(id=ent.id(),
                                    longname=ent.longname(),
-                                   ent_type=ent.kindname(),
+                                   ent_kind=ent.kindname(),
                                    file_path=ent.file(),
                                    start_line=-1,
                                    end_line=-1,
                                    start_col=-1,
-                                   end_col=-1, modifiers={}))
+                                   end_col=-1, modifiers={}, ent_type="test_from_un_db"))
 
             for ref in ent.refs():
                 if not ref.isforward():
@@ -200,8 +209,26 @@ class DepRepr:
                 ret['modifier'].append('static method')
         return ret
 
+    @classmethod
+    def get_types(cls, ent: Entity) -> list[str]:
+        return ent.get_type_list()
+
+    @classmethod
+    def get_return_types(cls, ent: Entity) -> list[str]:
+        if isinstance(ent, Function):
+            return ent.get_return_type()
+        else:
+            return []
+
 
 def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
     return ('modifier' in modifiers and len(modifiers['modifier']) > 0) or \
            ('readonlyProperty' in modifiers and len(modifiers['readonlyProperty']) > 0) or \
            ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0)
+
+
+def need_type(n: Node) -> bool:
+    if n.ent_kind == "Variable" or n.ent_kind == "Parameter":
+        return True
+    else:
+        return False

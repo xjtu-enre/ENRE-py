@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
 
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
-from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType
+from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType, InstanceType, AttributeType
 from enre.ent.EntKind import EntKind, RefKind
 
 if typing.TYPE_CHECKING:
@@ -140,6 +140,7 @@ class Entity(ABC):
         self._refs: List["Ref"] = []
         self.longname = longname
         self.location = location
+        self._types: List["ValueInfo"] = []
 
     def refs(self) -> List["Ref"]:
         return self._refs
@@ -172,6 +173,27 @@ class Entity(ABC):
     def __hash__(self) -> int:
         return hash((self.longname, self.location))
 
+    def add_type(self, target: "ValueInfo") -> None:
+        if target not in self._types:
+            if isinstance(target, InstanceType) or isinstance(target, ConstructorType):
+                for ty in self._types:
+                    if isinstance(ty, InstanceType) or isinstance(ty, ConstructorType):
+                        if ty.class_ent == target.class_ent:
+                            return None
+            self._types.append(target)
+
+    def reset_type(self, target: "ValueInfo") -> None:
+        ...
+
+    def get_type_list(self) -> List[str]:
+        res: List[str] = []
+        for t in self._types:
+            if isinstance(t, InstanceType):
+                res.append(t.get_class_ent().longname.longname)
+            elif isinstance(t, ConstructorType):
+                res.append(t.to_class_type().get_class_ent().longname.longname)
+        return res
+
 
 class NameSpaceEntity(ABC):
     @property
@@ -197,15 +219,51 @@ class Variable(Entity):
         return EntKind.Variable
 
 
+class Parameter(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(Parameter, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.Parameter
+
+
+class LambdaParameter(Parameter):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(LambdaParameter, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.LambdaParameter
+
+
 class Function(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Function, self).__init__(longname, location)
         self.abstract_kind: Optional[FunctionKind] = None
         self.static_kind: Optional[FunctionKind] = None
         self.readonly_property_name: Optional[str] = None
+        self._return_type: List[Entity] = []
+        self._parameters: List[Parameter] = []
 
     def kind(self) -> EntKind:
         return EntKind.Function
+
+    def append_return_type(self, target: Entity):
+        self._return_type.append(target)
+
+    def get_return_type(self):
+        res: List[str] = []
+        for t in self._return_type:
+            res.append(t.longname.name)
+        return res
+
+    def append_parameters(self, para: Parameter):
+        self._parameters.append(para)
+
+    def get_parameters(self, index: int) -> Parameter:
+        return self._parameters[index]
+
+    def length_parameters(self) -> int:
+        return len(self._parameters)
 
 
 class LambdaFunction(Function):
@@ -241,7 +299,7 @@ class Package(Entity, NameSpaceEntity):
 
 
 class Module(Entity, NameSpaceEntity):
-    def __init__(self, file_path: Path, hard_longname: Optional[List[str]] = None):
+    def __init__(self, file_path: Path, hard_longname: Optional[List[str]] = None, is_stub: bool = False):
         # file_path: relative path to root directory's parent
         import os
         path = os.path.normpath(str(file_path)[:-len(".py")])
@@ -251,6 +309,7 @@ class Module(Entity, NameSpaceEntity):
         super(Module, self).__init__(longname, location)
         self.module_path = file_path
         self._names: "NamespaceType" = defaultdict(list)
+        self._is_stub = is_stub
 
     def kind(self) -> EntKind:
         return EntKind.Module
@@ -271,7 +330,8 @@ class Module(Entity, NameSpaceEntity):
     def direct_type(self) -> "ModuleType":
         return ModuleType(self.names)
 
-
+    def is_stub(self):
+        return self._is_stub
 
 
 class ModuleAlias(Entity):
@@ -439,22 +499,6 @@ class UnknownModule(Module):
         return EntKind.UnknownModule
 
 
-class Parameter(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
-        super(Parameter, self).__init__(longname, location)
-
-    def kind(self) -> EntKind:
-        return EntKind.Parameter
-
-
-class LambdaParameter(Parameter):
-    def __init__(self, longname: EntLongname, location: Location):
-        super(LambdaParameter, self).__init__(longname, location)
-
-    def kind(self) -> EntKind:
-        return EntKind.LambdaParameter
-
-
 class Anonymous(Entity):
     def __init__(self) -> None:
         super(Anonymous, self).__init__(EntLongname([""]), Location())
@@ -470,6 +514,34 @@ class ClassAttribute(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.ClassAttr
+
+
+"""
+Callable --> Unknown Function or Class
+Attribute --> Unknown Attribute
+"""
+
+
+class Attribute(Entity):
+    def __init__(self, longname: EntLongname, location: Location):
+        super(Attribute, self).__init__(longname, location)
+        self._names: Dict[str, List[Entity]] = defaultdict(list)
+
+    def kind(self) -> EntKind:
+        return EntKind.ClassAttr
+
+    @property
+    def names(self) -> "NamespaceType":
+        return self._names
+
+    def direct_type(self) -> "ValueInfo":
+        return AttributeType(self)
+
+    def get_attribute(self, attr: str) -> List[Entity]:
+        current_attrs = self.names[attr]
+        if current_attrs:
+            return current_attrs
+        return []
 
 
 class ReferencedAttribute(Entity):

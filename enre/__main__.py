@@ -13,26 +13,38 @@ from enre.vis.summary_repr import from_summaries
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("root path", type=str, nargs='?',
-                        help="root package path")
-    parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
-    parser.add_argument("--cfg", action="store_true",
-                        help="run control flow analysis and output module summaries")
-    parser.add_argument("--compatible", action="store_true")
-    parser.add_argument("--version", action="store_true")
-    config = parser.parse_args()
-    root_path = Path(sys.argv[1])
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("root path", type=str, nargs='?',
+    #                     help="root package path")
+    # parser.add_argument("--profile", action="store_true", help="output consumed time in json format")
+    # parser.add_argument("--cfg", action="store_true",
+    #                     help="run control flow analysis and output module summaries")
+    # parser.add_argument("--compatible", action="store_true")
+    # parser.add_argument("--version", action="store_true")
+    # config = parser.parse_args()
+    # root_path = Path(sys.argv[1])
+    # root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\test04_unknown_module")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\test06_simple_assign")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Codes\ENRE-py\feat-builtins\ENRE-py")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\Exp02_test08_parser")
+    # root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\test04_unknown_module")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\Exp02_test09_doubleAssign")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\Exp02_test10_UnresolvedAttr")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Codes\ENRE-py\feat-stubs\ENRE-py\enre\typeshed_client")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp02-Stubs\Test\Exp02_test11_AnnAssign")
+    root_path = Path(r"C:\Users\yoghurts\Desktop\Research\ENRE\Experiments\Exp01-Entities-Analyze-Scope\Test\test12_celery")
+
+
     start = time.time()
-    manager = enre_wrapper(root_path, config.compatible, config.cfg)
+    manager = enre_wrapper(root_path, None, None)
     end = time.time()
 
-    if config.profile:
-        time_in_json = json.dumps({
-            "analyzed files": len(manager.root_db.tree),
-            "analysing time": end - start})
-        print(time_in_json)
-        # print(f"analysing time: {end - start}s")
+    # if config.profile:
+    #     time_in_json = json.dumps({
+    #         "analyzed files": len(manager.root_db.tree),
+    #         "analysing time": end - start})
+    #     print(time_in_json)
+    #     # print(f"analysing time: {end - start}s")
 
 
 def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> AnalyzeManager:

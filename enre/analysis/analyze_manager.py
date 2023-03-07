@@ -16,9 +16,9 @@ from enre.typeshed_client.typeshed.frozen_path import app_path
 
 
 typeshed_path = Path(app_path("\stdlib"))
-ctx = typeshed_client.get_search_context(typeshed=typeshed_path)
-builtins_stub_names = typeshed_client.get_stub_names("builtins", search_context=ctx)
-builtins_stub_file = typeshed_client.get_stub_file("builtins", search_context=ctx)
+typeshed_ctx = typeshed_client.get_search_context(typeshed=typeshed_path)
+builtins_stub_names = typeshed_client.get_stub_names("builtins", search_context=typeshed_ctx)
+builtins_stub_file = typeshed_client.get_stub_file("builtins", search_context=typeshed_ctx)
 
 
 class ModuleStack:
@@ -42,7 +42,7 @@ class ModuleStack:
 
 
 class ModuleDB:
-    def __init__(self, project_root: Path, module_ent: Module):
+    def __init__(self, project_root: Path, module_ent: Module, env: EntEnv = None, get_stub=None, stub_file=None):
         from enre.dep.DepDB import DepDB
         self.project_root = project_root
         self.module_path = module_ent.module_path
@@ -52,6 +52,9 @@ class ModuleDB:
         self.ent_id_set: ty.Set[int] = set()
         self._tree = self.parse_a_module(self.module_path)
         self.analyzed_set: ty.Set[ast.AST] = set()
+        self._env = env
+        self._get_stub = get_stub
+        self._stub_file = stub_file
 
     def add_ent(self, ent: "Entity") -> None:
         if ent.id not in self.ent_id_set:
@@ -66,7 +69,7 @@ class ModuleDB:
         absolute_path = self.project_root.parent.joinpath(module_path)
         try:
             return ast.parse(absolute_path.read_text(encoding="utf-8"), module_path.name)
-        except (SyntaxError, UnicodeDecodeError):
+        except (SyntaxError, UnicodeDecodeError, FileNotFoundError):
             return ast.Module([])
 
     def get_module_level_bindings(self) -> "Bindings":
@@ -83,6 +86,7 @@ class RootDB:
         self.root_dir = root_path
         self.global_db = DepDB()
         self.tree: ty.Dict[Path, ModuleDB] = dict()
+        self.stub_tree: ty.Dict[Path, ModuleDB] = dict()
         self.package_tree: ty.Dict[Path, Package] = dict()
         self.initialize_tree(root_path)
         self.global_db.add_ent(get_anonymous_ent())
@@ -118,11 +122,14 @@ class RootDB:
     def __getitem__(self, item: Path) -> ModuleDB:
         return self.tree[item]
 
-    def get_path_ent(self, path: Path) -> ty.Union["Package", "Module"]:
+    def get_path_ent(self, path: Path) -> Module | Package | None:
         if path in self.tree:
             return self.tree[path].module_ent
         else:
-            return self.package_tree[path]
+            if path in self.package_tree:
+                return self.package_tree[path]
+            else:
+                return None
 
     def add_ent_global(self, ent: "Entity") -> None:
         self.global_db.add_ent(ent)
@@ -184,14 +191,15 @@ class AnalyzeManager:
 
     def iter_dir(self, path: Path) -> None:
         from .analyze_stmt import Analyzer
-        print(path)
+
         if path.is_dir():
             for sub_file in path.iterdir():
                 self.iter_dir(sub_file)
         elif path.name.endswith(".py"):
+            print(path)
             rel_path = path.relative_to(self.project_root.parent)
             if self.module_stack.finished_module(rel_path):
-                print(f"the module {rel_path} already imported by some analyzed module")
+                # print(f"the module {rel_path} already imported by some analyzed module")
                 return
             else:
                 module_ent = self.root_db[rel_path].module_ent
@@ -221,9 +229,13 @@ class AnalyzeManager:
                       lineno: int, col_offset: int, strict: bool) -> ty.Tuple[
         ty.Union[Module, Package], ty.Union[Module, Package]]:
         rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
+        module_name = module_identifier.split(".")[-1]
         if self.module_stack.in_process(rel_path) or self.module_stack.finished_module(rel_path):
-
-            return self.root_db[rel_path].module_ent, self.root_db.get_path_ent(head_module_path)
+            ref_ent = self.root_db[rel_path].module_ent
+            head_ent = self.root_db.get_path_ent(head_module_path)
+            if not head_ent:
+                head_ent = ref_ent
+            return ref_ent, head_ent
         elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
             if p.is_file():
                 module_ent = self.root_db[rel_path].module_ent
@@ -238,10 +250,44 @@ class AnalyzeManager:
                 self.root_db.package_tree[rel_path] = package_ent
                 return package_ent, self.root_db.get_path_ent(rel_path)
         else:
-            unknown_module_name = module_identifier.split(".")[-1]
+            """Unknown Module Issue:
+            """
+            unknown_module_name = module_name
+            try_get_stub = typeshed_client.get_stub_names(unknown_module_name, search_context=typeshed_ctx)
+            if try_get_stub:
+                stub_module_name = unknown_module_name
+                stub_file_path = typeshed_client.get_stub_file(unknown_module_name, search_context=typeshed_ctx)
+                stub_module = Module(stub_file_path, hard_longname=[stub_module_name], is_stub=True)
+                stub_module_summary = self.create_file_summary(stub_module)
+                stub_env = EntEnv(
+                    ScopeEnv(ctx_ent=stub_module, location=Location(stub_file_path, _Nil_Span, [stub_module_name]),
+                             builder=SummaryBuilder(stub_module_summary)))
+                stub_module_db = ModuleDB(stub_file_path, stub_module, stub_env, try_get_stub, stub_file_path)
+                stub_path = Path(stub_module_name + '.py')
+                self.root_db.tree[stub_path] = stub_module_db
+                self.module_stack.finished_module_set.add(stub_path)
+
+                return stub_module, stub_module
+
             unknown_module_ent = UnknownModule(unknown_module_name)
-            module_db = self.root_db[from_module_ent.module_path]
-            module_db.add_ent(unknown_module_ent)
+            unknown_module_path = Path(unknown_module_name + '.py')
+            if unknown_module_path in self.root_db.tree:
+                cached_unknown_module = self.root_db.tree[unknown_module_path].module_ent
+                return cached_unknown_module, cached_unknown_module
+
+            stub_module_summary = self.create_file_summary(unknown_module_ent)
+            stub_env = EntEnv(
+                ScopeEnv(ctx_ent=unknown_module_ent,
+                         location=Location(unknown_module_path,
+                         _Nil_Span, [unknown_module_name]),
+                         builder=SummaryBuilder(stub_module_summary)))
+            stub_module_db = ModuleDB(unknown_module_path, unknown_module_ent, stub_env)
+
+            self.root_db.tree[unknown_module_path] = stub_module_db
+            self.module_stack.finished_module_set.add(unknown_module_path)
+
+            # module_db = self.root_db[from_module_ent.module_path]
+            # module_db.add_ent(unknown_module_ent)
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset, False, None))
             return unknown_module_ent, unknown_module_ent
             # raise NotImplementedError("unknown module not implemented yet")
