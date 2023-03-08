@@ -106,7 +106,7 @@ class RootDB:
 
         return py_files
 
-    def __getitem__(self, item: Path) -> ModuleDB:
+    def get_module_db_of_path(self, item: Path) -> ModuleDB:
         return self.tree[item]
 
     def get_path_ent(self, path: Path) -> ty.Union["Package", "Module"]:
@@ -187,13 +187,13 @@ class AnalyzeManager:
 
     def analyze_module_top_stmts(self, rel_path: Path) -> None:
         from enre.analysis.analyze_stmt import Analyzer
-        module_ent = self.root_db[rel_path].module_ent
+        module_ent = self.root_db.get_module_db_of_path(rel_path).module_ent
         checker = Analyzer(rel_path, self)
         module_summary = self.create_file_summary(module_ent)
         builder = SummaryBuilder(module_summary)
         top_scope = ScopeEnv(module_ent, module_ent.location, SummaryBuilder(module_summary))
         if self.builtin_path:
-            builtins_module_db = self.root_db[self.builtin_path]
+            builtins_module_db = self.root_db.get_module_db_of_path(self.builtin_path)
             self.add_builtins_binding_to_scope(builtins_module_db, top_scope)
         checker.analyze_top_stmts(checker.current_db.tree.body, builder,
                                   EntEnv(top_scope))
@@ -212,7 +212,7 @@ class AnalyzeManager:
         if not self.builtin_path:
             return
         checker = Analyzer(self.builtin_path, self)
-        module_ent = self.root_db[self.builtin_path].module_ent
+        module_ent = self.root_db.get_module_db_of_path(self.builtin_path).module_ent
         module_summary = self.create_file_summary(module_ent)
         builder = SummaryBuilder(module_summary)
         checker.analyze_top_stmts(checker.current_db.tree.body, builder,
@@ -227,17 +227,18 @@ class AnalyzeManager:
         ty.Union[Module, Package], ty.Union[Module, Package]]:
         rel_path, head_module_path = self.alias2path(from_module_ent.module_path, module_identifier)
         if self.need_analyze(rel_path):
-            return self.root_db[rel_path].module_ent, self.root_db.get_path_ent(head_module_path)
-        elif (p := resolve_import(from_module_ent, rel_path, self.project_root)) is not None:
+            return self.root_db.get_module_db_of_path(rel_path).module_ent, self.root_db.get_path_ent(head_module_path)
+        elif (p := self.resolve_import(from_module_ent, rel_path)) is not None:
             if p.is_file():
-                module_ent = self.root_db[rel_path].module_ent
+                module_ent = self.root_db.get_module_db_of_path(rel_path).module_ent
                 if strict:
                     self.strict_analyze_module(module_ent)
                 return module_ent, self.root_db.get_path_ent(head_module_path)
             elif rel_path in self.root_db.package_tree:
                 package_ent = self.root_db.package_tree[rel_path]
                 if p.joinpath("__init__.py").exists():
-                    return self.import_module(from_module_ent, f"{module_identifier}.__init__", lineno, col_offset, strict)
+                    return self.import_module(from_module_ent, f"{module_identifier}.__init__", lineno, col_offset,
+                                              strict)
                 return package_ent, self.root_db.get_path_ent(rel_path)
             else:
                 package_ent = Package(rel_path)
@@ -246,7 +247,7 @@ class AnalyzeManager:
         else:
             unknown_module_name = module_identifier.split(".")[-1]
             unknown_module_ent = UnknownModule(unknown_module_name)
-            module_db = self.root_db[from_module_ent.module_path]
+            module_db = self.root_db.get_module_db_of_path(from_module_ent.module_path)
             module_db.add_ent(unknown_module_ent)
             from_module_ent.add_ref(Ref(RefKind.ImportKind, unknown_module_ent, lineno, col_offset, False, None))
             return unknown_module_ent, unknown_module_ent
@@ -289,7 +290,6 @@ class AnalyzeManager:
     def add_summary(self, summary: ModuleSummary) -> None:
         self.scene.summaries.append(summary)
 
-
     def create_file_summary(self, module_ent: Module) -> FileSummary:
         summary = FileSummary(module_ent)
         self.scene.summary_map[module_ent] = summary
@@ -314,15 +314,19 @@ class AnalyzeManager:
         else:
             return None
 
+    def resolve_import(self, from_module: Module, rel_path: Path) -> ty.Optional[Path]:
+        project_root = self.project_root
+        parent_dir = project_root.parent.joinpath(from_module.module_path.parent)
+        while True:
+            target_module_path = parent_dir.joinpath(rel_path)
+            if target_module_path.exists() and target_module_path.relative_to(project_root.parent) in self.root_db.tree:
+                return target_module_path
+            if parent_dir.samefile(project_root.parent):
+                break
+            parent_dir = parent_dir.parent
 
-def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> ty.Optional[Path]:
-    parent_dir = project_root.parent.joinpath(from_module.module_path.parent)
-    while not parent_dir.samefile(project_root.parent.parent):
-        target_module_path = parent_dir.joinpath(rel_path)
-        if target_module_path.exists():
-            return target_module_path
-        parent_dir = parent_dir.parent
-    return None
+        return None
 
-
-from enre.dep.DepDB import DepDB
+    def in_root_db(self, path: Path) -> bool:
+        project_root = self.project_root
+        return path.exists() and path.relative_to(project_root.parent) in self.root_db.tree

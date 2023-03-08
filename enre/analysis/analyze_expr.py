@@ -92,7 +92,7 @@ class ExprAnalyzer:
         from enre.analysis.analyze_stmt import AnalyzeContext
         from enre.analysis.assign_target import abstract_assign
 
-        lookup_res = self._env[name_expr.id]
+        lookup_res = self._env.get(name_expr.id)
         ent_objs = lookup_res.found_entities
         ctx = self._env.get_ctx()
         for ent, ent_type in ent_objs:

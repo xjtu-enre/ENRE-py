@@ -39,13 +39,15 @@ class AnalyzeContext:
 
 class Analyzer:
     def __init__(self, rel_path: Path, manager: AnalyzeManager):
-        module_ent = manager.root_db[rel_path].module_ent
+        module_ent = manager.root_db.get_module_db_of_path(rel_path).module_ent
         self.manager = manager
         self.module = module_ent
         self.global_env: ty.List  # type: ignore
         # placeholder for builtin function bindings
         self.package_db: "RootDB" = manager.root_db
-        self.current_db: "ModuleDB" = manager.root_db[rel_path]
+        self.current_db: "ModuleDB" = manager \
+            .root_db \
+            .get_module_db_of_path(rel_path)
         self.all_summary: ty.List[ModuleSummary] = []
 
     def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
