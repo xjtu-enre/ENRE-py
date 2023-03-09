@@ -356,10 +356,10 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
     for ent, ent_type in possible_ents:
         if isinstance(ent_type, InstanceType):
             class_attrs = ent_type.lookup_attr(attribute)
-            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, manager)
         elif isinstance(ent_type, ConstructorType):
             class_attrs = ent_type.lookup_attr(attribute)
-            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, manager)
         elif isinstance(ent_type, ModuleType):
             if isinstance(ent, Module):
                 manager.strict_analyze_module(ent)
@@ -370,7 +370,7 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
             process_known_attr(package_level_ents, attribute, ret, current_db, ent, ent_type, manager)
         elif isinstance(ent_type, AttrInstanceType) or isinstance(ent_type, AttributeType):
             class_attrs = ent_type.lookup_attr(attribute)
-            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.attr_ent, ent_type)
+            process_known_attr(class_attrs, attribute, ret, current_db, ent_type.attr_ent, ent_type, manager)
         elif isinstance(ent_type, AnyType):
 
             # now_scope = current_db._env.get_scope().get_location()
@@ -453,7 +453,7 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
         attr = Attribute(location.to_longname(), location)
         # print("process_known_attr", attr)
         dep_db.add_ent(attr)
-        dep_db.module_ent.add_ref(Ref(RefKind.DefineKind, attr, -1, -1, False, None))
+        container.add_ref(Ref(RefKind.DefineKind, attr, -1, -1, False, None))
         # till now can't add `Define` reference to unresolved reference. If we do so, we could have duplicate  `Define`
         # relation in the class entity, while in a self set context.
 

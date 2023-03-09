@@ -24,7 +24,6 @@ def main() -> None:
     config = parser.parse_args()
     root_path = Path(sys.argv[1])
 
-
     start = time.time()
     manager = enre_wrapper(root_path, None, None)
     end = time.time()

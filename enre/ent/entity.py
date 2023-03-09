@@ -8,7 +8,8 @@ from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
 
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
-from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType, InstanceType, AttributeType
+from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType, InstanceType, AttributeType, \
+    AttrInstanceType
 from enre.ent.EntKind import EntKind, RefKind
 
 if typing.TYPE_CHECKING:
@@ -180,6 +181,11 @@ class Entity(ABC):
                     if isinstance(ty, InstanceType) or isinstance(ty, ConstructorType):
                         if ty.class_ent == target.class_ent:
                             return None
+            if isinstance(target, AttributeType) or isinstance(target, AttrInstanceType):
+                for ty in self._types:
+                    if isinstance(ty, AttributeType) or isinstance(ty, AttrInstanceType):
+                        if ty.attr_ent == target.attr_ent:
+                            return None
             self._types.append(target)
 
     def reset_type(self, target: "ValueInfo") -> None:
@@ -192,6 +198,10 @@ class Entity(ABC):
                 res.append(t.get_class_ent().longname.longname)
             elif isinstance(t, ConstructorType):
                 res.append(t.to_class_type().get_class_ent().longname.longname)
+            elif isinstance(t, AttributeType):
+                res.append(t.attr_ent.longname.longname)
+            elif isinstance(t, AttrInstanceType):
+                res.append(t.attr_ent.longname.longname)
         return res
 
 
@@ -542,6 +552,11 @@ class Attribute(Entity):
         if current_attrs:
             return current_attrs
         return []
+
+    def add_ref(self, ref: "Ref") -> None:
+        if ref.ref_kind == RefKind.DefineKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        super(Attribute, self).add_ref(ref)
 
 
 class ReferencedAttribute(Entity):

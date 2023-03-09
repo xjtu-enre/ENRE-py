@@ -10,7 +10,7 @@ from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.analysis.analyze_method import MethodVisitor
 from enre.analysis.assign_target import dummy_iter_store
 from enre.analysis.env import EntEnv, ScopeEnv, ParallelSubEnv, ContinuousSubEnv, OptionalSubEnv, BasicSubEnv
-from enre.analysis.value_info import ValueInfo, PackageType
+from enre.analysis.value_info import ValueInfo, PackageType, FunctionType, AnyType
 from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
@@ -94,7 +94,7 @@ class Analyzer:
         # and corresponding summary builder
         builder = SummaryBuilder(fun_summary)
         # add function entity to the current environment
-        new_binding: "Bindings" = [(func_name, [(func_ent, ValueInfo.get_any())])]
+        new_binding: "Bindings" = [(func_name, [(func_ent, FunctionType(func_ent))])]
         env.get_scope().add_continuous(new_binding)
         # create the scope environment corresponding to the function
         body_env = ScopeEnv(ctx_ent=func_ent, location=new_scope, builder=builder)
@@ -454,6 +454,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
         para_code_span = get_syntactic_span(a)
         parameter_loc = location_base.append(a.arg, para_code_span, current_db.module_path)
         parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
+        parameter_ent.add_type(ent_type)
         current_db.add_ent(parameter_ent)
         new_coming_ent: Entity = parameter_ent
         bindings.append((a.arg, [(new_coming_ent, ent_type)]))
@@ -462,7 +463,9 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
             Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
         process_annotation(parameter_ent, manager, package_db, current_db, a.annotation, env)
 
-        if isinstance(scope.get_ctx(), Function):
+        if isinstance(scope.get_ctx(), Function) and a.arg != "self" and a.arg != "cls":  # Class Method
+            scope.get_ctx().append_parameters(parameter_ent)
+        elif isinstance(ent_type, AnyType):  # Function
             scope.get_ctx().append_parameters(parameter_ent)
 
     args_binding: "Bindings" = []

@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from enre.ent.entity import Class, Entity, NamespaceType, Attribute
+    from enre.ent.entity import Class, Entity, NamespaceType, Attribute, Function
 
 
 class ValueInfo:
@@ -63,6 +63,13 @@ class AttributeType(ValueInfo):
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         ...
 
+
+class FunctionType(ValueInfo):
+    def __init__(self, func_ent: "Function"):
+        self.func_ent = func_ent
+
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        ...
 
 class ConstructorType(ValueInfo):
     def __init__(self, class_ent: "Class"):
