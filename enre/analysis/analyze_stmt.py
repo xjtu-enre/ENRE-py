@@ -157,11 +157,11 @@ class Analyzer:
             bases.append(store_ables)
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ConstructorType):
-                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False, base_expr))
+                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_code_span.start_line,
+                                          class_head_col, False, base_expr))
                 else:
-                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False, base_expr))
+                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_code_span.start_line,
+                                          class_head_col, False, base_expr))
                     # todo: handle unknown class
         parent_builder = env.get_scope().get_builder()
         parent_builder.add_inherit(class_ent, bases)
