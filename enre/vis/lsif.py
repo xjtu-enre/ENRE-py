@@ -121,7 +121,7 @@ def to_lsif(package_db: RootDB):
     for rel_path, module_db in package_db.tree.items():
         # rangeMap: avoid repeated adding range vertex of the same location
         rangeMap: dict = {}
-        helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
+        helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous, EntKind.UnknownVar, EntKind.UnknownModule, EntKind.AmbiguousAttr, EntKind.UnresolvedAttr]
         
         for ent in module_db.dep_db.ents:
             if ent.kind() in helper_ent_types:
@@ -130,6 +130,8 @@ def to_lsif(package_db: RootDB):
                 if ref.target_ent.kind() in helper_ent_types:
                     continue
                 
+                refRange_span = Span(ref.lineno - 1, ref.col_offset, ref.lineno - 1, ref.col_offset + len(ref.target_ent.longname.name))
+
                 # DefineKind and ContainKind dont need to generate range vertex.
                 # Relation: Define
                 # just add reference and continue
@@ -137,16 +139,23 @@ def to_lsif(package_db: RootDB):
                     references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
                     references.append(idMap[ref.target_ent.id]['id'])
                     # no need to generate range vertex because it's added above
+                    # add it to rangeMap to avoid repeated adding
+                    rangeMap[refRange_span] = idMap[ref.target_ent.id]
                     continue
                 # Relation: Contain
                 # no need to generate range vertex unless we need to add package info
                 # just continue
                 elif ref.ref_kind == RefKind.ContainKind:
                     continue
+                # Relation: Alias
+                # change the ent's 'definition' to idMap[ref.target_ent.id]['id']
+                # no need to add reference, as it's added in the ralation Define
+                # and no need to generate range vertex as it's done in the process of Define(here the location of AliasTo is wrong)
+                elif ref.ref_kind == RefKind.AliasTo:
+                    idMap[ent.id]['definition'] = [idMap[ref.target_ent.id]['id']]
+                    continue
 
                 # Other relations should generate range vertex.
-                refRange_span = Span(ref.lineno - 1, ref.col_offset, ref.lineno - 1, ref.col_offset + len(ref.target_ent.longname.name))
-
                 if refRange_span not in rangeMap:
                     location = {'start': {'line': ref.lineno - 1, 'character': ref.col_offset},
                             'end': {'line': ref.lineno - 1, 'character': ref.col_offset + len(ref.target_ent.longname.name)}}
@@ -176,7 +185,15 @@ def to_lsif(package_db: RootDB):
                 # add reference to ent's references
                 if ref.ref_kind == RefKind.UseKind or ref.ref_kind == RefKind.CallKind or ref.ref_kind == RefKind.SetKind or ref.ref_kind == RefKind.ImportKind:
                     references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
-                    references.append(refRange['id'])
+                    if references is None:
+                        # TODO: 或许修改为ts那边的区分module的就能够避免这里的问题(这里出错原因是target是module，而module的map里没有这些，只存在于import xx的类型中)
+                        # 或者不存在的直接创建reference？
+                        print(idMap[ref.target_ent.id])
+                        print(ref.ref_kind)
+                        print(ref.target_ent.kind())
+                        print(ref.target_ent.longname.longname)
+                    else:
+                        references.append(refRange['id'])
 
                 elif ref.ref_kind == RefKind.ImportKind:
                     # TODO: is import xx and from xx import * should be consider?
@@ -195,15 +212,6 @@ def to_lsif(package_db: RootDB):
                     result.append(typeDefinitionEdge)
                     result.append(itemEdge)
 
-                    references = idMap[ref.target_ent.id]['references'] if 'references' in idMap[ref.target_ent.id] else None
-                    references.append(refRange['id'])
-
-                # Relation: Alias
-                # change the ent's 'definition' to idMap[ref.target_ent.id]['id']
-                # no need to add reference, as it's added in the ralation Define
-                elif ref.ref_kind == RefKind.AliasTo:
-                    idMap[ent.id]['definition'] = [idMap[ref.target_ent.id]['id']]
-
                 elif ref.ref_kind == RefKind.HasambiguousKind:
                     #TODO # change the ent's 'definition' to [] which contains all the definitions
                     ...
@@ -213,7 +221,10 @@ def to_lsif(package_db: RootDB):
                     # because it's added in the ref.ref_kind == RefKind.UseKind
                     # that's the reason why I have to move the 'add references' to the inner of process of Refkind
                     # and with this I dont have to filter the references list to remove repeted locations
-                    ...
+                    cache = idMap[ref.target_ent.id]
+                    if 'implementations' not in cache:
+                        cache['implementations'] = []
+                        cache['implementations'].append(refRange['id'])
 
 
     # For module entity, generate document-contains-ranges edge and foldingRangeResult vertex and edge.
@@ -259,6 +270,17 @@ def to_lsif(package_db: RootDB):
 
                 result.append(definitionResult)
                 result.append(definitionEdge)
+                result.append(itemEdge)
+            
+            if 'implementations' in cache and len(cache['implementations']) > 0:
+                resultSet = cache['result_set']
+                implementations = cache['implementations']
+                implementationResult = registerEntry('vertex', 'implementationResult', {})
+                implementationEdge = registerEntry('edge', 'textDocument/implementation', {'outV': resultSet, 'inV': implementationResult['id']})
+                itemEdge = registerEntry('edge', 'item', {'outV': implementationResult['id'], 'inVs': implementations, 'property': 'implementationResults'})
+
+                result.append(implementationResult)
+                result.append(implementationEdge)
                 result.append(itemEdge)
 
     
