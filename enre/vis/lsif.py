@@ -242,6 +242,31 @@ def to_lsif(package_db: RootDB):
         result.append(foldingRangeResult)
         result.append(foldingRangeEdge)
 
+        # generate module range vertex
+        location = {'start': {'line': 0, 'character': 0}, 'end': {'line': 0, 'character': 0}}
+        entRange = registerEntry('vertex', 'range', location)
+        resultSet = registerEntry('vertex', 'resultSet', {})
+        nextEdge = registerEntry('edge', 'next', {'outV': entRange['id'], 'inV': resultSet['id']})
+        ranges = fileEntry['contains']
+        ranges.append(entRange['id'])
+        result.append(entRange)
+        result.append(resultSet)
+        result.append(nextEdge)
+
+        entHover = registerEntry('vertex', 'hoverResult',{
+                'result': {
+                    'contents': [
+                        {'language': 'python', 'value': f"{module_db.module_ent.kind()} {module_db.module_ent.longname.name}"},
+                        {'language': 'python', 'value': 'Some custom contents...'}
+                    ]
+                }
+            })
+        result.append(entHover)
+        result.append(registerEntry('edge', 'textDocument/hover', {'outV': resultSet['id'], 'inV': entHover['id']}))
+        fileEntry['result_set'] = resultSet['id']
+        fileEntry['references'] = [entRange['id']]
+        fileEntry['definition'] = [entRange['id']]
+
         for ent in module_db.dep_db.ents:
             helper_ent_types = [EntKind.ReferencedAttr, EntKind.Anonymous]
             if ent.kind() in helper_ent_types:
