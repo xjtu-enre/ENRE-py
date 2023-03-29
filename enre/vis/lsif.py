@@ -167,11 +167,15 @@ def to_lsif(package_db: RootDB):
 
                     # ent is not package entity, so ref.target_ent.id must have the result_set
                     try:
-                        resultSet = idMap[ref.target_ent.id]['result_set'] if 'result_set' in idMap[ref.target_ent.id] else None
+                        resultSet = idMap[ref.target_ent.id]['result_set']
                     except:
                         # TODO some builtin and unknown ent dont have idMap[ref.target_ent.id]
                         # so there will throw error
-                        continue
+                        print(ref.target_ent.id)
+                        print(ref.target_ent.longname.name)
+                        print(ref.target_ent.kind())
+                        if ref.target_ent.kind() == EntKind.Module:
+                            continue
                     
                     nextEdge = registerEntry('edge', 'next', {'outV': refRange['id'], 'inV': resultSet})
                     result.append(nextEdge)
@@ -224,7 +228,10 @@ def to_lsif(package_db: RootDB):
                     cache = idMap[ref.target_ent.id]
                     if 'implementations' not in cache:
                         cache['implementations'] = []
-                        cache['implementations'].append(refRange['id'])
+                    
+                    refRange_span = Span(ref.lineno - 1, ref.col_offset, ref.lineno - 1, ref.col_offset + len(ent.longname.name))
+                    refRange = rangeMap[refRange_span]
+                    cache['implementations'].append(refRange['id'])
 
 
     # For module entity, generate document-contains-ranges edge and foldingRangeResult vertex and edge.
