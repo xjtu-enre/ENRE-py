@@ -25,13 +25,12 @@ name: PackageDefinition
 
 ```yaml
 name: RegularPackage
-entity: 
-  extra: false
+entity:
+  type: Package
   items:
-  - longname: package_a
+  - qualified: package_a
     name: package_a
     loc: 'file0'
-    type: Package
 ```
 
 
@@ -46,12 +45,11 @@ entity:
 ```yaml
 name: NamespacePackage
 entity: 
-  extra: false
+  type: Package
   items:
-  - longname: package_a
+  - qualified: package_a
     name: package_a
     loc: 'file0'
-    type: Package
 ```
 
 ### Properties

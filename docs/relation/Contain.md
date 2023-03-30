@@ -26,6 +26,10 @@ name: Contain
 //// package_a/package_b/
 ```
 
+```python
+//// package_a/package_b/__init__.py
+```
+
 ```yaml
 name: RegularPackage
 relation: 
@@ -41,6 +45,10 @@ relation:
   - from: Package:'package_a'
     to: Package:'package_b'
     loc: 'file3'
+    type: Contain
+  - from: Package:'package_b'
+    to: Module:'package_a.package_b.__init__' 
+    loc: 'file1'
     type: Contain
 ```
 

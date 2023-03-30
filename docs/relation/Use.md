@@ -49,51 +49,17 @@ print(t3)
 ```yaml
 name: UseModuleLevelDefinition
 relation:
+  type: Use
+  extra: false
   items:
-  - type: Define
-    to: Class:'test_module_level_use.Base'
-    from: Module:'test_module_level_use'
-    loc: '1:6'
-  - type: Define
-    to: Class:'test_module_level_use.Inherit'
-    from: Module:'test_module_level_use'
-    loc: '4:6'
-  - type: Define
-    to: Function:'test_module_level_use.func1'
-    from: Module:'test_module_level_use'
-    loc: '7:4'
   - type: Use
     to: Class:'test_module_level_use.Base'
     from: Function:'test_module_level_use.func1'
     loc: '8:10'
-  - type: Define
+  - type: Use
+    from: Module:'test_module_level_use'
     to: Variable:'test_module_level_use.x'
-    from: Module:'test_module_level_use'
-    loc: '10:0'
-  - type: Define
-    to: Variable:'test_module_level_use.y'
-    from: Module:'test_module_level_use'
-    loc: '12:0'
-  - type: Define
-    to: Variable:'test_module_level_use.t1'
-    from: Module:'test_module_level_use'
-    loc: '14:0'
-  - type: Define
-    to: Variable:'test_module_level_use.t2'
-    from: Module:'test_module_level_use'
-    loc: '14:4'
-  - type: Define
-    to: Variable:'test_module_level_use.t3'
-    from: Module:'test_module_level_use'
-    loc: '16:1'
-  - type: Define
-    to: Variable:'test_module_level_use.a'
-    from: Module:'test_module_level_use'
-    loc: '17:4'
-  - type: Define
-    to: Variable:'test_module_level_use.b'
-    from: Module:'test_module_level_use'
-    loc: '17:7'
+    loc: '17:12'
   - type: Use
     to: Variable:'test_module_level_use.a'
     from: Module:'test_module_level_use'
@@ -181,6 +147,8 @@ def func2(p):
 ```yaml
 name: UseLocalDefinition
 relation:
+  type: Use
+  extra: false
   items:
   - type: Use
     to: Function:'test_local_use.func'
@@ -198,6 +166,10 @@ relation:
     to: Function:'test_local_use.func.inner'
     from: Function:'test_local_use.func'
     loc: '11:10'
+  - type: Use
+    to: Variable:'test_local_use.func2.x'
+    from: Function:'test_local_use.func2'
+    loc: '23:16'
   - type: Use
     to: Variable:'test_local_use.func2.a'
     from: Function:'test_local_use.func2'
@@ -260,19 +232,8 @@ class Foo:
 ```yaml
 name: UseClassAttribute
 relation:
+  type: Use
   items:
-  - type: Define
-    to: Class:'test_use_class_attr.Base'
-    from: Module:'test_use_class_attr'
-    loc: '1:6'
-  - type: Inherit
-    to: Class:'test_use_class_attr.Base'
-    from: Class:'test_use_class_attr.Inherit'
-    loc: '6:14'
-  - type: Define
-    to: Class:'test_use_class_attr.Base'
-    from: Module:'test_use_class_attr'
-    loc: '6:6'
   - type: Use
     to: Attribute:'test_use_class_attr.Base.base_attribute'
     from: Function:'test_use_class_attr.Inherit.use_attribute'
@@ -288,7 +249,7 @@ relation:
   - type: Use
     from: Class:'test_use_class_attr.Foo'
     to: Attribute:'test_use_class_attr.Base.static_attr'
-    loc: '18:24'
+    loc: '19:24'
 ```
 
 ###### Use Alias
@@ -320,6 +281,8 @@ class ClassB:
 ```yaml
 name: UseAlias
 relation:
+    type: Use
+    extra: false
     items:
     - from: Module:'module_b'
       to: Alias:'module_b.f'

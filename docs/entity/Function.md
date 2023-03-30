@@ -36,10 +36,11 @@ def func1():
 ```yaml
 name: GlobalFunctionDefinition
 entity:
+  type: Function
   extra: false
   items:
   - type: Function
-    longname: test_global_function.func1
+    qualified: test_global_function.func1
     name: func1
     loc: '1:4'
 ```
@@ -61,30 +62,19 @@ class InheritClassA(ClassA):
 ```yaml
 name: ClassMethodDefinition
 entity:
+  type: Function
   extra: False
   items:
-  - type: Class
-    longname: test_method_definition.ClassA
-    name: ClassA
-    loc: '1:6'
   - type: Function
-    longname: test_method_definition.ClassA.method
+    qualified: test_method_definition.ClassA.method
     name: method
     loc: '2:8'
-  - type: Class
-    longname: test_method_definition.ClassB
-    name: ClassB
-    loc: '5:6'
   - type: Function
-    longname: test_method_definition.ClassB.method
+    qualified: test_method_definition.ClassB.method
     name: method
     loc: '6:8'
-  - type: Class
-    longname: test_method_definition.InheritClassA
-    name: InheritClassA
-    loc: '9:5'
   - type: Function
-    longname: test_method_definition.InheritClassA.method
+    qualified: test_method_definition.InheritClassA.method
     name: method
     loc: '10:8'
 ```
@@ -107,18 +97,19 @@ def func():
 ```yaml
 name: NestedFunctionDefinition
 entity:
+  type: Function
   extra: false
   items:
   - type: Function
-    longname: test_nested_function.func
+    qualified: test_nested_function.func
     name: func
     loc: '1:4'
   - type: Function
-    longname: test_nested_function.func.inner
+    qualified: test_nested_function.func.inner
     name: inner
     loc: '2:8'
   - type: Function
-    longname: test_nested_function.func.inner.inner_inner
+    qualified: test_nested_function.func.inner.inner_inner
     name: inner_inner
     loc: '4:12'
 ```
@@ -145,25 +136,21 @@ class Foo(ABC):
 ```yaml
 name: AbstractFunctionDefinition
 entity:
+  type: Function
   extra: false
   items:
-  - type: Class
-    longname: test_abstract_function.Foo
-    name: Foo
-    loc: '4:6'
-    abstract: true
   - type: Function
-    longname: test_abstract_function.foo1
+    qualified: test_abstract_function.foo1
     name: foo1
     loc: '6:8'
     abstract: true
   - type: Function
-    longname: test_abstract_function.foo2
+    qualified: test_abstract_function.foo2
     name: foo2
     loc: '10:8'
     abstract: true
   - type: Function
-    longname: test_abstract_function.foo3
+    qualified: test_abstract_function.foo3
     name: foo3
     loc: '13:8'
 ```

@@ -29,12 +29,9 @@ class Inherit(Base):
 ```yaml
 name: StaticClassAttributeDefinition
 entity:
+  type: Attribute
   extra: false
   items:
-  - type: Class
-    qualified: test_static_class_attribute.Base
-    name: Base
-    loc: '1:6'
   - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_a
     name: attribute_a
@@ -54,11 +51,7 @@ entity:
   - type: Attribute
     qualified: test_static_class_attribute.Base.attribute_x
     name: attribute_x
-    loc: '5:13'
-  - type: Class
-    qualified: test_static_class_attribute.Inherit
-    name: Inherit
-    loc: '7:4'
+    loc: '6:13'
   - type: Attribute
     qualified: test_static_class_attribute.Inherit.attribute_e
     name: attribute_e

@@ -31,15 +31,15 @@ entity:
   type: Alias
   extra: false
   items:
-  - longname: module_b.f
+  - qualified: module_b.f
     name: f
-    loc: '1:29'
-  - longname: module_b.x_b
+    loc: 'file1:1:29'
+  - qualified: module_b.x_b
     name: x_b
-    loc: '1:37'
-  - longname: module_a.a
+    loc: 'file1:1:37'
+  - qualified: module_b.a
     name: a
-    loc: '2:19'
+    loc: 'file1:2:19'
 ```
 
 ### Properties

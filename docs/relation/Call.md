@@ -31,10 +31,6 @@ func1()
 name: GlobalFunctionCall
 relation:
   items:
-  - type: Define
-    to: Function:'test_global_function_call.func1'
-    loc: '2:4'
-    from: Module:'test_global_function_call'
   - type: Call
     to: Function:'test_global_function_call.func1'
     loc: '5:4'
@@ -44,7 +40,7 @@ relation:
     loc: '10:0'
     from: Module:'test_global_function_call'
 ```
-- Class Method Call
+###### Class Method Call
 ```python
 //// test_method_call.py
 
@@ -74,26 +70,6 @@ instance.method()
 name: ClassMethodCall
 relation:
   items:
-  - type: Define
-    to: Class:'test_method_call.ClassA'
-    loc: '2:6'
-    from: Module:'test_method_call'
-  - type: Define
-    to: Function:'test_method_call.ClassA.method'
-    loc: '5:4'
-    from: Class:'test_method_call.ClassA'
-  - type: Define
-    to: Class:'test_method_call.ClassB'
-    loc: '9:6'
-    from: Module:'test_method_call'
-  - type: Define
-    to: Function:'test_method_call.ClassB.method'
-    loc: '12:4'
-    from: Function:'test_method_call.ClassB'
-  - type: Define
-    to: Variable:'test_method_call.instance'
-    loc: '16:0'
-    from: Module:'test_method_call'
   - type: Call
     to: Function:'test_method_call.ClassA.method'
     loc: '19:9'
@@ -128,18 +104,6 @@ def func():
 name: LocalFunctionCall
 relation:
   items:
-  - type: Define
-    to: Function:'test_nested_define.func'
-    loc: '2:4'
-    from: Module:'test_nested_define'
-  - type: Define
-    to: Function:'test_nested_define.func.inner'
-    loc: '5:4'
-    from: Function:'test_nested_define.func'
-  - type: Define
-    to: Function:'test_nested_define.func.inner_inner'
-    loc: '8:8'
-    from: Function:'test_nested_define.func'
   - type: Call
     to: Function:'test_nested_define.func'
     loc: '11:12'

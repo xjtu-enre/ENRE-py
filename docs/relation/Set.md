@@ -17,7 +17,13 @@ x = 1
 ```yaml
 name: SetModuleLevelDefinition
 relation:
+    type: Set
+    extra: false
     items:
+    - from: Module:'module_a'
+      to: Variable:'module_a.x'
+      type: Set
+      loc: '1:0'
     - from: Module:'module_a'
       to: Variable:'module_a.x'
       type: Set
@@ -32,13 +38,17 @@ def foo(y):
     y = 1
 ```
 ```yaml
-name: SetModuleLevelDefinition
+name: SetLocalLevelDefinition
 relation:
     items:
     - from: Function:'test_set_local.foo'
       to: Variable:'test_set_local.foo.x'
       type: Set
-      loc: '3:0'
+      loc: '2:4'
+    - from: Function:'test_set_local.foo'
+      to: Variable:'test_set_local.foo.x'
+      type: Set
+      loc: '3:4'
     - from: Function:'test_set_local.foo'
       to: Parameter:'test_set_local.foo.y'
       type: Set
@@ -69,7 +79,17 @@ Base.static_attr = 2
 ```yaml
 name: SetAttribute
 relation:
+  type: Set
+  extra: false
   items:
+  - type: Set
+    to: Attribute:'test_set_attribute.Base.static_attr'
+    from: Class:'test_set_attribute.Base'
+    loc: '2:4'
+  - type: Set
+    to: Attribute:'test_set_attribute.Base.base_attribute'
+    from: Function:'test_set_attribute.Base.__init__'
+    loc: '4:13'
   - type: Set
     to: Attribute:'test_set_attribute.Base.base_attribute'
     from: Function:'test_set_attribute.Inherit.use_attribute'

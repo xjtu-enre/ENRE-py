@@ -143,7 +143,7 @@ relation:
   - type: Define
     to: Function:'test_nested_define.func.inner.inner_inner'
     loc: '8:12'
-    from: Function:'test_nested_define.func'
+    from: Function:'test_nested_define.func.inner'
   - type: Define
     to: Variable:'test_nested_define.func2.x'
     loc: '22:4'
@@ -189,18 +189,6 @@ def func(x0, y0, z0):
 name: ParameterDefinition
 relation:
   items:
-  - type: Define
-    to: Function:'test_parameter_define.func'
-    loc: '2:4'
-    from: Module:'test_parameter_define'
-  - type: Define
-    to: Function:'test_parameter_define.func.inner'
-    loc: '5:8'
-    from: Function:'test_parameter_define.func'
-  - type: Define
-    to: Function:'test_parameter_define.func.inner.inner_inner'
-    loc: '8:12'
-    from: Function:'test_parameter_define.func'
   - type: Define
     to: Parameter:'test_parameter_define.func.x0'
     from: Function:'test_parameter_define.func'
@@ -292,7 +280,7 @@ relation:
 
 ###### Anonymous Function Definition
 ```python
-//// test_define_anonnymous.py
+//// test_define_anonymous.py
 lambda :None
 
 def foo():
@@ -305,17 +293,16 @@ class ClassA:
 ```yaml
 name: AnonymousFunctionDefinition
 relation:
-  extra: false
   type: Define
   items:
-  - from: Module:'test_define_anonnymous'
-    to: AnonymousFunction:'test_define_anonnymous'[@loc=1]
+  - from: Module:'test_define_anonymous'
+    to: AnonymousFunction:'<Anonymous as="Function">'[@loc=1]
     loc: '1:0'
-  - from: Function:'test_define_anonnymous.foo'
-    to: AnonymousFunction:'test_define_anonnymous.foo'[@loc=4]
+  - from: Function:'test_define_anonymous.foo'
+    to: AnonymousFunction:'<Anonymous as="Function">'[@loc=4]
     loc: '4:4'
-  - from: Class:'test_define_anonnymous.ClassA'
-    to: AnonymousFunction:'test_define_anonnymous.ClassA'[@loc=7]
+  - from: Class:'test_define_anonymous.ClassA'
+    to: AnonymousFunction:'<Anonymous as="Function">'[@loc=7]
     loc: '7:4'
 ```
 

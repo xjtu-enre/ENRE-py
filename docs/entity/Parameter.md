@@ -42,54 +42,35 @@ lambda t: t
 ```yaml
 name: ParameterDefinition
 entity:
+  type: Parameter
   extra: false
   items:
-  - type: Function
-    longname: test_parameter.func1
-    name: func1
-    loc: '1:4'
   - type: Parameter
-    longname: test_parameter.func1.x
+    qualified: test_parameter.func1.x
     name: x
     loc: '1:10'
-  - type: Function
-    longname: test_parameter.func2
-    name: func2
-    loc: '4:4'
   - type: Parameter
-    longname: test_parameter.func2.x
+    qualified: test_parameter.func2.x
     name: x
     loc: '4:10'
-  - type: Function
-    longname: test_parameter.func3
-    name: func3
-    loc: '7:4'
   - type: Parameter
-    longname: test_parameter.func3.x
+    qualified: test_parameter.func3.x
     name: x
     loc: '7:10'
   - type: Parameter
-    longname: test_parameter.func3.y
+    qualified: test_parameter.func3.y
     name: y
     loc: '7:14'
   - type: Parameter
-    longname: test_parameter.func3.z
+    qualified: test_parameter.func3.z
     name: z
     loc: '7:19'
-  - type: Function
-    longname: test_parameter.func4
-    name: func4
-    loc: '10:4'
   - type: Parameter
-    longname: test_parameter.func4.x
+    qualified: test_parameter.func4.x
     name: x
     loc: '10:10'
-  - type: AnonymousFunction
-    longname: 'test_parameter.func4.(13)'
-    name: ''
-    loc: '13:0'
-  - type: LambdaParameter
-    longname: 'test_parameter.func4.(13).t'
+  - type: Parameter
+    qualified: 'test_parameter.func4.(13).t'
     name: t
     loc: '13:7'
 ```

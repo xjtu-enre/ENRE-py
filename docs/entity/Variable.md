@@ -36,26 +36,27 @@ t1, t2 = 1, 2
 ```yaml
 name: GlobalVariableDefinition
 entity:
+  type: Variable
   extra: false
   items:
   - type: Variable
-    longname: test_global_variable.x
+    qualified: test_global_variable.x
     name: x
     loc: '1:0'
   - type: Variable
-    longname: test_global_variable.y
+    qualified: test_global_variable.y
     name: y
     loc: '3:0'
   - type: Variable
-    longname: test_global_variable.t1
+    qualified: test_global_variable.t1
     name: t1
     loc: '6:0'
   - type: Variable
-    longname: test_global_variable.t2
+    qualified: test_global_variable.t2
     name: t2
     loc: '6:4'
   - type: Variable
-    longname: test_global_variable.t3
+    qualified: test_global_variable.t3
     name: t3
     loc: '7:1'
 ```
@@ -63,7 +64,7 @@ entity:
 ###### Local Variable Definition
 
 ```python
-//// test_local_variable.func.py
+//// test_local_variable.py
 def func(p1, p2):
     x = 1
 
@@ -88,62 +89,47 @@ def func(p1, p2):
 ```yaml
 name: LocalVariableDefinition
 entity:
+  type: Variable
   extra: false
   items:
-  - type: Function
-    longname: test_local_variable.func
-    name: func
-    loc: '1:4'
-  - type: Parameter
-    longname: test_local_variable.func.p1
-    name: p1
-    loc: '1:10'
-  - type: Parameter
-    longname: test_local_variable.func.p2
-    name: p2
-    loc: '1:13'
   - type: Variable
-    longname: test_local_variable.func.x
+    qualified: test_local_variable.func.x
     name: x
     loc: '2:4'
   - type: Variable
-    longname: test_local_variable.func.y
+    qualified: test_local_variable.func.y
     name: y
     loc: '4:4'
   - type: Variable
-    longname: test_local_variable.func.t1
+    qualified: test_local_variable.func.t1
     name: t1
     loc: '6:4'
   - type: Variable
-    longname: test_local_variable.func.t2
+    qualified: test_local_variable.func.t2
     name: t2
     loc: '6:8'
   - type: Variable
-    longname: test_local_variable.func.t3
+    qualified: test_local_variable.func.t3
     name: t3
     loc: '8:5'
-  - type: Function
-    longname: test_local_variable.func.inner
-    name: inner
-    loc: '9:8'
   - type: Variable
-    longname: test_local_variable.func.inner.x
+    qualified: test_local_variable.func.inner.x
     name: x
     loc: '10:8'
   - type: Variable
-    longname: test_local_variable.func.inner.y
+    qualified: test_local_variable.func.inner.y
     name: y
     loc: '12:8'
   - type: Variable
-    longname: test_local_variable.func.inner.t1
+    qualified: test_local_variable.func.inner.t1
     name: t1
     loc: '14:8'
   - type: Variable
-    longname: test_local_variable.func.inner.t2
+    qualified: test_local_variable.func.inner.t2
     name: t2
     loc: '14:12'
   - type: Variable
-    longname: test_local_variable.func.inner.t3
+    qualified: test_local_variable.func.inner.t3
     name: t3
     loc: '16:9'
 ```
@@ -166,26 +152,27 @@ def func():
 ```yaml
 name: IterationVariable
 entity:
+  type: Variable
   extra: false
   items:
   - type: Variable
-    longname: test_iteration_variable.a
+    qualified: test_iteration_variable.a
     name: x
     loc: '1:0'
   - type: Variable
-    longname: test_iteration_variable.a
+    qualified: test_iteration_variable.a
     name: a
     loc: '3:4'
   - type: Variable
-    longname: test_iteration_variable.b
+    qualified: test_iteration_variable.b
     name: b
     loc: '3:7'
   - type: Variable
-    longname: test_iteration_variable.func.c
+    qualified: test_iteration_variable.func.c
     name: c
     loc: '7:8'
   - type: Variable
-    longname: test_iteration_variable.func.d
+    qualified: test_iteration_variable.func.d
     name: d
     loc: '7:11'
 ```

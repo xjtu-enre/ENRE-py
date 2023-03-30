@@ -9,118 +9,86 @@ name: Import
 
 ##### Examples
 ###### Global Import
+
 ```python
-//// module_a.py
-import module_b
+var = 1
 
 def func():
-    ...
-x = 1
-
-class ClassA:
-    ...
+    pass
+    
+class Clz:
+    pass
 ```
-```python
-//// module_b.py
-from module_a import func as f, x as x_b, ClassA as c
-import module_a as a
 
+```python
+from file0 import *
+from file0 import var, func, Clz
 ```
 
 ```yaml
 name: GlobalImport
 relation:
+  type: Import
+  extra: false
   items:
-  - type: Import
-    from: Module:'module_a'
-    to: Module:'module_b'
-    loc: 'file0:1:7'
-  - type: Import
-    from: Module:'module_b'
-    to: Function:'module_a.func'
-    loc: 'file1:1:21'
-  - type: Import
-    from: Module:'module_b'
-    to: Variable:'module_a.x'
-    loc: 'file1:2:32'
-  - type: Import
-    from: Module:'module_b'
-    to: Module:'module_a'
-    loc: 'file1:2:7'
-  - type: Alias
-    from: Alias:'module_b.f'
-    to: Function:'module_a.func'
-    loc: 'file1:1:29'
-  - type: Alias
-    from: Alias:'module_b.c'
-    to: Class:'module_a.ClassA'
-    loc: 'file1:1:52'
-  - type: Alias
-    from: Alias:'module_b.x_b'
-    to: Variable:'module_a.x'
-    loc: 'file1:1:37'
-  - type: Alias
-    from: Alias:'module_b.a'
-    to: Module:'module_a'
-    loc: 'file1:2:19'
-  - type: Define
-    from: Module:'module_b'
-    to: Alias:'module_b.x_b'
-    loc: 'file1:1:37'
-  - type: Define
-    from: Module:'module_b'
-    to: Alias:'module_b.f'
-    loc: 'file1:1:29'
-  - type: Define
-    from: Module:'module_b'
-    to: Alias:'module_b.a'
-    loc: 'file1:2:19'
+    - from: Module:'file1'
+      to: Module:'file0'
+      loc: file1:1:18
+    - from: Module:'file1'
+      to: Variable:'var'
+      loc: file1:2:18
+    - from: Module:'file1'
+      to: Function:'func'
+      loc: file1:2:23
+    - from: Module:'file1'
+      to: Class:'Clz'
+      loc: file1:2:29
 ```
+
 ###### Local Import
+
 ```python
-//// module_c.py
+var = 1
+
 def func():
-    ...
+    pass
+    
+class Clz:
+    pass
 ```
 
 ```python
-//// module_d.py
 def foo():
-    import module_c as c
-    from module_c import func
+    from file0 import var, func, Clz
 
-class ClassA:
-    import module_c as c
+class Bar:
+    from file0 import var, func, Clz
 ```
 
 ```yaml
 name: LocalImport
 relation:
+  type: Import
+  extra: false
   items:
-  - type: Import
-    from: Function:'module_d.foo'
-    to: Module:'module_c'
-    loc: 'file1:2:11'
-  - type: Import
-    from: Function:'module_d.foo'
-    to: Function:'module_c.func'
-    loc: 'file1:3:25'
-  - type: Alias
-    from: Alias:'module_d.foo.c'
-    to: Module:'module_c'
-    loc: 'file1:2:23'
-  - type: Alias
-    from: Alias:'module_d.foo.func'
-    to: Function:'module_c.func'
-    loc: 'file1:3:25'
-  - type: Define
-    from: Function:'module_d.foo'
-    to: Alias:'module_d.foo.c'
-    loc: 'file1:2:23'
-  - type: Import
-    from: Class:'module_d.ClassA'
-    to: Module:'module_c'
-    loc: 'file1:6:11'
+    - from: Function:'foo'
+      to: Variable:'var'
+      loc: file1:2:22
+    - from: Function:'foo'
+      to: Function:'func'
+      loc: file1:2:27
+    - from: Function:'foo'
+      to: Class:'Clz'
+      loc: file1:2:33
+    - from: Class:'Bar'
+      to: Variable:'var'
+      loc: file1:5:22
+    - from: Class:'Bar'
+      to: Function:'func'
+      loc: file1:5:27
+    - from: Class:'Bar'
+      to: Class:'Clz'
+      loc: file1:5:33
 ```
 
 ### Properties

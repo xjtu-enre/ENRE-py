@@ -6,3 +6,4 @@ testdata/
 venv10/
 **/*.json
 build/
+tests/

@@ -20,10 +20,11 @@ lambda t: t
 ```yaml
 name: AnonymousFunctionDefinition
 entity:
+  type: AnonymousFunction
   extra: false
   items:
   - type: AnonymousFunction
-    longname: test_anonymous
+    qualified: test_anonymous
     name: ''
     loc: '1:0'
 ```
