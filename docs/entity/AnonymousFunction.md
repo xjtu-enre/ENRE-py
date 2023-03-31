@@ -1,5 +1,5 @@
 ## Entity: AnonymousFunction
-In python, an anonnymous function can be created by lambda expression.
+In python, an anonymous function can be created by lambda expression.
 
 ### Supported Patterns
 ```yaml
@@ -24,8 +24,7 @@ entity:
   extra: false
   items:
   - type: AnonymousFunction
-    qualified: test_anonymous
-    name: ''
+    name: '<Anonymous as="Function">'
     loc: '1:0'
 ```
 
