@@ -94,11 +94,11 @@ entity:
   - type: Class
     qualified: test_nested_class.out_func.Inner2
     name: Inner2
-    loc: '6:10'
+    loc: '7:10'
   - type: Class
     qualified: test_nested_class.out_func.Inner2.Inner3
     name: Inner3
-    loc: '7:14'
+    loc: '8:14'
 ```
 
 ###### Abstract Class Definition

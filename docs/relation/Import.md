@@ -23,6 +23,7 @@ class Clz:
 ```python
 from file0 import *
 from file0 import var, func, Clz
+import file0
 ```
 
 ```yaml
@@ -43,6 +44,9 @@ relation:
     - from: Module:'file1'
       to: Class:'Clz'
       loc: file1:2:29
+    - from: Module:'file1'
+      to: Module:'file0'
+      loc: file1:3:8
 ```
 
 ###### Local Import

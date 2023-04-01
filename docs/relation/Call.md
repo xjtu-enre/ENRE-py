@@ -105,21 +105,21 @@ name: LocalFunctionCall
 relation:
   items:
   - type: Call
-    to: Function:'test_nested_define.func'
+    to: Function:'test_local_call.func'
     loc: '11:12'
-    from: Function:'test_nested_define.func.inner_inner'
+    from: Function:'test_local_call.func.inner.inner_inner'
   - type: Call
-    to: Function:'test_nested_define.func'
+    to: Function:'test_local_call.func'
     loc: '13:8'
-    from: Function:'test_nested_define.func.inner'
+    from: Function:'test_local_call.func.inner'
   - type: Call
-    to: Function:'test_nested_define.func.inner_inner'
+    to: Function:'test_local_call.func.inner.inner_inner'
     loc: '16:8'
-    from: Function:'test_nested_define.func.inner'
+    from: Function:'test_local_call.func.inner'
   - type: Call
-    to: Function:'test_nested_define.func.inner'
+    to: Function:'test_local_call.func.inner'
     loc: '18:4'
-    from: Function:'test_nested_define.func'
+    from: Function:'test_local_call.func'
 ```
 
 ###### First Order Function Call
@@ -139,7 +139,7 @@ name: FirstOrderFunctionCall
 relation:
     type: Call
     items:
-    - to: Variable:'test_first_order_func_call.f'
+    - to: Variable:'test_first_order_func_call.acceptor.f'
       from: Function:'test_first_order_func_call.acceptor'
       loc: '5:4'
     - to: Function:'test_first_order_func_call.foo'
