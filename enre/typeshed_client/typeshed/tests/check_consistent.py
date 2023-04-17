@@ -184,7 +184,7 @@ def check_requirements() -> None:
 
 
 if __name__ == "__main__":
-    assert sys.version_info >= (3, 9), "Python 3.9+ is required to run this test"
+    assert sys.version_info >= (3, 9), "Python 3.9+ is required to run this tests"
     check_stdlib()
     check_versions()
     check_stubs()

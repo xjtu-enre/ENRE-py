@@ -48,7 +48,7 @@ class GraphDiffer:
         diff_node_list: List[NodeTy] = []
         length = len(self.tar_graph.node_list)
         for index, node in enumerate(self.tar_graph.node_list):
-            print(f"processing: {index}/{length}")
+            # print(f"processing: {index}/{length}")
             matched_node = first_match(self.base_graph.node_list,
                                        lambda n: self._mapping.is_same_node(n, node))
             if matched_node is None:
@@ -62,7 +62,7 @@ class GraphDiffer:
         diff_edge_list: List[EdgeTy] = []
         length = len(self.tar_graph.edge_list)
         for index, edge in enumerate(self.tar_graph.edge_list):
-            print(f"processing: {index}/{length}")
+            # print(f"processing: {index}/{length}")
 
             matched_edge = first_match(self.base_graph.edge_list,
                                        lambda e: self._mapping.is_same_edge(e, edge))

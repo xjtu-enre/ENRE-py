@@ -9,12 +9,12 @@ from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
 from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType, InstanceType, AttributeType, \
-    AttrInstanceType
+    AttrInstanceType, FunctionType, MethodType, UnionType, DictType, AnyType, TupleType, ListType
 from enre.ent.EntKind import EntKind, RefKind
 
 if typing.TYPE_CHECKING:
     from enre.ref.Ref import Ref
-    from enre.analysis.env import Bindings
+    from enre.analysis.env import Bindings, ScopeEnv, EntEnv
 
 _EntityID = 0
 
@@ -42,6 +42,9 @@ class EntLongname:
     def __hash__(self) -> int:
         return hash(self.longname)
 
+    def __str__(self):
+        return self.longname
+
 
 @dataclass
 class Span:
@@ -57,6 +60,10 @@ class Span:
     def offset(self, offset: int) -> None:
         assert self.end_col == -1
         self.start_col += offset
+
+    def span_offset(self, offset: int) -> None:
+        self.start_col = self.end_col
+        self.end_col += offset
 
     def __hash__(self) -> int:
         return hash((self.start_line, self.end_line, self.start_col, self.end_col))
@@ -112,6 +119,9 @@ class Location:
     def __hash__(self) -> int:
         return hash((".".join(self._scope), self._file_path, self._span))
 
+    def __str__(self):
+        return self._file_path.__str__() + " " + self._span.__str__()
+
     @classmethod
     def global_name(cls, name: str) -> "Location":
         return Location(Path(), _Nil_Span, [name])
@@ -123,6 +133,7 @@ class Location:
     @property
     def file_path(self) -> Path:
         return self._file_path
+
 
 class Syntactic(ABC):
     @abstractmethod
@@ -141,7 +152,9 @@ class Entity(ABC):
         self._refs: List["Ref"] = []
         self.longname = longname
         self.location = location
-        self._types: List["ValueInfo"] = []
+        self.exported = False
+        self.type: "ValueInfo" = ValueInfo.get_any()
+        self.children = set()
 
     def refs(self) -> List["Ref"]:
         return self._refs
@@ -161,6 +174,11 @@ class Entity(ABC):
         # todo: should we remove reference with same representation?
         if ref not in self._refs:
             self._refs.append(ref)
+            if ref.ref_kind == RefKind.ChildOfKind:
+                ref.target_ent.children.add(self)
+
+    def __str__(self):
+        return self.longname.longname
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
@@ -168,41 +186,16 @@ class Entity(ABC):
         return False
 
     def direct_type(self) -> "ValueInfo":
-        from enre.analysis.value_info import ValueInfo
-        return ValueInfo.get_any()
+        return self.type
 
     def __hash__(self) -> int:
         return hash((self.longname, self.location))
 
     def add_type(self, target: "ValueInfo") -> None:
-        if target not in self._types:
-            if isinstance(target, InstanceType) or isinstance(target, ConstructorType):
-                for ty in self._types:
-                    if isinstance(ty, InstanceType) or isinstance(ty, ConstructorType):
-                        if ty.class_ent == target.class_ent:
-                            return None
-            if isinstance(target, AttributeType) or isinstance(target, AttrInstanceType):
-                for ty in self._types:
-                    if isinstance(ty, AttributeType) or isinstance(ty, AttrInstanceType):
-                        if ty.attr_ent == target.attr_ent:
-                            return None
-            self._types.append(target)
+        self.type = UnionType.union(self.type, target)
 
-    def reset_type(self, target: "ValueInfo") -> None:
-        ...
-
-    def get_type_list(self) -> List[str]:
-        res: List[str] = []
-        for t in self._types:
-            if isinstance(t, InstanceType):
-                res.append(t.get_class_ent().longname.longname)
-            elif isinstance(t, ConstructorType):
-                res.append(t.to_class_type().get_class_ent().longname.longname)
-            elif isinstance(t, AttributeType):
-                res.append(t.attr_ent.longname.longname)
-            elif isinstance(t, AttrInstanceType):
-                res.append(t.attr_ent.longname.longname)
-        return res
+    def set_type(self, target: "ValueInfo") -> None:
+        self.type = target
 
 
 class NameSpaceEntity(ABC):
@@ -232,6 +225,8 @@ class Variable(Entity):
 class Parameter(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Parameter, self).__init__(longname, location)
+        self.has_default = False
+        self.default = ValueInfo.get_any()
 
     def kind(self) -> EntKind:
         return EntKind.Parameter
@@ -245,35 +240,192 @@ class LambdaParameter(Parameter):
         return EntKind.LambdaParameter
 
 
+@dataclass
+class Signature:
+    identifier: str
+    posonlyargs: List["Parameter"]
+    kwonlyargs: Dict[str, "Parameter"]
+    stararg: Optional["Parameter"]
+    starstararg: Optional["Parameter"]
+    return_type: Optional["ValueInfo"]
+    is_func: bool  # function is true, class is false
+    is_overload: bool
+    has_stararg: bool
+    has_starstararg: bool
+    """Function signature likes this:
+    def foo(x: int) -> Any
+    def method(self, y: str) -> int
+    """
+
+    def __init__(self, ident, is_func, func_ent: Optional["Function"] = None):
+        self.identifier = ident
+        self.posonlyargs = []
+        self.kwonlyargs = dict()
+        self.stararg = None
+        self.starstararg = None
+        self.return_type = ValueInfo.get_any()
+        self.is_func = is_func
+        self.is_overload = False
+        self.func_ent = func_ent
+        self.has_stararg = False
+        self.has_starstararg = False
+
+    def append_posonlyargs(self, para: Parameter):
+        self.posonlyargs.append(para)
+
+    def append_kwonlyargs(self, kw: str, para: Parameter):
+        self.kwonlyargs[kw] = para
+
+    def get_posonlyargs(self, index: int) -> Parameter:
+        return self.posonlyargs[index]
+
+    def get_kwonlyargs(self, kw: str) -> Parameter:
+        return self.kwonlyargs.get(kw)
+
+    def get_stararg(self) -> Parameter:
+        return self.stararg
+
+    def get_starstararg(self) -> Parameter:
+        return self.starstararg
+
+    def set_return_type(self, return_type: "ValueInfo") -> None:
+        self.return_type = UnionType.union(self.return_type, return_type)
+
+    def get_return_type(self) -> "ValueInfo":
+        return self.return_type
+
+    def function_call_least_posonlyargs_length(self) -> int:
+        counter = 0
+        for arg in self.posonlyargs:
+            if not arg.has_default:
+                counter = counter + 1
+        return counter
+
+    def function_call_least_kwonlyargs_length(self) -> int:
+        counter = 0
+        for kw, arg in self.kwonlyargs.items():
+            assert isinstance(arg, Parameter)
+            if not arg.has_default:
+                counter = counter + 1
+        return counter
+
+    def __str__(self):
+        res = "def " if self.is_func else "class "
+        res += self.identifier
+        if self.posonlyargs or self.kwonlyargs or self.is_func:
+            res += "("
+        for index, arg in enumerate(self.posonlyargs):
+            temp = ""
+            if index != 0:
+                temp += ", "
+            if self.is_func:
+                temp += arg.longname.name
+                temp += ": "
+            # if not isinstance(arg.type, AnyType):
+            temp += arg.type.__str__()
+            res += temp
+
+        # stararg
+        if self.is_func and self.func_ent and self.has_stararg:
+            if res[-1] != "(":
+                res += ", "
+            res += "*" + self.stararg.longname.name
+            res += ": " + self.stararg.type.__str__()
+
+        if self.kwonlyargs:
+            res += ", *, "
+        count = 0
+        for k, v in self.kwonlyargs.items():
+            temp = ""
+            if count != 0:
+                temp += ", "
+            temp += k
+            if not isinstance(v.type, AnyType):
+                temp += ": " + v.type.__str__()
+            res += temp
+            count += 1
+        # starstararg
+        if self.is_func and self.func_ent and self.has_starstararg:
+            if res[-1] != "(":
+                res += ", "
+            res += "**" + self.starstararg.longname.name
+            res += ": " + self.starstararg.type.__str__()
+
+        if self.posonlyargs or self.kwonlyargs or self.is_func:
+            res += ")"
+        if self.is_func:
+            res += " -> " + self.return_type.__str__()
+        return res
+
+
 class Function(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Function, self).__init__(longname, location)
         self.abstract_kind: Optional[FunctionKind] = None
         self.static_kind: Optional[FunctionKind] = None
         self.readonly_property_name: Optional[str] = None
-        self._return_type: List[Entity] = []
-        self._parameters: List[Parameter] = []
+        self._function: bool = True
+        self._env = None
+        self._scope_env = None
+        self._body = None
+        self._rel_path = None
+        # self._type = None
+        self._arrows = dict()
+        self.current_db = None
+        self.calling_stack = []
+
+        self.summary = None
+
+        # self.signature = Signature(longname.name, True, self)
+        self.signatures = []
+        self.callable_signature = None
+
+        self.decorators = []
+
+        # from type is a tuple type
+        # to type is a Union type?
+        # but they are all type
 
     def kind(self) -> EntKind:
-        return EntKind.Function
+        return EntKind.Function if self._function else EntKind.Method
 
-    def append_return_type(self, target: Entity):
-        self._return_type.append(target)
+    def set_body_env(self, env: "EntEnv", scope: "ScopeEnv", rel_path: Path):
+        self._env = env
+        self._scope_env = scope
+        self._rel_path = rel_path
 
-    def get_return_type(self):
-        res: List[str] = []
-        for t in self._return_type:
-            res.append(t.longname.name)
-        return res
+    def get_body_env(self) -> ("EntEnv", "ScopeEnv", Path):
+        return self._env, self._scope_env, self._rel_path
 
-    def append_parameters(self, para: Parameter):
-        self._parameters.append(para)
+    def get_scope_env(self):
+        return self._scope_env
 
-    def get_parameters(self, index: int) -> Parameter:
-        return self._parameters[index]
+    def set_body(self, body):
+        self._body = body
 
-    def length_parameters(self) -> int:
-        return len(self._parameters)
+    def get_body(self):
+        return self._body
+
+    def set_method(self):
+        self._function = False
+
+    def set_direct_type(self, direct_type: "ValueInfo"):
+        self.type = direct_type
+
+    def direct_type(self) -> "ValueInfo":
+        return self.type
+
+    def set_mapping(self, from_type: "ListType", to_type: "UnionType" = ValueInfo.get_any()):
+        self._arrows[from_type] = to_type
+
+    def get_mapping(self, from_type: "ListType"):
+        return self._arrows.get(from_type)
+
+    def has_mapping(self, from_type: "ListType"):
+        return from_type in self._arrows
+
+    def append_signature(self, signature: Signature):
+        self.signatures.append(signature)
 
 
 class LambdaFunction(Function):
@@ -294,6 +446,7 @@ class Package(Entity, NameSpaceEntity):
         super(Package, self).__init__(longname, location)
         self._names: "NamespaceType" = defaultdict(list)
         self.package_path = file_path
+        self.exported = True
 
     @property
     def names(self) -> "NamespaceType":
@@ -320,6 +473,8 @@ class Module(Entity, NameSpaceEntity):
         self.module_path = file_path
         self._names: "NamespaceType" = defaultdict(list)
         self._is_stub = is_stub
+        self.absolute_path = None
+        self.exported = True
 
     def kind(self) -> EntKind:
         return EntKind.Module
@@ -330,6 +485,8 @@ class Module(Entity, NameSpaceEntity):
 
     def add_ref(self, ref: "Ref") -> None:
         if ref.ref_kind == RefKind.DefineKind:
+            self._names[ref.target_ent.longname.name].append(ref.target_ent)
+        elif ref.ref_kind == RefKind.ImportKind:
             self._names[ref.target_ent.longname.name].append(ref.target_ent)
         super(Module, self).add_ref(ref)
 
@@ -388,6 +545,7 @@ class Alias(Entity):
     def __init__(self, longname: EntLongname, location: Location, ents: List[Entity]) -> None:
         super(Alias, self).__init__(longname, location)
         self.possible_target_ent = ents
+        self.is_exception_alias = False
         self._build_alias_deps()
 
     def kind(self) -> EntKind:
@@ -414,6 +572,10 @@ class Class(Entity, NameSpaceEntity):
         self.abstract_info: Optional[AbstractClassInfo] = None
         self.readonly_attribute: NamespaceType = defaultdict(list)
         self.private_attribute: NamespaceType = defaultdict(list)
+        self._body_env = None
+        self.signatures = []
+        self.signature = Signature(longname.name, is_func=False)
+
 
     def kind(self) -> EntKind:
         return EntKind.Class
@@ -446,7 +608,7 @@ class Class(Entity, NameSpaceEntity):
         super(Class, self).add_ref(ref)
 
     def direct_type(self) -> "ValueInfo":
-        return ConstructorType(self)
+        return self.type
 
     def implement_method(self, longname: EntLongname) -> bool:
         method_name = longname.name
@@ -459,6 +621,13 @@ class Class(Entity, NameSpaceEntity):
                         else:
                             return True
         return False
+
+    def set_body_env(self, body_env):
+        self._body_env = body_env
+
+    def get_body_env(self):
+        assert self._body_env
+        return self._body_env
 
 
 class UnknownVar(Entity):
@@ -482,25 +651,6 @@ class UnknownVar(Entity):
             return unknown_var
 
 
-class BuiltinsEnt(Entity):
-    _builtins_pool: Dict[str, "BuiltinsEnt"] = dict()
-
-    def __init__(self, name: str):
-        self._name = name
-
-    def kind(self) -> EntKind:
-        return EntKind.Builtins
-
-    @classmethod
-    def get_builtins_var(cls, name: str) -> bool:
-        if name in cls._builtins_pool.keys():
-            return True
-        else:
-            builtins_var = BuiltinsEnt(name)
-            cls._builtins_pool[name] = builtins_var
-            return False
-
-
 class UnknownModule(Module):
     def __init__(self, name: str):
         super(UnknownModule, self).__init__(Path(f"{name}.py"))
@@ -517,15 +667,6 @@ class Anonymous(Entity):
         return EntKind.Anonymous
 
 
-class ClassAttribute(Entity):
-    def __init__(self, class_ent: Class, longname: EntLongname, location: Location):
-        self.class_ent: Class = class_ent
-        super(ClassAttribute, self).__init__(longname, location)
-
-    def kind(self) -> EntKind:
-        return EntKind.ClassAttr
-
-
 """
 Callable --> Unknown Function or Class
 Attribute --> Unknown Attribute
@@ -536,27 +677,45 @@ class Attribute(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(Attribute, self).__init__(longname, location)
         self._names: Dict[str, List[Entity]] = defaultdict(list)
+        self.is_class_attr = False
 
     def kind(self) -> EntKind:
-        return EntKind.ClassAttr
+        if self.is_class_attr:
+            return EntKind.ClassAttribute
+        else:
+            return EntKind.Attribute
 
     @property
     def names(self) -> "NamespaceType":
         return self._names
 
     def direct_type(self) -> "ValueInfo":
-        return AttributeType(self)
+        if isinstance(self.type, AnyType):
+            return AttributeType(self)
+        else:
+            return self.type
 
-    def get_attribute(self, attr: str) -> List[Entity]:
-        current_attrs = self.names[attr]
+    def add_ref(self, ref: "Ref") -> None:
+        name = ref.target_ent.longname.name
+        if ref.ref_kind == RefKind.DefineKind:
+            self._names[name].append(ref.target_ent)
+
+        super(Attribute, self).add_ref(ref)
+
+    def get_attribute(self, attr: str) -> List["Entity"]:
+        current_attrs = self._names[attr]
         if current_attrs:
             return current_attrs
         return []
 
-    def add_ref(self, ref: "Ref") -> None:
-        if ref.ref_kind == RefKind.DefineKind:
-            self._names[ref.target_ent.longname.name].append(ref.target_ent)
-        super(Attribute, self).add_ref(ref)
+
+class ClassAttribute(Entity):
+    def __init__(self, class_ent: Class, longname: EntLongname, location: Location):
+        self.class_ent: Class = class_ent
+        super(ClassAttribute, self).__init__(longname, location)
+
+    def kind(self) -> EntKind:
+        return EntKind.ClassAttr
 
 
 class ReferencedAttribute(Entity):
@@ -565,14 +724,6 @@ class ReferencedAttribute(Entity):
 
     def kind(self) -> EntKind:
         return EntKind.ReferencedAttr
-
-
-class AmbiguousAttribute(Entity):
-    def __init__(self, name: str):
-        super(AmbiguousAttribute, self).__init__(EntLongname([name]), Location())
-
-    def kind(self) -> EntKind:
-        return EntKind.AmbiguousAttr
 
 
 class UnresolvedAttribute(Entity):

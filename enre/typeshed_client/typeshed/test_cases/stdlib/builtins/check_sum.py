@@ -37,7 +37,7 @@ assert_type(sum([Foo(), Foo()], Foo()), Foo)
 assert_type(sum([Baz(), Baz()]), Union[Baz, Literal[0]])
 
 # mypy and pyright infer the types differently for these, so we can't use assert_type
-# Just test that no error is emitted for any of these
+# Just tests that no error is emitted for any of these
 sum([("foo",), ("bar", "baz")], ())  # mypy: `tuple[str, ...]`; pyright: `tuple[()] | tuple[str] | tuple[str, str]`
 sum([5.6, 3.2])  # mypy: `float`; pyright: `float | Literal[0]`
 sum([2.5, 5.8], 5)  # mypy: `float`; pyright: `float | int`

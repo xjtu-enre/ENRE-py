@@ -36,7 +36,7 @@ You can list or install all of a stubs package's external dependencies using the
 
 Run using:
 ```bash
-(.venv3)$ python3 scripts/runtests.py <stdlib-or-stubs>/<stub-to-test>
+(.venv3)$ python3 scripts/runtests.py <stdlib-or-stubs>/<stub-to-tests>
 ```
 
 This script will run all tests below for a specific typeshed directory. If a

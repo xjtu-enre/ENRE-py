@@ -22,10 +22,11 @@ def main() -> None:
     parser.add_argument("--compatible", action="store_true")
     parser.add_argument("--version", action="store_true")
     config = parser.parse_args()
+
     root_path = Path(sys.argv[1])
 
     start = time.time()
-    manager = enre_wrapper(root_path, None, None)
+    manager = enre_wrapper(root_path, config.compatible, config.cfg)
     end = time.time()
 
     if config.profile:
@@ -38,7 +39,7 @@ def main() -> None:
 
 def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> AnalyzeManager:
     project_name = root_path.name
-    manager = AnalyzeManager(root_path)
+    manager = AnalyzeManager(root_path)  # here
     manager.work_flow()
     out_path = Path(f"{project_name}-report-enre.json")
     if need_cfg:

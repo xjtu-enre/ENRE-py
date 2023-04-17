@@ -5,7 +5,7 @@ from collections.abc import Iterable
 import requests
 
 # =================================================================================================
-# Regression test for #7988 (multiple files should be allowed for the "files" argument)
+# Regression tests for #7988 (multiple files should be allowed for the "files" argument)
 # This snippet comes from the requests documentation
 # (https://requests.readthedocs.io/en/latest/user/advanced/#post-multiple-multipart-encoded-files),
 # so should pass a type checker without error
@@ -23,7 +23,7 @@ r = requests.post(url, files=multiple_files)
 # =================================================================================
 # Tests for various different types being passed into the "data" parameter
 # (These all return "Any", so there's not much value in using assert_type here.)
-# (Just test that type checkers don't emit an error if it doesn't fail at runtime.)
+# (Just tests that type checkers don't emit an error if it doesn't fail at runtime.)
 # =================================================================================
 
 

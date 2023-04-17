@@ -32,7 +32,7 @@ def run_stubtest(typeshed_dir: Path) -> int:
         # Install the same mypy version as in "requirements-tests.txt"
         subprocess.run([pip_exe, "install", get_mypy_req()], check=True)
 
-        # Uninstall setuptools from the venv so we can test stdlib's distutils
+        # Uninstall setuptools from the venv so we can tests stdlib's distutils
         subprocess.run([pip_exe, "uninstall", "-y", "setuptools"], check=True)
 
         cmd = [

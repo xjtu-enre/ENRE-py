@@ -54,7 +54,7 @@ def main() -> None:
             "only use this option if you trust the package you are testing."
         ),
     )
-    parser.add_argument("path", help="Path of the stub to test in format <folder>/<stub>, from the root of the project.")
+    parser.add_argument("path", help="Path of the stub to tests in format <folder>/<stub>, from the root of the project.")
     args = parser.parse_args()
     path: str = args.path
     run_stubtest: bool = args.run_stubtest
@@ -128,7 +128,7 @@ def main() -> None:
         print(colored("\nSkipping stubtest since mypy failed.", "yellow"))
 
     if sys.platform == "win32":
-        print(colored("\nSkipping pytype on Windows. You can run the test with WSL.", "yellow"))
+        print(colored("\nSkipping pytype on Windows. You can run the tests with WSL.", "yellow"))
     else:
         print("\nRunning pytype...")
         pytype_result = subprocess.run([sys.executable, "tests/pytype_test.py", path])
@@ -139,10 +139,10 @@ def main() -> None:
         stderr=subprocess.PIPE,
         text=True,
     )
-    # No test means they all ran successfully (0 out of 0). Not all 3rd-party stubs have regression tests.
-    if "No test cases found" in regr_test_result.stderr:
+    # No tests means they all ran successfully (0 out of 0). Not all 3rd-party stubs have regression tests.
+    if "No tests cases found" in regr_test_result.stderr:
         regr_test_returncode = 0
-        print(colored(f"\nNo test cases found for {stub!r}!", "green"))
+        print(colored(f"\nNo tests cases found for {stub!r}!", "green"))
     else:
         regr_test_returncode = regr_test_result.returncode
         print(regr_test_result.stderr)
@@ -180,7 +180,7 @@ def main() -> None:
         print("pytype:", _SKIPPED)
     else:
         print("pytype:", _SUCCESS if pytype_result.returncode == 0 else _FAILED)
-    print("Regression test:", _SUCCESS if regr_test_returncode == 0 else _FAILED)
+    print("Regression tests:", _SUCCESS if regr_test_returncode == 0 else _FAILED)
 
     sys.exit(int(any_failure))
 

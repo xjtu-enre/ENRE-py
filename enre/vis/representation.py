@@ -5,6 +5,7 @@ from typing import List, TypedDict, Any, TypeAlias, Dict
 
 from enre.analysis.analyze_manager import RootDB
 from enre.analysis.analyze_method import FunctionKind
+from enre.analysis.value_info import ValueInfo
 from enre.ent.EntKind import EntKind
 from enre.ent.entity import Entity, Class, Function
 
@@ -45,8 +46,10 @@ class Node:
     start_col: int
     end_col: int
     modifiers: Dict[str, List[str]]
-    ent_type: List[str]
-    func_return_type: List[str]
+    ent_type: str
+    func_return_type: str
+    signatures: List[str]
+    exported: bool
 
 
 @dataclass
@@ -102,7 +105,7 @@ class DepRepr:
 
     @classmethod
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
-        helper_ent_types = [EntKind.Anonymous, EntKind.ReferencedAttr]
+        helper_ent_types = [EntKind.Anonymous]  # , EntKind.ReferencedAttr
         if ent.kind() not in helper_ent_types:
             modifiers = cls.get_modifiers(ent)
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value,
@@ -110,7 +113,7 @@ class DepRepr:
                                    ent.location.code_span.start_line,
                                    ent.location.code_span.end_line, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, modifiers,
-                                   cls.get_types(ent), cls.get_return_types(ent)))
+                                   cls.get_types(ent), cls.get_return_types(ent), cls.get_signatures(ent), ent.exported))
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     resolved_targets = [t.id for t in ref.resolved_targets]
@@ -130,21 +133,22 @@ class DepRepr:
         # while i < self._node_list.qsize():
         #     n = self._node_list.get()[1]
         for n in self._node_list:
-            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_kind,
-                        "location": {"startLine": n.start_line, "endLine": n.end_line,
-                                     "startColumn": n.start_col, "endColumn": n.end_col}}
+            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_kind}
+            if need_location(n):
+                variable["location"] = {"startLine": n.start_line, "endLine": n.end_line,
+                                        "startColumn": n.start_col, "endColumn": n.end_col}
             if need_type(n):
                 variable["type"] = n.ent_type
-
+            if n.signatures:
+                variable["signatures"] = n.signatures
+            variable["exported"] = n.exported
             if n.file_path != ".":
-                variable["File"] = n.file_path
+                variable["file"] = n.file_path
             if exist_no_empty(n.modifiers):
                 variable["modifiers"] = n.modifiers
-            if n.func_return_type:
-                variable["return"] = n.func_return_type
             ret["variables"].append(variable)
         for e in self._edge_list:
-            values: JsonDict = {"kind": e.kind, "in_type_context": e.in_type_ctx}
+            values: JsonDict = {"kind": e.kind}  # , "in_type_context": e.in_type_ctx}
             location = {"startLine": e.lineno, "startCol": e.col_offset}
             if e.resolved_targets:
                 values["resolved"] = e.resolved_targets
@@ -165,68 +169,57 @@ class DepRepr:
         return dep_repr
 
     @classmethod
-    def from_und_db(cls, und_db: Any) -> "DepRepr":
-        dep_repr = DepRepr()
-        for ent in und_db.ents():
-            dep_repr.add_node(Node(id=ent.id(),
-                                   longname=ent.longname(),
-                                   ent_kind=ent.kindname(),
-                                   file_path=ent.file(),
-                                   start_line=-1,
-                                   end_line=-1,
-                                   start_col=-1,
-                                   end_col=-1, modifiers={}, ent_type="test_from_un_db"))
-
-            for ref in ent.refs():
-                if not ref.isforward():
-                    continue
-                tar_ent = ref.ent()
-                lineno = ref.line()
-                col_offset = ref.column()
-                dep_repr.add_edge(Edge(src=ent.id(),
-                                       src_name=ent.longname(),
-                                       dest=tar_ent.id(),
-                                       dest_name=tar_ent.longname(),
-                                       kind=ref.kind().name(),
-                                       lineno=lineno,
-                                       col_offset=col_offset,
-                                       in_type_ctx=False,
-                                       resolved_targets=[]))
-        return dep_repr
-
-    @classmethod
     def get_modifiers(cls, ent: Entity) -> Dict[str, list[str]]:
         ret: Dict[str, List[str]] = {}
         if isinstance(ent, Class):
-            ret = {
-                'modifier': [],
-                'readonlyProperty': [],
-                'privateProperty': []
-            }
+            ret = {}
             if ent.abstract_info:
+                ret['modifier'] = []
                 ret['modifier'].append('abstract class')
             for name, _ in ent.readonly_attribute.items():
+                ret['readonlyProperty'] = []
                 ret['readonlyProperty'].append(name)
             for name, _ in ent.private_attribute.items():
+                ret['privateProperty'] = []
                 ret['privateProperty'].append(name)
         elif isinstance(ent, Function):
-            ret = {
-                'modifier': []
-            }
+            ret = {}
+            if ent.decorators:
+                decorators = set()
+                for decorator in ent.decorators:
+                    decorators.add(f"@{decorator.longname.longname}")
+                ret['decorators'] = list(decorators)
+            # TODO: handle AbstractMethod and StaticMethod cases
             if ent.abstract_kind == FunctionKind.AbstractMethod:
-                ret['modifier'].append('abstract method')
+                ...
+                # ret['modifier'] = []
+                # ret['modifier'].append('abstract method')
             if ent.static_kind == FunctionKind.StaticMethod:
-                ret['modifier'].append('static method')
+                ...
+                # ret['modifier'] = []
+                # ret['modifier'].append('static method')
         return ret
 
     @classmethod
-    def get_types(cls, ent: Entity) -> list[str]:
-        return ent.get_type_list()
+    def get_types(cls, ent: Entity) -> str:
+        return ent.type.__str__()
 
     @classmethod
-    def get_return_types(cls, ent: Entity) -> list[str]:
-        if isinstance(ent, Function):
-            return ent.get_return_type()
+    def get_return_types(cls, ent: Entity) -> str:
+        if isinstance(ent, Function) and ent.signatures:
+            # TODO: should we have return type ?
+            # we can have a view from signature
+            return ent.signatures[0].return_type.__str__()
+        else:
+            return ""
+
+    @classmethod
+    def get_signatures(cls, ent: Entity) -> List[str]:
+        if isinstance(ent, Function) or isinstance(ent, Class):
+            res = []
+            for sig in ent.signatures:
+                res.append(sig.__str__())
+            return res
         else:
             return []
 
@@ -234,11 +227,23 @@ class DepRepr:
 def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
     return ('modifier' in modifiers and len(modifiers['modifier']) > 0) or \
            ('readonlyProperty' in modifiers and len(modifiers['readonlyProperty']) > 0) or \
-           ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0)
+           ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0) or \
+           ('decorators' in modifiers and len(modifiers['decorators']) > 0)
+
+
+no_need_location = ["ReferencedAttribute", "Module", "UnknownModule", "Package", "UnresolvedAttribute"]
+
+
+def need_location(n: Node) -> bool:
+    if n.ent_kind in no_need_location:
+        return False
+    else:
+        return True
 
 
 def need_type(n: Node) -> bool:
-    if n.ent_kind == "Variable" or n.ent_kind == "Parameter":
+    if n.ent_kind == "Variable" or n.ent_kind == "Parameter" or\
+            n.ent_kind == "ClassAttribute" or n.ent_kind == "Alias":
         return True
     else:
         return False

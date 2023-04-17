@@ -9,9 +9,9 @@ if typing.TYPE_CHECKING:
 
 
 class FunctionKind(Enum):
-    Constructor = "Abstract Constructor"
-    AbstractMethod = "Abstract Method"
-    StaticMethod = "Static Method"
+    Constructor = "AbstractConstructor"
+    AbstractMethod = "AbstractMethod"
+    StaticMethod = "StaticMethod"
 
 
 class AbstractClassInfo:

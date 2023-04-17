@@ -115,7 +115,7 @@ def check_subdirs_discoverable(subdir_paths: list[str]) -> None:
 
 
 def determine_files_to_test(*, paths: Sequence[str]) -> list[str]:
-    """Determine all files to test, checking if it's in the exclude list and which Python versions to use.
+    """Determine all files to tests, checking if it's in the exclude list and which Python versions to use.
 
     Returns a list of pairs of the file path and Python version as an int."""
     filenames = find_stubs_in_paths(paths)

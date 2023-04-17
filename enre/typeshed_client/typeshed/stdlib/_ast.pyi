@@ -134,14 +134,14 @@ class AsyncFor(stmt):
 
 class While(stmt):
     if sys.version_info >= (3, 10):
-        __match_args__ = ("test", "body", "orelse")
+        __match_args__ = ("tests", "body", "orelse")
     test: expr
     body: list[stmt]
     orelse: list[stmt]
 
 class If(stmt):
     if sys.version_info >= (3, 10):
-        __match_args__ = ("test", "body", "orelse")
+        __match_args__ = ("tests", "body", "orelse")
     test: expr
     body: list[stmt]
     orelse: list[stmt]
@@ -182,7 +182,7 @@ if sys.version_info >= (3, 11):
 
 class Assert(stmt):
     if sys.version_info >= (3, 10):
-        __match_args__ = ("test", "msg")
+        __match_args__ = ("tests", "msg")
     test: expr
     msg: expr | None
 
@@ -245,7 +245,7 @@ class Lambda(expr):
 
 class IfExp(expr):
     if sys.version_info >= (3, 10):
-        __match_args__ = ("test", "body", "orelse")
+        __match_args__ = ("tests", "body", "orelse")
     test: expr
     body: expr
     orelse: expr

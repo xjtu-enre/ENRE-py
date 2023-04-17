@@ -414,6 +414,13 @@ class SummaryBuilder(object):
         self.add_store_able(temp)
         return temp
 
+    def load_index_rvalues(self, bases: StoreAbles, expr: ast.expr) -> StoreAbles:
+        ret: List[StoreAble] = []
+        for base in bases:
+            index_access = IndexAccess(base, expr)
+            ret.append(self.add_move_temp(index_access, expr))
+        return ret
+
     def add_invoke(self, func: StoreAbles, args: List[StoreAbles], invoke_expr: ast.expr) -> StoreAbles:
         ret: List[StoreAble] = []
         args_stores: Sequence[StoreAble]
@@ -493,3 +500,18 @@ def get_named_store_able(ent: Entity, named_node: ast.expr) -> Optional[StoreAbl
         case _ as e:
             raise NotImplementedError(f"{e} not implemented yet")
     return ret
+
+
+@dataclass(frozen=True)
+class IndexAccess(StoreAble, NonConstStoreAble):
+    target: StoreAble
+    expr: ast.expr
+
+    def name(self) -> str:
+        return "index accessing {}[*]".format(self.target)
+
+    def __str__(self) -> str:
+        return self.name()
+
+    def get_syntax_location(self) -> ast.expr:
+        return self.expr

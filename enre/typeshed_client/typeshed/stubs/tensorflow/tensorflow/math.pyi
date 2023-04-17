@@ -12,7 +12,7 @@ _SparseTensorCompatible: TypeAlias = _TensorCompatible | SparseTensor
 # Most operations support RaggedTensor. Documentation for them is here,
 # https://www.tensorflow.org/api_docs/python/tf/ragged.
 # Most operations do not support SparseTensor. Operations often don't document
-# whether they support SparseTensor and it is best to test them manually. Typically
+# whether they support SparseTensor and it is best to tests them manually. Typically
 # if an operation outputs non-zero value for a zero input, it will not support
 # SparseTensors. Binary operations with ragged tensors usually only work
 # if both operands are ragged.

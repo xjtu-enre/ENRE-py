@@ -471,7 +471,7 @@ def setup_virtual_environments(distributions: dict[str, PackageDependencies], ar
         print(colored(msg, "blue"))
 
     # STAGE 4: Populate the _DISTRIBUTION_TO_VENV_MAPPING
-    # so that we have a simple {distribution: venv_to_use} mapping to use for the rest of the test.
+    # so that we have a simple {distribution: venv_to_use} mapping to use for the rest of the tests.
     for requirements_set, distribution_list in external_requirements_to_distributions.items():
         venv_to_use = requirements_sets_to_venvs[requirements_set]
         _DISTRIBUTION_TO_VENV_MAPPING.update(dict.fromkeys(distribution_list, venv_to_use))

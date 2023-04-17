@@ -15,7 +15,7 @@ class Neo4jBuilder:
     def print_greeting(self, message):
         with self.driver.session() as session:
             greeting = session.write_transaction(self._create_and_return_greeting, message)
-            print(greeting)
+            # print(greeting)
 
     def _create_nodes(self, tx, message):
         for node in self.graph.nodes:

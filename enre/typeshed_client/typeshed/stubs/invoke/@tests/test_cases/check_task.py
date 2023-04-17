@@ -3,7 +3,7 @@ from __future__ import annotations
 from invoke import Context, task
 
 # ===========================================
-# This snippet is a regression test for #8936
+# This snippet is a regression tests for #8936
 # ===========================================
 
 

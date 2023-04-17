@@ -221,7 +221,7 @@ relation:
     - to: Variable:'test_first_order_class_call.cls'
       from: Module:'test_first_order_class_call'
       loc: '14:16'
-    - to: Function:'test_first_order_class_call.create_class.Difficult.test'
+    - to: Function:'test_first_order_class_call.create_class.Difficult.tests'
       from: Module:'test_first_order_class_call'
       loc: '16:14'
     - to: Class:'test_first_order_class_call.create_class.Difficult'

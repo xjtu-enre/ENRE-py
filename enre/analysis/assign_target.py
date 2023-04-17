@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Tuple, Callable, Optional, TYPE_CHECKING, Dict, Set, Iterable
 
-from enre.analysis.value_info import ValueInfo, InstanceType
+from enre.analysis.value_info import ValueInfo, InstanceType, AttributeType
 from enre.cfg.module_tree import StoreAbles, SummaryBuilder, get_named_store_able
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import AbstractValue, MemberDistiller
+from enre.ent.entity import AbstractValue, MemberDistiller, Attribute, Function
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span, \
     get_anonymous_ent, SetContextValue, NewlyCreated
 from enre.ref.Ref import Ref
@@ -83,11 +83,12 @@ def dummy_unpack(_: AbstractValue) -> MemberDistiller:
 
 
 def dummy_iter(_: AbstractValue) -> AbstractValue:
-    return [(get_anonymous_ent(), ValueInfo.get_any())]
+    # return [(get_anonymous_ent(), ValueInfo.get_any())]
+    return _
 
 
-def dummy_iter_store(_: StoreAbles, builder: SummaryBuilder) -> StoreAbles:
-    return []
+def dummy_iter_store(iterables: StoreAbles, builder: SummaryBuilder, expr: ast.expr) -> StoreAbles:
+    return builder.load_index_rvalues(iterables, expr)
 
 
 def assign_semantic(target: Tuple[Entity, ValueInfo] | NewlyCreated,
@@ -121,29 +122,51 @@ def newly_define_semantic(newly_created: NewlyCreated,
     tar_ent = newly_created.unknown_ent
     if isinstance(tar_ent, UnknownVar):
         if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
-            new_attr = ClassAttribute(ctx_ent, location.to_longname(), location)
-            new_bindings.append((new_attr.longname.name, [(new_attr, value_type)]))
+
+            # ClassAttribute
+            new_attr = Attribute(location.to_longname(), location)
+            new_bindings.append((new_attr.longname.name, [(new_attr, AttributeType(new_attr))]))
+            new_attr.is_class_attr = True
+            new_attr.exported = False if new_attr.longname.name.startswith("__") else ctx_ent.exported
+
             ctx.current_db.add_ent(new_attr)
             ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
             ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
+            new_attr.add_ref(Ref(RefKind.ChildOfKind, ctx_ent, -1, -1, False, None))
             return new_attr
         else:
             # newly defined variable
             new_var = Variable(location.to_longname(), location)
             # add type to this newly variable
             new_var.add_type(value_type)
-            new_bindings.append((new_var.longname.name, [(new_var, value_type)]))
+
+            exported = True if ctx.env.get_ctx().exported \
+                               and not isinstance(ctx.env.get_ctx(), Function) else False
+            new_var.exported = exported
+            new_binding = (new_var.longname.name, [(new_var, new_var.type)])
+            new_bindings.append(new_binding)
             ctx.current_db.add_ent(new_var)
+
             ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False, None))
+
+            ctx.env.get_scope()
+
             # record the target assign to target entity
             # do nothing if target is not a variable, record the possible Set relation in add_ref method of DepDB
             return new_var
     elif isinstance(tar_ent, UnresolvedAttribute):
+        # unreachable
         if isinstance(tar_ent.receiver_type, InstanceType):
             receiver_class = tar_ent.receiver_type.class_ent
             new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil(), location.file_path)
-            new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
+
+            # new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
+            new_attr = Attribute(new_location.to_longname(), new_location)
+
+            new_binding = (new_attr.longname.name, [(new_attr, AttributeType(new_attr))])
+            new_bindings.append(new_binding)
+
             ctx.current_db.add_ent(new_attr)
             receiver_class.add_ref(
                 Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
@@ -156,28 +179,21 @@ def assign_known_target(tar_ent: Entity,
                         new_bindings: List[Tuple[str, List[Tuple[Entity, ValueInfo]]]],
                         ctx: "AnalyzeContext") -> Entity:
     target_lineno, target_col_offset = ctx.coordinate
-    # target should be the entity which the target_expr could possibl   y eval to
-    if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
-        # if target entity is a defined variable or parameter, just add the target new type to the environment
-        # env.add(target, value_type)
 
-        # add type to this known variable
+    if isinstance(tar_ent, Variable) or isinstance(tar_ent, Parameter):
+
+        # Union type to this known variable
         tar_ent.add_type(value_type)
-        new_bindings.append((tar_ent.longname.name, [(tar_ent, value_type)]))
-        # add_target_var(target, value_type, env, self.dep_db)
-        # self.dep_db.add_ref(env.get_ctx(), Ref(RefKind.DefineKind, target, target_expr.lineno, target_expr.col_offset))
+        new_bindings.append((tar_ent.longname.name, [(tar_ent, tar_ent.type)]))
+
         ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
-        # record the target assign to target entity
+    elif isinstance(tar_ent, Function):  # overload not good
+        tar_ent.add_type(value_type)
+        new_bindings.append((tar_ent.longname.name, [(tar_ent, tar_ent.type)]))
+
+        ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
     elif isinstance(tar_ent, UnresolvedAttribute):
-        assert False
-        if isinstance(tar_ent.receiver_type, InstanceType):
-            receiver_class = tar_ent.receiver_type.class_ent
-            new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil())
-            new_attr = ClassAttribute(new_location.to_longname(), new_location)
-            ctx.current_db.add_ent(new_attr)
-            receiver_class.add_ref(
-                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset))
+        ...
     else:
         ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
     return tar_ent
@@ -186,6 +202,8 @@ def assign_known_target(tar_ent: Entity,
 def compress_abstract_value(entities: AbstractValue) -> AbstractValue:
     new_entities_dict: Dict[Entity, Set[ValueInfo]] = defaultdict(set)
     for ent, ent_type in entities:
+        if isinstance(ent_type, list):
+            ent_type = ValueInfo.get_any()
         new_entities_dict[ent].add(ent_type)
     new_entities: AbstractValue = []
     for ent, ent_types in new_entities_dict.items():
@@ -242,12 +260,12 @@ def unpack_semantic(target: ast.expr, rvalue: AbstractValue, r_store_ables: Stor
     #     case StarTar(tar):
     #         unpack_list([tar], distiller, ctx)
     temp_map = set_avaler.aval(target)[1]
-    for var in temp_map:
-        if isinstance(var, tuple):
-            var = var[0] if isinstance(var[0], Variable) else var[1]
-        if isinstance(var, Variable):
-            for value_info in rvalue:
-                var.add_type(value_info[1])
+    # for var in temp_map:
+    #     if isinstance(var, tuple):
+    #         var = var[0] if isinstance(var[0], Variable) else var[1]
+    #     if isinstance(var, Variable):
+    #         for value_info in rvalue:
+    #             var.add_type(value_info[1])
     return map(lambda v: v[0], temp_map)
 
 

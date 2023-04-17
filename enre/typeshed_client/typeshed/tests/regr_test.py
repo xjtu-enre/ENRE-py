@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run mypy on the test cases for the stdlib and third-party stubs."""
+"""Run mypy on the tests cases for the stdlib and third-party stubs."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def package_with_test_cases(package_name: str) -> PackageInfo:
         if not os.listdir(test_case_dir):
             raise argparse.ArgumentTypeError(f"{package_name!r} has a 'test_cases' directory but it is empty!")
         return PackageInfo(package_name, test_case_dir)
-    raise argparse.ArgumentTypeError(f"No test cases found for {package_name!r}!")
+    raise argparse.ArgumentTypeError(f"No tests cases found for {package_name!r}!")
 
 
 class Verbosity(IntEnum):
@@ -57,13 +57,13 @@ class Verbosity(IntEnum):
     VERBOSE = 2
 
 
-parser = argparse.ArgumentParser(description="Script to run mypy against various test cases for typeshed's stubs")
+parser = argparse.ArgumentParser(description="Script to run mypy against various tests cases for typeshed's stubs")
 parser.add_argument(
     "packages_to_test",
     type=package_with_test_cases,
     nargs="*",
     action="extend",
-    help="Test only these packages (defaults to all typeshed stubs that have test cases)",
+    help="Test only these packages (defaults to all typeshed stubs that have tests cases)",
 )
 parser.add_argument(
     "--all",
@@ -113,12 +113,12 @@ def setup_testcase_dir(package: PackageInfo, tempdir: Path, new_test_case_dir: P
         verbose_log(f"Setting up testcase dir in {tempdir}")
     # --warn-unused-ignores doesn't work for files inside typeshed.
     # SO, to work around this, we copy the test_cases directory into a TemporaryDirectory,
-    # and run the test cases inside of that.
+    # and run the tests cases inside of that.
     shutil.copytree(package.test_case_directory, new_test_case_dir)
     if package.is_stdlib:
         return
 
-    # HACK: we want to run these test cases in an isolated environment --
+    # HACK: we want to run these tests cases in an isolated environment --
     # we want mypy to see all stub packages listed in the "requires" field of METADATA.toml
     # (and all stub packages required by those stub packages, etc. etc.),
     # but none of the other stubs in typeshed.
@@ -189,8 +189,8 @@ def run_testcases(
 
     flags.extend(["--custom-typeshed-dir", str(custom_typeshed)])
 
-    # If the test-case filename ends with -py39,
-    # only run the test if --python-version was set to 3.9 or higher (for example)
+    # If the tests-case filename ends with -py39,
+    # only run the tests if --python-version was set to 3.9 or higher (for example)
     for path in new_test_case_dir.rglob("*.py"):
         if match := re.fullmatch(r".*-py3(\d{1,2})", path.stem):
             minor_version_required = int(match[1])
@@ -214,7 +214,7 @@ def test_testcase_directory(
     package: PackageInfo, version: str, platform: str, *, verbosity: Verbosity, tempdir: Path
 ) -> ReturnCode:
     msg = f"Running mypy --platform {platform} --python-version {version} on the "
-    msg += "standard library test cases..." if package.is_stdlib else f"test cases for {package.name!r}..."
+    msg += "standard library tests cases..." if package.is_stdlib else f"tests cases for {package.name!r}..."
     if verbosity > Verbosity.QUIET:
         print(msg, end=" ", flush=True)
 

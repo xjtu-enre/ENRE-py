@@ -156,7 +156,7 @@ def main() -> NoReturn:
     parser.add_argument(
         "--specified-stubs-only",
         action="store_true",
-        help="skip the test if the current platform is not specified in METADATA.toml/tool.stubtest.platforms",
+        help="skip the tests if the current platform is not specified in METADATA.toml/tool.stubtest.platforms",
     )
     parser.add_argument("dists", metavar="DISTRIBUTION", type=str, nargs=argparse.ZERO_OR_MORE)
     args = parser.parse_args()

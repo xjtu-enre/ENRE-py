@@ -1,9 +1,11 @@
 import ast
+import copy
 from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING, Tuple, TypeAlias, Optional
 
+from enre.analysis.value_info import ValueInfo
 from enre.cfg.module_tree import SummaryBuilder
-from enre.ent.entity import Entity, Location
+from enre.ent.entity import Entity, Location, get_anonymous_ent
 
 if TYPE_CHECKING:
     from enre.ent.entity import AbstractValue, Class
@@ -25,6 +27,10 @@ class SubEnvLookupResult:
     def must_found(self) -> bool:
         return self._must_found
 
+    @staticmethod
+    def get_dummy_res():
+        return SubEnvLookupResult([], False)
+
 
 class SubEnv(ABC):
 
@@ -36,6 +42,10 @@ class SubEnv(ABC):
 
     @abstractmethod
     def __getitem__(self, name: str) -> SubEnvLookupResult:
+        ...
+
+    @abstractmethod
+    def reset_bindings(self, name: str, value: ValueInfo):
         ...
 
     @abstractmethod
@@ -60,9 +70,28 @@ class BasicSubEnv(SubEnv):
                 return SubEnvLookupResult(ret, True)
         return SubEnvLookupResult([], False)
 
+    def reset_bindings(self, name: str, value: ValueInfo):
+        for bindings in reversed(self._bindings_list):
+            for n, binds in bindings:
+                if n == name:
+                    old_ent = binds[0][0]
+                    old_value = binds[0][1]
+                    if [(n, binds)] in self._bindings_list:
+                        self._bindings_list.remove([(n, binds)])
+                    assert old_ent is not None
+                    assert old_value is not None
+                    new_binding: "Bindings" = [(name, [(old_ent, value)])]
+                    old_binding: "Bindings" = [(name, [(old_ent, old_value)])]
+                    self.create_continuous_bindings(new_binding)
+                    return old_binding
+        return None
+
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._bindings_list.append(pairs)
         return self
+
+    def get_bindings_list(self):
+        return self._bindings_list
 
 
 class ParallelSubEnv(SubEnv):
@@ -74,9 +103,18 @@ class ParallelSubEnv(SubEnv):
     def __getitem__(self, name: str) -> SubEnvLookupResult:
         look_up_res1 = self._branch1_sub_env[name]
         look_up_res2 = self._branch2_sub_env[name]
-        is_must_found = look_up_res1.must_found and look_up_res2.must_found
+        is_must_found = look_up_res1.must_found or look_up_res2.must_found
         found_entities = look_up_res1.found_entities + look_up_res2.found_entities
         return SubEnvLookupResult(found_entities, is_must_found)
+
+    def reset_bindings(self, name: str, value: ValueInfo):
+        look_up_res1 = self._branch1_sub_env[name]
+        if look_up_res1.must_found:
+            return self._branch1_sub_env.reset_bindings(name, value)
+        look_up_res2 = self._branch2_sub_env[name]
+        if look_up_res2.must_found:
+            return self._branch2_sub_env.reset_bindings(name, value)
+        return None
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         new_sub_env = BasicSubEnv(pairs)
@@ -86,41 +124,37 @@ class ParallelSubEnv(SubEnv):
 class ContinuousSubEnv(SubEnv):
     def __init__(self, forward: SubEnv, backward: SubEnv) -> None:
         """
-        find identifier in backward environment, if can't find the name, then find it in forward environment
+        Find identifier in backward environment. If we can't find the name, then find it in forward environment
         """
         super().__init__(1 + max(forward.depth, backward.depth))
-        # print(f"ContinuousSubEnv constructed, depth: {self.depth}")
         self._forward = forward
         self._backward = backward
+        self.calling = False
 
     def __getitem__(self, name: str) -> SubEnvLookupResult:
+        if self.calling:
+            return SubEnvLookupResult.get_dummy_res()
+        self.calling = True
         backward_lookup_res = self._backward[name]
-        # print(f"finding name {name} in env {self}")
+
         if backward_lookup_res.must_found:
             return backward_lookup_res
         else:
-            # print(f"name {name} not found continue find at {self._forward}")
             forward_lookup_res = self._forward[name]
             found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
+            self.calling = False
             return SubEnvLookupResult(found_entities, forward_lookup_res.must_found)
+
+    def reset_bindings(self, name: str, value: ValueInfo):
+        backward_lookup_res = self._backward[name]
+        if backward_lookup_res.must_found:
+            return self._backward.reset_bindings(name, value)
+        else:
+            return self._forward.reset_bindings(name, value)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._backward = self._backward.create_continuous_bindings(pairs)
         return self
-
-
-class OptionalSubEnv(SubEnv):
-    def __init__(self, sub_env: SubEnv) -> None:
-        super().__init__(sub_env.depth + 1)
-        self._optional = sub_env
-
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        optional_lookup_res = self._optional[name]
-        return SubEnvLookupResult(optional_lookup_res.found_entities, False)
-
-    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
-        new_sub_env = BasicSubEnv(pairs)
-        return ContinuousSubEnv(self, new_sub_env)
 
 
 class Hook:
@@ -178,6 +212,16 @@ class ScopeEnv:
 
         return SubEnvLookupResult(ret, False)
 
+    def reset_binding_value(self, name: str, value: ValueInfo) -> Optional["Bindings"]:
+        ori_bindings: "Bindings"
+        for sub_env in reversed(self._sub_envs):
+            lookup_result = sub_env[name]
+            if lookup_result.must_found:  # reset binding value
+                reset_res = sub_env.reset_bindings(name, value)
+                if reset_res:
+                    return reset_res
+        return None
+
     def add_continuous(self, pairs: "Bindings") -> None:
         before = len(self)
         top_sub_env = self.pop_sub_env()
@@ -231,3 +275,20 @@ class EntEnv:
             if lookup_res.must_found:
                 return SubEnvLookupResult(possible_ents, True)
         return SubEnvLookupResult(possible_ents, False)
+
+    def get_env(self):
+        env: EntEnv = None
+        for scope_env in self.scope_envs:
+            if not env:
+                env = EntEnv(scope_env)
+            else:
+                env.add_scope(scope_env)
+        return env
+
+    def get_env_copy(self):
+        return copy.copy(self)
+
+
+
+
+
