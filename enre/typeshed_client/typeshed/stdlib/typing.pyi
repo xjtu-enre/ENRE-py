@@ -166,7 +166,7 @@ def overload(func: _F) -> _F: ...
 # these `_SpecialForm` objects in typing need the default value `= ...`,
 # due to the fact that they are used elswhere in the same file.
 # Otherwise, flake8 erroneously flags them as undefined.
-# `_SpecialForm` objects in typing.py that are not used elswhere in the same file
+# `_SpecialForm` objects in typing.pytd that are not used elswhere in the same file
 # do not need the default value assignment.
 Union: _SpecialForm = ...
 Generic: _SpecialForm = ...
@@ -407,7 +407,7 @@ class Coroutine(Awaitable[_V_co], Generic[_T_co, _T_contra, _V_co]):
     @abstractmethod
     def close(self) -> None: ...
 
-# NOTE: This type does not exist in typing.py or PEP 484 but mypy needs it to exist.
+# NOTE: This type does not exist in typing.pytd or PEP 484 but mypy needs it to exist.
 # The parameters correspond to Generator, but the 4th is the original type.
 @type_check_only
 class AwaitableGenerator(

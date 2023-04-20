@@ -7,12 +7,12 @@ import enre.typeshed_client as typeshed_client
 import typing
 
 from enre.analysis.analyze_manager import AnalyzeManager, ModuleDB, builtins_stub_names, builtins_stub_file
-from enre.analysis.value_info import ValueInfo, AttributeType
+from enre.analysis.value_info import ValueInfo
 from enre.analysis.env import ScopeEnv, EntEnv
 from enre.analysis.value_info import ConstructorType
 from enre.cfg.module_tree import SummaryBuilder
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Entity, Class, Location, Function, Span, Variable, ReferencedAttribute, Attribute, \
+from enre.ent.entity import Entity, Class, Location, Function, Span, Variable, ReferencedAttribute, \
     get_syntactic_head, Module
 from enre.ref.Ref import Ref
 
@@ -35,6 +35,8 @@ class NameInfoVisitor:
             if cached:
                 return cached
             else:
+                if not manager.builtins_env:
+                    return None
                 bv = NameInfoVisitor(expr_id, get_builtins, manager, current_db,
                                      manager.builtins_env, builtins_stub_file)
                 ent = bv.generic_analyze(expr_id, get_builtins)
@@ -124,36 +126,9 @@ class NameInfoVisitor:
 
     def analyze_AnnAssign(self, expr_id: str, info: typeshed_client.NameInfo, stub: ast.AST) -> Entity:
         return self.create_attr(expr_id, info, stub)
-        # now_scope = self._env.get_scope().get_location()
-        # new_scope = now_scope.append(expr_id, Span.get_nil(), None)
-        #
-        #
-        #
-        # new_var = Variable(new_scope.to_longname(), Location(file_path=self._stub_file))
-        #
-        # new_binding: "Bindings" = [(new_var.longname.name, [(new_var, ValueInfo.get_any())])]
-        # current_ctx = self._env.get_ctx()
-        # self._current_db.add_ent(new_var)
-        # current_ctx.add_ref(Ref(RefKind.DefineKind, new_var, -1, -1, False, None))
-        # current_ctx.add_ref(Ref(RefKind.SetKind, new_var, -1, -1, False, None))
-        # self._env.get_scope().add_continuous(new_binding)
-        # # print(f"NameInfoVisitor AnnAssign: {expr_id}")
-        # return new_var
 
     def analyze_Assign(self, expr_id: str, info: typeshed_client.NameInfo, stub: ast.AST) -> Entity:
         return self.create_attr(expr_id, info, stub)
-        # now_scope = self._env.get_scope().get_location()
-        # new_scope = now_scope.append(expr_id, Span.get_nil(), None)
-        # new_var = Variable(new_scope.to_longname(), Location(file_path=self._stub_file))
-        #
-        # new_binding: "Bindings" = [(new_var.longname.name, [(new_var, ValueInfo.get_any())])]
-        # current_ctx = self._env.get_ctx()
-        # self._current_db.add_ent(new_var)
-        # current_ctx.add_ref(Ref(RefKind.DefineKind, new_var, -1, -1, False, None))
-        # current_ctx.add_ref(Ref(RefKind.SetKind, new_var, -1, -1, False, None))
-        # self._env.get_scope().add_continuous(new_binding)
-        # # print(f"NameInfoVisitor AnnAssign: {expr_id}")
-        # return new_var
 
     def analyze_ImportedName(self, expr_id: str, info: typeshed_client.NameInfo, stub: ast.AST) -> Entity:
         return self.create_attr(expr_id, info, None)
@@ -171,9 +146,9 @@ class NameInfoVisitor:
         span = Span(stub.lineno, stub.end_lineno, stub.col_offset, stub.end_col_offset) if stub else Span.get_nil()
         now_scope = self._env.get_scope().get_location()
         new_scope = now_scope.append(expr_id, span, None)
-        new_attr = Attribute(new_scope.to_longname(), new_scope)
+        new_attr = ReferencedAttribute(new_scope.to_longname(), new_scope)
 
-        new_binding: "Bindings" = [(new_attr.longname.name, [(new_attr, AttributeType(new_attr))])]
+        new_binding: "Bindings" = [(new_attr.longname.name, [(new_attr, new_attr.direct_type())])]
         current_ctx = self._env.get_ctx()
         new_attr.exported = current_ctx.exported
         self._current_db.add_ent(new_attr)

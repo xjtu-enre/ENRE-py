@@ -70,13 +70,13 @@ JsonDict: TypeAlias = Dict[str, Any]
 
 class DepRepr:
     def __init__(self) -> None:
-        self._node_list: List[Node] = []
-        # self._node_list = PriorityQueue()
+        # self._node_list: List[Node] = []
+        self._node_list = PriorityQueue()
         self._edge_list: List[Edge] = []
 
     def add_node(self, n: Node) -> None:
-        self._node_list.append(n)
-        # self._node_list.put((n.id, n))
+        # self._node_list.append(n)
+        self._node_list.put((n.id, n))
 
     def add_edge(self, e: Edge) -> None:
         self._edge_list.append(e)
@@ -129,10 +129,10 @@ class DepRepr:
 
     def to_json_1(self) -> JsonDict:
         ret: JsonDict = {"variables": [], "cells": []}
-        # i = 0
-        # while i < self._node_list.qsize():
-        #     n = self._node_list.get()[1]
-        for n in self._node_list:
+        i = 0
+        while i < self._node_list.qsize():
+            n = self._node_list.get()[1]
+        # for n in self._node_list:
             variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_kind}
             if need_location(n):
                 variable["location"] = {"startLine": n.start_line, "endLine": n.end_line,
@@ -231,7 +231,7 @@ def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
            ('decorators' in modifiers and len(modifiers['decorators']) > 0)
 
 
-no_need_location = ["ReferencedAttribute", "Module", "UnknownModule", "Package", "UnresolvedAttribute"]
+no_need_location = ["ReferencedAttribute", "Module", "UnknownModule", "Package", "UnresolvedAttribute", "UnknownVar"]
 
 
 def need_location(n: Node) -> bool:

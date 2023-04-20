@@ -97,6 +97,10 @@ class Analyzer:
             now_scope = env.get_scope().get_location()
             new_scope = now_scope.append(name, fun_code_span, None)
             func_ent = Function(new_scope.to_longname(), new_scope)
+
+            if self.manager.analyzing_typing_builtins:
+                func_ent.typeshed_func = True
+
             func_ent.current_db = self.current_db
             func_name = name
 
@@ -203,6 +207,7 @@ class Analyzer:
         class_ent.add_ref(Ref(RefKind.ChildOfKind, env.get_ctx(), -1, -1, False, None))
 
         bases = []
+        bases_storables = []
         bases_index = 0
         signature = Signature(class_name, is_func=False)
         for base_expr in class_stmt.bases:
@@ -213,10 +218,11 @@ class Analyzer:
             base_loc = new_scope.append(name, get_syntactic_span(base_expr), None)
             parameter_ent = Parameter(base_loc.to_longname(), base_loc)
             parameter_ent.add_type(avalue[0][1])
+            bases.append(avalue[0][1])
             self.current_db.add_ent(parameter_ent)
             signature.append_posonlyargs(parameter_ent)
 
-            bases.append(store_ables)
+            bases_storables.append(store_ables)
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ConstructorType):
                     class_ent.add_ref(Ref(RefKind.InheritKind, ent_type.class_ent, class_stmt.lineno,
@@ -229,8 +235,10 @@ class Analyzer:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
                                           class_stmt.col_offset, False, base_expr))
                     # todo: handle unknown class
+
         class_ent.signatures.append(signature)
-        env.get_scope().get_builder().add_inherit(class_ent, bases)
+        class_ent.bases = bases
+        env.get_scope().get_builder().add_inherit(class_ent, bases_storables)
         # add class to current environment
         constructor_type = ConstructorType(class_ent)
         class_ent.type = constructor_type
@@ -577,13 +585,15 @@ def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: 
                               UseContext(), env.get_scope().get_builder(), env)
         store_ables, abstract_value = avaler.aval(annotation)
         if isinstance(typing_ent, Function):
+            # if typing_ent.longname.longname == "AnyStrTests.test_type_parameters.f":
+            #     print("123")
             # typing_ent.signature.return_type = abstract_value[0][1]
             typing_ent.signatures[-1].set_return_type(abstract_value[0][1])
         elif isinstance(typing_ent, Parameter):
             if isinstance(abstract_value[0], tuple):
                 typing_ent.set_type(abstract_value[0][1])
             else:
-                print(abstract_value)
+                log.error(f"process_annotation wrong: {abstract_value}")
 
 
 def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manager: AnalyzeManager, package_db: RootDB,
@@ -614,7 +624,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
             parameter_ent = para_constructor(parameter_loc.to_longname(), parameter_loc)
             parameter_ent.add_type(ent_type)
             current_db.add_ent(parameter_ent)
-            bindings.append((a.arg, [(parameter_ent, ent_type)]))
+            bindings.append((a.arg, [(parameter_ent, ent_type)]))  # correct
             summary.parameter_list.append(a.arg)
             ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
             parameter_ent.add_ref(Ref(RefKind.ChildOfKind, ctx_fun, -1, -1, False, None))

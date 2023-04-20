@@ -4,7 +4,7 @@ import re
 from enre.analysis.analyze_manager import RootDB
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import Class, Function, ClassAttribute, Attribute
+from enre.ent.entity import Class, Function, ReferencedAttribute
 
 
 class BuildVisibility:
@@ -33,7 +33,7 @@ class BuildVisibility:
                                             if isinstance(attr_ent, Function):
                                                 ent.readonly_attribute[entity.readonly_property_name].append(
                                                     attr_ent)
-                            elif isinstance(entity, Attribute) and private_attr_regular.match(name):
+                            elif isinstance(entity, ReferencedAttribute) and private_attr_regular.match(name):
                                 # handle private attribute
                                 ent.private_attribute[name].append(entity)
 

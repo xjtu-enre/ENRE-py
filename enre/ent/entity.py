@@ -8,13 +8,13 @@ from typing import List, Optional, Dict, TypeAlias, Tuple, Callable
 
 
 from enre.analysis.analyze_method import AbstractClassInfo, FunctionKind
-from enre.analysis.value_info import ValueInfo, ModuleType, ConstructorType, InstanceType, AttributeType, \
-    AttrInstanceType, FunctionType, MethodType, UnionType, DictType, AnyType, TupleType, ListType
+from enre.analysis.value_info import ValueInfo, ModuleType, UnionType, AnyType, ListType, UnknownVarType, \
+    ReferencedAttrType, ConstructorType
 from enre.ent.EntKind import EntKind, RefKind
 
 if typing.TYPE_CHECKING:
     from enre.ref.Ref import Ref
-    from enre.analysis.env import Bindings, ScopeEnv, EntEnv
+    from enre.analysis.env import ScopeEnv, EntEnv
 
 _EntityID = 0
 
@@ -27,6 +27,10 @@ class EntLongname:
     @property
     def name(self) -> str:
         return self._scope[-1]
+
+    @property
+    def module_name(self) -> str:
+        return self._scope[0]
 
     def __init__(self, scope: List[str]):
         self._scope = scope
@@ -379,6 +383,7 @@ class Function(Entity):
         # self.signature = Signature(longname.name, True, self)
         self.signatures = []
         self.callable_signature = None
+        self.typeshed_func = False
 
         self.decorators = []
 
@@ -573,9 +578,9 @@ class Class(Entity, NameSpaceEntity):
         self.readonly_attribute: NamespaceType = defaultdict(list)
         self.private_attribute: NamespaceType = defaultdict(list)
         self._body_env = None
+        self.bases = []
         self.signatures = []
         self.signature = Signature(longname.name, is_func=False)
-
 
     def kind(self) -> EntKind:
         return EntKind.Class
@@ -608,7 +613,7 @@ class Class(Entity, NameSpaceEntity):
         super(Class, self).add_ref(ref)
 
     def direct_type(self) -> "ValueInfo":
-        return self.type
+        return ConstructorType(self)
 
     def implement_method(self, longname: EntLongname) -> bool:
         method_name = longname.name
@@ -631,24 +636,30 @@ class Class(Entity, NameSpaceEntity):
 
 
 class UnknownVar(Entity):
-    _unknown_pool: Dict[str, "UnknownVar"] = dict()
 
     def __init__(self, name: str, loc: Optional[Location] = None):
-        if loc is None:
-            loc = Location()
+        loc = Location() if loc is None else loc
+        self.names: Dict[str, List[Entity]] = defaultdict(list)
         super(UnknownVar, self).__init__(EntLongname([name]), loc)
+
+    def direct_type(self) -> "ValueInfo":
+        return UnknownVarType(self)
 
     def kind(self) -> EntKind:
         return EntKind.UnknownVar
 
-    @classmethod
-    def get_unknown_var(cls, name: str) -> "UnknownVar":
-        if name in cls._unknown_pool.keys():
-            return cls._unknown_pool[name]
-        else:
-            unknown_var = UnknownVar(name)
-            cls._unknown_pool[name] = unknown_var
-            return unknown_var
+    def add_ref(self, ref: "Ref") -> None:
+        name = ref.target_ent.longname.name
+        if ref.ref_kind == RefKind.DefineKind:
+            self.names[name].append(ref.target_ent)
+
+        super(UnknownVar, self).add_ref(ref)
+
+    def get_attribute(self, attr: str) -> List["Entity"]:
+        current_attrs = self.names[attr]
+        if current_attrs:
+            return current_attrs
+        return []
 
 
 class UnknownModule(Module):
@@ -659,6 +670,26 @@ class UnknownModule(Module):
         return EntKind.UnknownModule
 
 
+# class SubscriptEntity(Entity):
+#     def __init__(self, longname: EntLongname, location: Location):
+#         self.value = None
+#         self.paras = []
+#         super().__init__(longname, location)
+#
+#     def kind(self) -> EntKind:
+#         return EntKind.Subscript
+#
+#     def __str__(self):
+#         temp = self.value.__str__()
+#         temp += "["
+#         for i in range(len(self.paras)):
+#             if i != 0:
+#                 temp += ", "
+#             temp += self.paras[i].__str__()
+#         temp += "]"
+#         return temp
+
+
 class Anonymous(Entity):
     def __init__(self) -> None:
         super(Anonymous, self).__init__(EntLongname([""]), Location())
@@ -667,63 +698,41 @@ class Anonymous(Entity):
         return EntKind.Anonymous
 
 
-"""
-Callable --> Unknown Function or Class
-Attribute --> Unknown Attribute
-"""
-
-
-class Attribute(Entity):
-    def __init__(self, longname: EntLongname, location: Location):
-        super(Attribute, self).__init__(longname, location)
-        self._names: Dict[str, List[Entity]] = defaultdict(list)
-        self.is_class_attr = False
-
-    def kind(self) -> EntKind:
-        if self.is_class_attr:
-            return EntKind.ClassAttribute
-        else:
-            return EntKind.Attribute
-
-    @property
-    def names(self) -> "NamespaceType":
-        return self._names
-
-    def direct_type(self) -> "ValueInfo":
-        if isinstance(self.type, AnyType):
-            return AttributeType(self)
-        else:
-            return self.type
-
-    def add_ref(self, ref: "Ref") -> None:
-        name = ref.target_ent.longname.name
-        if ref.ref_kind == RefKind.DefineKind:
-            self._names[name].append(ref.target_ent)
-
-        super(Attribute, self).add_ref(ref)
-
-    def get_attribute(self, attr: str) -> List["Entity"]:
-        current_attrs = self._names[attr]
-        if current_attrs:
-            return current_attrs
-        return []
-
-
 class ClassAttribute(Entity):
     def __init__(self, class_ent: Class, longname: EntLongname, location: Location):
         self.class_ent: Class = class_ent
         super(ClassAttribute, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
-        return EntKind.ClassAttr
+        return EntKind.ClassAttribute
+
+    def direct_type(self) -> "ValueInfo":
+        return self.type
 
 
 class ReferencedAttribute(Entity):
     def __init__(self, longname: EntLongname, location: Location):
         super(ReferencedAttribute, self).__init__(longname, location)
+        self.names: Dict[str, List[Entity]] = defaultdict(list)
 
     def kind(self) -> EntKind:
         return EntKind.ReferencedAttr
+
+    def direct_type(self) -> "ValueInfo":
+        return ReferencedAttrType(self)
+
+    def add_ref(self, ref: "Ref") -> None:
+        name = ref.target_ent.longname.name
+        if ref.ref_kind == RefKind.DefineKind:
+            self.names[name].append(ref.target_ent)
+
+        super(ReferencedAttribute, self).add_ref(ref)
+
+    def get_attribute(self, attr: str) -> List["Entity"]:
+        current_attrs = self.names[attr]
+        if current_attrs:
+            return current_attrs
+        return []
 
 
 class UnresolvedAttribute(Entity):

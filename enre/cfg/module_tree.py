@@ -9,7 +9,7 @@ from typing import TypeAlias, Dict, Optional, Sequence
 
 from enre.cfg.HeapObject import HeapObject, ClassObject, FunctionObject, ModuleObject, NameSpace
 from enre.ent.entity import Class, Entity, Parameter, Module, UnknownVar, \
-    ClassAttribute, Package, Alias, ModuleAlias, PackageAlias, Attribute
+    ClassAttribute, Package, Alias, ModuleAlias, PackageAlias
 from enre.ent.entity import Function, Variable, ReferencedAttribute
 
 if typing.TYPE_CHECKING:

@@ -31,13 +31,14 @@ class EntKind(Enum):
     Variable = "Variable"
     Class = "Class"
     Parameter = "Parameter"
-    UnknownVar = "UnknownVariable"
+    UnknownVar = "UnknownVar"
     UnknownModule = "UnknownModule"
     ClassAttribute = "ClassAttribute"
     Attribute = "Attribute"
     UnresolvedAttr = "UnresolvedAttribute"
     ReferencedAttr = "ReferencedAttribute"
     Anonymous = "Anonymous"
+    Subscript = "Subscript"
 
 
 # KindSet is a kind for `Set` relation

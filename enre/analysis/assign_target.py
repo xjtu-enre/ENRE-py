@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Tuple, Callable, Optional, TYPE_CHECKING, Dict, Set, Iterable
 
-from enre.analysis.value_info import ValueInfo, InstanceType, AttributeType
+from enre.analysis.value_info import ValueInfo
 from enre.cfg.module_tree import StoreAbles, SummaryBuilder, get_named_store_able
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import AbstractValue, MemberDistiller, Attribute, Function
+from enre.ent.entity import AbstractValue, MemberDistiller, Function
 from enre.ent.entity import Entity, Variable, Parameter, UnknownVar, UnresolvedAttribute, ClassAttribute, Class, Span, \
     get_anonymous_ent, SetContextValue, NewlyCreated
 from enre.ref.Ref import Ref
@@ -124,16 +124,15 @@ def newly_define_semantic(newly_created: NewlyCreated,
         if isinstance(ctx_ent, Class) and not ctx.is_generator_expr:
 
             # ClassAttribute
-            new_attr = Attribute(location.to_longname(), location)
-            new_bindings.append((new_attr.longname.name, [(new_attr, AttributeType(new_attr))]))
-            new_attr.is_class_attr = True
-            new_attr.exported = False if new_attr.longname.name.startswith("__") else ctx_ent.exported
+            class_attr = ClassAttribute(ctx_ent, location.to_longname(), location)
+            new_bindings.append((class_attr.longname.name, [(class_attr, class_attr.direct_type())]))
+            class_attr.exported = False if class_attr.longname.name.startswith("__") else ctx_ent.exported
 
-            ctx.current_db.add_ent(new_attr)
-            ctx_ent.add_ref(Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
-            ctx_ent.add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
-            new_attr.add_ref(Ref(RefKind.ChildOfKind, ctx_ent, -1, -1, False, None))
-            return new_attr
+            ctx.current_db.add_ent(class_attr)
+            ctx_ent.add_ref(Ref(RefKind.DefineKind, class_attr, target_lineno, target_col_offset, False, None))
+            ctx_ent.add_ref(Ref(RefKind.SetKind, class_attr, target_lineno, target_col_offset, False, None))
+            class_attr.add_ref(Ref(RefKind.ChildOfKind, ctx_ent, -1, -1, False, None))
+            return class_attr
         else:
             # newly defined variable
             new_var = Variable(location.to_longname(), location)
@@ -157,21 +156,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
             return new_var
     elif isinstance(tar_ent, UnresolvedAttribute):
         # unreachable
-        if isinstance(tar_ent.receiver_type, InstanceType):
-            receiver_class = tar_ent.receiver_type.class_ent
-            new_location = receiver_class.location.append(tar_ent.longname.name, Span.get_nil(), location.file_path)
-
-            # new_attr = ClassAttribute(receiver_class, new_location.to_longname(), new_location)
-            new_attr = Attribute(new_location.to_longname(), new_location)
-
-            new_binding = (new_attr.longname.name, [(new_attr, AttributeType(new_attr))])
-            new_bindings.append(new_binding)
-
-            ctx.current_db.add_ent(new_attr)
-            receiver_class.add_ref(
-                Ref(RefKind.DefineKind, new_attr, target_lineno, target_col_offset, False, None))
-            ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_attr, target_lineno, target_col_offset, False, None))
-            return new_attr
+        ...
 
 
 def assign_known_target(tar_ent: Entity,
@@ -184,10 +169,10 @@ def assign_known_target(tar_ent: Entity,
 
         # Union type to this known variable
         tar_ent.add_type(value_type)
-        new_bindings.append((tar_ent.longname.name, [(tar_ent, tar_ent.type)]))
-
+        # new_bindings.append((tar_ent.longname.name, [(tar_ent, tar_ent.type)]))
+        ctx.env.get_scope().reset_binding_value(tar_ent.longname.name, tar_ent.type)
         ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, tar_ent, target_lineno, target_col_offset, False, None))
-    elif isinstance(tar_ent, Function):  # overload not good
+    elif isinstance(tar_ent, Function):
         tar_ent.add_type(value_type)
         new_bindings.append((tar_ent.longname.name, [(tar_ent, tar_ent.type)]))
 

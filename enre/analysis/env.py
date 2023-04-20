@@ -138,6 +138,7 @@ class ContinuousSubEnv(SubEnv):
         backward_lookup_res = self._backward[name]
 
         if backward_lookup_res.must_found:
+            self.calling = False
             return backward_lookup_res
         else:
             forward_lookup_res = self._forward[name]
@@ -233,6 +234,14 @@ class ScopeEnv:
         self.add_sub_env(continuous_env)
         after = len(self)
         assert before == after
+
+    def add_continuous_to_bottom(self, pairs: "Bindings") -> None:
+        bottom_sub_env = self._sub_envs[0]
+        non_duplicate = []
+        for p in pairs:
+            if p not in non_duplicate:
+                non_duplicate.append(p)
+        bottom_sub_env.create_continuous_bindings(non_duplicate)
 
 
 # ScopeEnvLookupResult: TypeAlias = List[Tuple[Entity, ValueInfo, Scop-eEnv]]

@@ -14,14 +14,15 @@ from enre.analysis.env import EntEnv, ScopeEnv
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType, \
-    AttributeType, AttrInstanceType, FunctionType, MethodType, UnionType, DictType, TupleType, CallType, ListType
+    FunctionType, MethodType, UnionType, DictType, TupleType, CallType, ListType, \
+    UnknownVarType, ReferencedAttrType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
     ModuleSummary
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import AbstractValue, get_syntactic_head
+from enre.ent.entity import AbstractValue, get_syntactic_head, ClassAttribute
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue, \
-    Function, Attribute
+    Function
 from enre.ref.Ref import Ref
 
 from enre.util.logger import Logging
@@ -82,6 +83,7 @@ class ExprAnalyzer:
         visitor = getattr(self, method, self.generic_aval)
         stores, objs = visitor(expr)
         self.build_move_by_context(stores)
+        resolve_overlays(self.manager, objs)
         return stores, objs
 
     def generic_aval(self, expr: ast.expr) -> Tuple[StoreAbles, AbstractValue]:
@@ -133,42 +135,37 @@ class ExprAnalyzer:
                 return store_ables, ent_objs
             else:
                 # No builtins cache, create builtins cache.
-                var = NameInfoVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
+                # var = NameInfoVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
                 store_ables: List[StoreAble] = []
+                unknown_var_name = name_expr.id
 
-                if not var:
-                    span = get_syntactic_head(name_expr)
-                    attribute = name_expr.id
-                    now_scope = self._env.get_scope().get_location()
-                    new_scope = now_scope.append(attribute, span, None)
-                    new_attr = Attribute(new_scope.to_longname(), new_scope)
+                # should add this unknown var to module db
+                location = Location.global_name(unknown_var_name)
+                unknown_var = UnknownVar(unknown_var_name, location)
+                self._current_db.add_ent(unknown_var)
+                new_binding: "Bindings" = [(unknown_var.longname.name, [(unknown_var, unknown_var.direct_type())])]
+                self._current_db.top_scope.add_continuous_to_bottom(new_binding)
+                # global_unknown_vars = self.manager.root_db.global_db.unknown_vars
+                # if unknown_var_name in global_unknown_vars:
+                #     unknown_var = global_unknown_vars[unknown_var_name]
+                # else:
+                #     location = Location.global_name(unknown_var_name)
+                #     unknown_var = UnknownVar(unknown_var_name, location)
+                #     global_unknown_vars[unknown_var_name] = unknown_var
+                #     self.manager.root_db.global_db.add_ent(unknown_var)
 
-                    new_attr_type = AttributeType(new_attr)
+                ent_objs = [(unknown_var, unknown_var.direct_type())]
 
-                    new_binding: "Bindings" = [(new_attr.longname.name, [(new_attr, new_attr_type)])]
-                    current_ctx = self._env.get_ctx()
-                    self._current_db.add_ent(new_attr)
-                    current_ctx.add_ref(Ref(RefKind.DefineKind, new_attr, -1, -1, False, None))
-                    current_ctx.add_ref(Ref(RefKind.ImportKind, new_attr, -1, -1, False, None))
-                    new_attr.exported = current_ctx.exported
-                    self._env.get_scope().add_continuous(new_binding)
-
-                    # var = UnknownVar.get_unknown_var(name_expr.id)
-                    # self._current_db.add_ent(var)
-                    ent_objs = [(new_attr, new_attr_type)]
-                    var = new_attr
-                else:
-                    # Search in builtins cache.
-                    lookup_res = self.manager.builtins_env[name_expr.id]
-                    ent_objs = lookup_res.found_entities
-                    if ent_objs:
-                        for ent, _ in ent_objs:
-                            s = get_named_store_able(ent, name_expr)
-                            if s:
-                                store_ables.append(s)
+                # lookup_res = self.manager.builtins_env[name_expr.id]
+                # ent_objs = lookup_res.found_entities
+                # if ent_objs:
+                #     for ent, _ in ent_objs:
+                #         s = get_named_store_able(ent, name_expr)
+                #         if s:
+                #             store_ables.append(s)
 
                 ctx.add_ref(
-                    self.create_ref_by_ctx(var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
+                    self.create_ref_by_ctx(unknown_var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
                                            self._exp_ctx, name_expr))
                 return store_ables, ent_objs
         else:
@@ -354,6 +351,8 @@ class ExprAnalyzer:
                 for lhs, rhs in itertools.product(stores, ctx.rhs_store_ables):
                     self._builder.add_move(lhs, rhs)
 
+
+
     def create_ref_by_ctx(self, target_ent: Entity, lineno: int, col_offset: int,
                           typing_entities: Optional[Iterable[Entity]],
                           ctx: ExpressionContext, expr: ast.expr) -> Ref:
@@ -400,79 +399,46 @@ class ExprAnalyzer:
                 value_infos.append(ent_objs[0][1])
             else:
                 value_infos.append(ValueInfo.get_any())
-        NameInfoVisitor.is_builtins_continue("tuple", self.manager, self._current_db)
-        lookup_res = self.manager.builtins_env["tuple"]
-        ent_objs = lookup_res.found_entities
+        # NameInfoVisitor.is_builtins_continue("tuple", self.manager, self._current_db)
+        # lookup_res = self.manager.builtins_env["tuple"]
+        # ent_objs = lookup_res.found_entities
 
-        tuple_value = TupleType(ent_objs[0][1])
+        tuple_value = TupleType(ValueInfo.get_any())
+        # tuple_value = TupleType(ent_objs[0][1])
         tuple_value.add(value_infos)
         return [], [(get_anonymous_ent(), tuple_value)]
 
     def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
-        slice_store_ables, slice_abstract_values = self.aval(subscript.slice)
-        stores, abstract_values = self.aval(subscript.value)
+        # TODO: subscript res
 
-        ret = []
-        for abstract_value in abstract_values:
+        # t.paras
+        subscript_paras = set()
+        if isinstance(subscript.slice, ast.Subscript):
+            _, elt_value = self.aval(subscript.slice)
+            subscript_paras.add(elt_value[0][1])
+        elif isinstance(subscript.slice, ast.Tuple):
+            for elt in subscript.slice.elts:
+                _, elt_value = self.aval(elt)
+                subscript_paras.add(elt_value[0][1])
+        elif isinstance(subscript.slice, ast.Name):
+            _, elt_value = self.aval(subscript.slice)
+            subscript_paras.add(elt_value[0][1])
+        elif isinstance(subscript.slice, ast.Constant):
+            # TODO: late annotation
+            subscript_paras.add(ValueInfo.get_any())
+        else:
+            _, elt_value = self.aval(subscript.slice)
+            subscript_paras.add(elt_value[0][1])
 
-            subscript_value = abstract_value[0]
-            subscript_value_info = abstract_value[1]
-            if subscript_value.longname.longname == "builtins.dict":
-                key_type: ValueInfo = ValueInfo.get_any()
-                value_type: ValueInfo = ValueInfo.get_any()
-                for i in range(len(slice_abstract_values)):
-                    if i == 0:  # key type
-                        key_type = UnionType.union(key_type, slice_abstract_values[i][1])
-                    else:
-                        value_type = UnionType.union(value_type, slice_abstract_values[i][1])
+        _, value_values = self.aval(subscript.value)
 
-                annotation_type = DictType(abstract_value[1])
-                annotation_type.add(key_type, value_type)
-                abstract_values.remove(abstract_value)
-                # abstract_values.append((subscript_value, annotation_type))
-                ret.append((subscript_value, annotation_type))
-            elif subscript_value.longname.longname == "typing.Tuple":
-                abstract_values.remove(abstract_value)
-                ret.append((subscript_value, slice_abstract_values[0][1]))
-            elif subscript_value.longname.longname == "typing.List":
-                abstract_values.remove(abstract_value)
-                positional: List["ValueInfo"] = []
-                if isinstance(slice_abstract_values[0][1], TupleType):
-                    positional.extend(slice_abstract_values[0][1].positional)
-                else:
-                    positional.append(slice_abstract_values[0][1])
-                list_type = ListType(positional, abstract_value[1])
-                ret.append((subscript_value, list_type))
-            elif isinstance(subscript_value_info, ListType):
-                subscript_slice = subscript.slice
-                positional = subscript_value_info.positional
-                if subscript_slice:
-                    if isinstance(subscript_slice, ast.Slice):
-                        if not subscript_slice.lower or not subscript_slice.upper:
-                            ret.append((subscript_value, subscript_value_info))
-                            return [], ret
-                        if not isinstance(subscript_slice.lower, ast.Constant) \
-                                or not isinstance(subscript_slice.upper, ast.Constant):
-                            return [], ret
-                        lower = int(subscript_slice.lower.value)
-                        upper = int(subscript_slice.upper.value)
+        if not isinstance(value_values[0][1], AnyType):
+            subscript_value = value_values[0][0].direct_type()
+            subscript_value.paras.extend(list(subscript_paras))
 
-                        if lower < 0 or lower > len(positional) or lower > upper or \
-                                upper < 0 or upper > len(positional):
-                            # wrong
-                            ret.append((subscript_value, subscript_value_info))
-                        else:
-                            new_positional = positional[lower:upper]
-                            new_list_type = ListType(new_positional, subscript_value_info.list_type)
-                            ret.append((subscript_value, new_list_type))
-                    elif isinstance(subscript_slice, ast.Constant):
-                        if isinstance(subscript_slice.value, int):
-                            index = int(subscript_slice.value)
-                            if index < len(positional):
-                                ret.append((subscript_value, positional[index]))
-        if not ret:
-            ret = [(get_anonymous_ent(), ValueInfo.get_any())]
-        return [], ret
+            return [], [(get_anonymous_ent(), subscript_value)]
+        else:
+            return [], [(get_anonymous_ent(), ValueInfo.get_any())]
 
     def aval_Constant(self, cons_expr: ast.Constant) -> Tuple[StoreAbles, AbstractValue]:
         value = cons_expr.value
@@ -485,8 +451,13 @@ class ExprAnalyzer:
         else:  # ellipsis
             return [], [(get_anonymous_ent(), ValueInfo.get_any())]
 
-        NameInfoVisitor.is_builtins_continue(builtins_type, self.manager, self._current_db)
-        lookup_res = self.manager.builtins_env[builtins_type]
+        # TODO: find in builtins.py ---> int or str
+        # NameInfoVisitor.is_builtins_continue(builtins_type, self.manager, self._current_db)
+        builtins_path = Path("builtins.py")
+        if builtins_path not in self.manager.root_db.tree:
+            return [], [(get_anonymous_ent(), ValueInfo.get_any())]
+        builtins_env = self.manager.root_db.tree[builtins_path].env
+        lookup_res = builtins_env[builtins_type]
         ent_objs = lookup_res.found_entities
         if ent_objs:
             for ent, _ in ent_objs:
@@ -512,10 +483,11 @@ class ExprAnalyzer:
                 positional_type = ValueInfo.get_any()
             positional.append(positional_type)
 
-        NameInfoVisitor.is_builtins_continue("list", self.manager, self._current_db)
-        lookup_res = self.manager.builtins_env["list"]
-        ent_objs = lookup_res.found_entities
-        list_builtins_type = ent_objs[0][1]
+        # NameInfoVisitor.is_builtins_continue("list", self.manager, self._current_db)
+        # lookup_res = self.manager.builtins_env["list"]
+        # ent_objs = lookup_res.found_entities
+        # list_builtins_type = ent_objs[0][1]
+        list_builtins_type = ValueInfo.get_any()
 
         list_type = ListType(positional, list_builtins_type)
 
@@ -537,11 +509,12 @@ class ExprAnalyzer:
             if value_abstract_value and isinstance(value_abstract_value[0], Tuple):
                 value_type = UnionType.union(value_type, value_abstract_value[0][1])
 
-        NameInfoVisitor.is_builtins_continue("dict", self.manager, self._current_db)
-        lookup_res = self.manager.builtins_env["dict"]
-        ent_objs = lookup_res.found_entities
+        # NameInfoVisitor.is_builtins_continue("dict", self.manager, self._current_db)
+        # lookup_res = self.manager.builtins_env["dict"]
+        # ent_objs = lookup_res.found_entities
 
-        dict_type = DictType(ent_objs[0][1])
+        dict_type = DictType(ValueInfo.get_any())
+        # dict_type = DictType(ent_objs[0][1])
         dict_type.add(key_type, value_type)
 
         return all_store_ables, [(get_anonymous_ent(), dict_type)]
@@ -554,10 +527,11 @@ class ExprAnalyzer:
         for expr in compare_expr.comparators:
             use_avaler.aval(expr)
 
-        NameInfoVisitor.is_builtins_continue("bool", self.manager, self._current_db)
-        lookup_res = self.manager.builtins_env["bool"]
-        ent_objs = lookup_res.found_entities
-        compare_type = ent_objs[0][1]
+        # NameInfoVisitor.is_builtins_continue("bool", self.manager, self._current_db)
+        # lookup_res = self.manager.builtins_env["bool"]
+        # ent_objs = lookup_res.found_entities
+        # compare_type = ent_objs[0][1]
+        compare_type = ValueInfo.get_any()
 
         return all_store_ables, [(get_anonymous_ent(), compare_type)]
 
@@ -594,7 +568,7 @@ def try_to_extend(attribute: str, ent_type: "ValueInfo") -> List[Entity]:
         ents = ent_type.namespace[attribute]
     elif isinstance(ent_type, PackageType):
         ents = ent_type.namespace[attribute]
-    elif isinstance(ent_type, AttrInstanceType) or isinstance(ent_type, AttributeType):
+    elif isinstance(ent_type, ReferencedAttrType):
         ents = ent_type.lookup_attr(attribute)
     elif isinstance(ent_type, AnyType):
         ...
@@ -623,29 +597,42 @@ def extend_by_value_info(manager: AnalyzeManager,
         class_attrs = ent_type.lookup_attr(attribute)
         process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, attr_expr, ctx,
                            manager)
+
     elif isinstance(ent_type, ConstructorType):
         class_attrs = ent_type.lookup_attr(attribute)
         process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, attr_expr, ctx,
                            manager)
+
     elif isinstance(ent_type, ModuleType):
         if isinstance(ent, Module):
             manager.strict_analyze_module(ent)
         module_level_ents = ent_type.namespace[attribute]
         process_known_attr(module_level_ents, attribute, ret, current_db, ent, ent_type, attr_expr, ctx, manager)
+
     elif isinstance(ent_type, PackageType):
         package_level_ents = ent_type.namespace[attribute]
         process_known_attr(package_level_ents, attribute, ret, current_db, ent, ent_type, attr_expr, ctx, manager)
-    elif isinstance(ent_type, AttrInstanceType) or isinstance(ent_type, AttributeType):
+
+    elif isinstance(ent_type, ReferencedAttrType):
         class_attrs = ent_type.lookup_attr(attribute)
-        process_known_attr(class_attrs, attribute, ret, current_db, ent_type.attr_ent, ent_type, attr_expr, ctx,
+        process_known_attr(class_attrs, attribute, ret, current_db, ent_type.referenced_attr_ent, ent_type, attr_expr, ctx,
                            manager)
+
+    elif isinstance(ent_type, UnknownVarType):
+        unknown_var_attrs = ent_type.lookup_attr(attribute)
+        process_known_attr(unknown_var_attrs, attribute, ret, current_db, ent_type.unknown_var_ent, ent_type, attr_expr, ctx,
+                           manager)
+
     elif isinstance(ent_type, DictType):
         extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.dict_type, ent, ctx)
+
     elif isinstance(ent_type, TupleType):
         extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.tuple_type, ent, ctx)
+
     elif isinstance(ent_type, ListType):
         extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.list_type, ent, ctx)
-    elif isinstance(ent_type, AnyType) or isinstance(ent_type, MethodType) or isinstance(ent_type, FunctionType):
+
+    elif isinstance(ent_type, AnyType):
 
         global_referenced_attrs = manager.root_db.global_db.referenced_attrs
         if attribute in global_referenced_attrs:
@@ -659,13 +646,15 @@ def extend_by_value_info(manager: AnalyzeManager,
         ret.append((referenced_attr, ValueInfo.get_any()))
 
     elif isinstance(ent_type, UnionType):
+        # TODO: unpack union type to access attributes
         ...
     else:
+        # isinstance(ent_type, MethodType) or isinstance(ent_type, FunctionType)
         log.error(f"Attribute[{ent_type}] receiver entity matching not implemented")
         ret.append((get_anonymous_ent(), ValueInfo.get_any()))
 
 
-def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, dep_db: ModuleDB,
+def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: AbstractValue, module_db: ModuleDB,
                        container: Entity, receiver_type: ValueInfo, attr_expr: ast.Attribute, ctx: ExpressionContext,
                        manager=None) -> None:
     if attr_ents:
@@ -674,49 +663,54 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
             temp.append((ent_x, ent_x.direct_type()))
         ret.extend(temp)
     else:
-        if manager:
-            stub_path = Path(container.longname.name + '.py')
-            stub_db = manager.root_db.tree[stub_path] if stub_path in manager.root_db.tree else None
-            if stub_db:
-                env = stub_db._env
-                get_stub = stub_db._get_stub
-                stub_file = stub_db._stub_file
-                bv = NameInfoVisitor(attribute, get_stub, manager, dep_db,
-                                     env, stub_file)
-                attr_info = get_stub.get(attribute) if get_stub else None
-                ent = bv.generic_analyze(attribute, attr_info)
-                ret.append((ent, ent.direct_type()))
-                return None
+        # if manager:
+        #     stub_path = Path(container.longname.name + '.py')
+        #     stub_db = manager.root_db.tree[stub_path] if stub_path in manager.root_db.tree else None
+        #     if stub_db:
+        #         env = stub_db._env
+        #         get_stub = stub_db._get_stub
+        #         stub_file = stub_db._stub_file
+        #         bv = NameInfoVisitor(attribute, get_stub, manager, module_db,
+        #                              env, stub_file)
+        #         attr_info = get_stub.get(attribute) if get_stub else None
+        #         ent = bv.generic_analyze(attribute, attr_info)
+        #         ret.append((ent, ent.direct_type()))
+        #         return None
 
         span = get_syntactic_head(attr_expr)
-        if isinstance(receiver_type, InstanceType):
+        if isinstance(receiver_type, InstanceType):  # Class Attribute
             span.offset(5)  # self len, or need to extend container name length
             location = container.location.append(attribute, span, None)
-            receiver_class = receiver_type.class_ent
-            new_attr = Attribute(location.to_longname(), location)
-            new_attr.is_class_attr = True
-            new_attr.exported = False if new_attr.longname.name.startswith("__") else receiver_class.exported
+            class_ent = receiver_type.class_ent
+            class_attr_ent = ClassAttribute(class_ent, location.to_longname(), location)
+            class_attr_ent.is_class_attr = True
+            class_attr_ent.exported = False if class_attr_ent.longname.name.startswith("__") else class_ent.exported
             if isinstance(ctx, SetContext):
-                new_attr.type = ctx.rhs_value[0][1]
+                class_attr_ent.type = ctx.rhs_value[0][1]
 
-            ret.append((new_attr, new_attr.direct_type()))
-            dep_db.add_ent(new_attr)
-            container.add_ref(Ref(RefKind.DefineKind, new_attr, span.start_line, span.start_col, False, None))
-            new_attr.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
+            ret.append((class_attr_ent, class_attr_ent.direct_type()))
+            module_db.add_ent(class_attr_ent)
+            container.add_ref(Ref(RefKind.DefineKind, class_attr_ent, span.start_line, span.start_col, False, None))
+            class_attr_ent.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
         else:
             if isinstance(container, ModuleAlias):
                 container = container.module_ent
 
             # TODO: it's a unknown attribute from module
+            # container type is not ValueInfo.get_any() and we should
+            # add Referenced Attribute at here
             location = container.location.append(attribute, span, None)
-            attr = Attribute(location.to_longname(), location)
-            attr.exported = container.exported
+            referenced_attr = ReferencedAttribute(location.to_longname(), location)
+            referenced_attr.exported = container.exported
 
-            dep_db.add_ent(attr)
-            container.add_ref(Ref(RefKind.DefineKind, attr, attr_expr.lineno, attr_expr.col_offset, False, None))
-            attr.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
+            # attr = Attribute(location.to_longname(), location)
+            # attr.exported = container.exported
 
-            ret.append((attr, AttributeType(attr)))
+            module_db.add_ent(referenced_attr)
+            container.add_ref(Ref(RefKind.DefineKind, referenced_attr, attr_expr.lineno, attr_expr.col_offset, False, None))
+            referenced_attr.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
+
+            ret.append((referenced_attr, referenced_attr.direct_type()))
 
 
 def process_known_or_newly_created_attr(attr_ents: Sequence[Entity],
@@ -745,10 +739,11 @@ def filter_not_setable_entities(ent_objs: AbstractValue) -> AbstractValue:
 
 
 def get_builtins_class_info(cls_name, invoke_ctx):
-    NameInfoVisitor.is_builtins_continue(cls_name, invoke_ctx.manager, invoke_ctx.current_db)
-    lookup_res = invoke_ctx.manager.builtins_env[cls_name]
-    ent_objs = lookup_res.found_entities
-    return ent_objs[0][1]
+    # NameInfoVisitor.is_builtins_continue(cls_name, invoke_ctx.manager, invoke_ctx.current_db)
+    # lookup_res = invoke_ctx.manager.builtins_env[cls_name]
+    # ent_objs = lookup_res.found_entities
+    # return ent_objs[0][1]
+    return ValueInfo.get_any()
 
 
 def invoke(invoke_ctx: InvokeContext):
@@ -773,13 +768,20 @@ def invoke(invoke_ctx: InvokeContext):
             log.warning(f'Calling Function[{callee.longname.longname}] assertion wrong.'
                         f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
             return [(get_anonymous_ent(), ValueInfo.get_any())]
+    if not ret:
+        return [(get_anonymous_ent(), ValueInfo.get_any())]
     return ret
 
 
 def invoke_match(func_type, invoke_ctx, return_type):
     if isinstance(func_type, ConstructorType):  # invoke class constructor
         invoke_constructor(invoke_ctx, func_type)
-        return_type.append(func_type.to_class_type())
+        instance_type = func_type.to_class_type()
+        args = invoke_ctx.args_info['args']
+        for arg in args:
+            if arg and isinstance(arg[0], tuple):
+                instance_type.paras.append(arg[0][1])
+        return_type.append(instance_type)
     elif isinstance(func_type, FunctionType):  # invoke function
         return_type.append(invoke_function(invoke_ctx, func_type))
     elif isinstance(func_type, MethodType):  # invoke method
@@ -787,7 +789,9 @@ def invoke_match(func_type, invoke_ctx, return_type):
     elif isinstance(func_type, ListType):  # invoke method
         for f_ty in func_type.positional:
             invoke_match(f_ty, invoke_ctx, return_type)
-    elif isinstance(func_type, AttributeType):
+    elif isinstance(func_type, UnknownVarType):
+        return_type.append(func_type)
+    elif isinstance(func_type, ReferencedAttrType):
         return_type.append(ValueInfo.get_any())
     else:
         return_type.append(ValueInfo.get_any())
@@ -820,6 +824,12 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
     callee = func_type.func_ent
 
     assert isinstance(callee, Function)
+    # if callee is a typeshed function, we don't need call it,
+    # and we should return it immediately.
+    # TODO: typeshed function overload parameter match
+    if callee.typeshed_func:
+        return callee.signatures[0].return_type
+
     # 1. Get function call environment
     body = callee.get_body()
     env, body_env, rel_path = callee.get_body_env()
@@ -868,7 +878,7 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
     assert signature
     args_index = 0
     para_index = 0
-    args = invoke_ctx.args_info['args']  # includes stararg and starstararg
+    args = invoke_ctx.args_info['args']
     kwagrs = invoke_ctx.args_info['kwargs']
 
     if isinstance(func_type, ConstructorType):  # class __init__
@@ -998,3 +1008,14 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
 
     args_type = ListType(args_info, get_builtins_class_info("list", invoke_ctx))
     return args_type
+
+
+def resolve_overlays(manager, objs):
+    if objs and isinstance(objs[0], tuple) and not manager.analyzing_typing_builtins:
+        ent = objs[0][0]
+        typ = objs[0][1]
+        if isinstance(typ, InstanceType):
+            typ = manager.overlays_dispatcher.handle_instance_or_constructor_type(typ)
+        elif isinstance(typ, ConstructorType):
+            typ = manager.overlays_dispatcher.handle_instance_or_constructor_type(typ)
+        objs[0] = (ent, typ)

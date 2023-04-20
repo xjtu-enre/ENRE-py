@@ -18,8 +18,8 @@ def get_file_level_ent(manager, m: Module, name: str) -> List[Entity]:
         if ref.ref_kind == RefKind.DefineKind or ref.ref_kind == RefKind.ContainKind or ref.ref_kind == RefKind.ImportKind:
             if ref.target_ent.longname.name == name:
                 ret.append(ref.target_ent)
-    if not ret:
-        ret = get_stub_or_unknown_file_level_ent(manager, m, name)
+    # if not ret:
+    #     ret = get_stub_or_unknown_file_level_ent(manager, m, name)
 
     return ret
 

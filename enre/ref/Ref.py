@@ -22,3 +22,6 @@ class Ref(ABC):
 
     resolved_targets: Set[Entity] = field(default_factory=set)
     # not none if a reference's target entity is created by an evaluation
+
+    def __str__(self):
+        return "[kind:" + str(self.ref_kind) + " target:" + self.target_ent.__str__() + " lineno:" + str(self.lineno) + " col_offset:" + str(self.col_offset) + "]"

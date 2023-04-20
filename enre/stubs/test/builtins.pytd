@@ -1,0 +1,12 @@
+# This file should eventually track typeshed a lot more closely, to
+# minimise the diffs we have to maintain here.
+
+from typing import Union
+
+
+class int():
+    def __init__(self) -> Union[int]:
+        ...
+
+class object():
+    ...
