@@ -47,8 +47,8 @@ class DepDB:
                 res[name] = ent
         return res
 
-    def get_class_attributes(self, ent: Class, attribute: str) -> ty.List[Entity]:
-        defined_attributes = ent.get_attribute(attribute)
+    def get_class_attributes(self, ent: Class, attribute: str, manager) -> ty.List[Entity]:
+        defined_attributes = ent.get_attribute(attribute, manager)
         return defined_attributes
 
     def get_module_attributes(self, ent: ty.Union[Module, ModuleAlias], attribute: str) -> ty.List[Entity]:

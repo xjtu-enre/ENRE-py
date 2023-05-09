@@ -45,7 +45,7 @@ class SubEnv(ABC):
         ...
 
     @abstractmethod
-    def reset_bindings(self, name: str, value: ValueInfo):
+    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
         ...
 
     @abstractmethod
@@ -70,21 +70,30 @@ class BasicSubEnv(SubEnv):
                 return SubEnvLookupResult(ret, True)
         return SubEnvLookupResult([], False)
 
-    def reset_bindings(self, name: str, value: ValueInfo):
+    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
+        flag = False
+        old_binding = None
         for bindings in reversed(self._bindings_list):
             for n, binds in bindings:
-                if n == name:
+                if n == name and not flag:
                     old_ent = binds[0][0]
                     old_value = binds[0][1]
                     if [(n, binds)] in self._bindings_list:
                         self._bindings_list.remove([(n, binds)])
                     assert old_ent is not None
                     assert old_value is not None
-                    new_binding: "Bindings" = [(name, [(old_ent, value)])]
-                    old_binding: "Bindings" = [(name, [(old_ent, old_value)])]
+                    if not new_ent:
+                        new_ent = old_ent
+                    new_binding = [(name, [(new_ent, value)])]
+                    old_binding = [(name, [(old_ent, old_value)])]
                     self.create_continuous_bindings(new_binding)
-                    return old_binding
-        return None
+                    flag = True
+                elif n == name and flag:
+                    # remove old bindings
+                    if [(n, binds)] in self._bindings_list:
+                        # print(f"delete{(n, binds)}")
+                        self._bindings_list.remove([(n, binds)])
+        return old_binding
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._bindings_list.append(pairs)
@@ -107,13 +116,13 @@ class ParallelSubEnv(SubEnv):
         found_entities = look_up_res1.found_entities + look_up_res2.found_entities
         return SubEnvLookupResult(found_entities, is_must_found)
 
-    def reset_bindings(self, name: str, value: ValueInfo):
+    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
         look_up_res1 = self._branch1_sub_env[name]
         if look_up_res1.must_found:
-            return self._branch1_sub_env.reset_bindings(name, value)
+            return self._branch1_sub_env.reset_bindings(name, value, new_ent)
         look_up_res2 = self._branch2_sub_env[name]
         if look_up_res2.must_found:
-            return self._branch2_sub_env.reset_bindings(name, value)
+            return self._branch2_sub_env.reset_bindings(name, value, new_ent)
         return None
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
@@ -146,12 +155,12 @@ class ContinuousSubEnv(SubEnv):
             self.calling = False
             return SubEnvLookupResult(found_entities, forward_lookup_res.must_found)
 
-    def reset_bindings(self, name: str, value: ValueInfo):
+    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
         backward_lookup_res = self._backward[name]
         if backward_lookup_res.must_found:
-            return self._backward.reset_bindings(name, value)
+            return self._backward.reset_bindings(name, value, new_ent)
         else:
-            return self._forward.reset_bindings(name, value)
+            return self._forward.reset_bindings(name, value, new_ent)
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
         self._backward = self._backward.create_continuous_bindings(pairs)
@@ -213,12 +222,12 @@ class ScopeEnv:
 
         return SubEnvLookupResult(ret, False)
 
-    def reset_binding_value(self, name: str, value: ValueInfo) -> Optional["Bindings"]:
+    def reset_binding_value(self, name: str, value: ValueInfo, new_ent: Entity = None) -> Optional["Bindings"]:
         ori_bindings: "Bindings"
         for sub_env in reversed(self._sub_envs):
             lookup_result = sub_env[name]
             if lookup_result.must_found:  # reset binding value
-                reset_res = sub_env.reset_bindings(name, value)
+                reset_res = sub_env.reset_bindings(name, value, new_ent)
                 if reset_res:
                     return reset_res
         return None

@@ -65,6 +65,9 @@ class Span:
         assert self.end_col == -1
         self.start_col += offset
 
+    def head_offset(self, offset: int) -> None:
+        self.start_col += offset
+
     def span_offset(self, offset: int) -> None:
         self.start_col = self.end_col
         self.end_col += offset
@@ -231,6 +234,10 @@ class Parameter(Entity):
         super(Parameter, self).__init__(longname, location)
         self.has_default = False
         self.default = ValueInfo.get_any()
+        self.formal_type = None
+        self.parent_func_ent = None
+        self.alias_set = set()
+        self.typing_signature = None
 
     def kind(self) -> EntKind:
         return EntKind.Parameter
@@ -256,6 +263,10 @@ class Signature:
     is_overload: bool
     has_stararg: bool
     has_starstararg: bool
+
+    alias_seen: set
+    # generic name alias this signature can see
+    # remove parameter alias that we can't see
     """Function signature likes this:
     def foo(x: int) -> Any
     def method(self, y: str) -> int
@@ -273,6 +284,8 @@ class Signature:
         self.func_ent = func_ent
         self.has_stararg = False
         self.has_starstararg = False
+        self.alias_seen = set()
+
 
     def append_posonlyargs(self, para: Parameter):
         self.posonlyargs.append(para)
@@ -384,8 +397,10 @@ class Function(Entity):
         self.signatures = []
         self.callable_signature = None
         self.typeshed_func = False
+        self.parent_class = None
 
         self.decorators = []
+        self.property = False
 
         # from type is a tuple type
         # to type is a Union type?
@@ -480,6 +495,7 @@ class Module(Entity, NameSpaceEntity):
         self._is_stub = is_stub
         self.absolute_path = None
         self.exported = True
+        self.typeshed_module = False
 
     def kind(self) -> EntKind:
         return EntKind.Module
@@ -566,7 +582,7 @@ class Alias(Entity):
         from enre.ref.Ref import Ref
         for ent in self.possible_target_ent:
             alias_span = self.location.code_span
-            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.end_line, False, None))
+            self.add_ref(Ref(RefKind.AliasTo, ent, alias_span.start_line, alias_span.start_col, False, None))
 
 
 class Class(Entity, NameSpaceEntity):
@@ -577,10 +593,16 @@ class Class(Entity, NameSpaceEntity):
         self.abstract_info: Optional[AbstractClassInfo] = None
         self.readonly_attribute: NamespaceType = defaultdict(list)
         self.private_attribute: NamespaceType = defaultdict(list)
+        self.env = None
         self._body_env = None
         self.bases = []
         self.signatures = []
         self.signature = Signature(longname.name, is_func=False)
+        self.typeshed_class = False
+        self.typeshed_children = None
+        self.typeshed_module_dummy_path = None
+        self.alias_set = set()
+        self.alias_self_set = set()
 
     def kind(self) -> EntKind:
         return EntKind.Class
@@ -594,14 +616,21 @@ class Class(Entity, NameSpaceEntity):
     def inherits(self) -> List["Class"]:
         return self._inherits
 
-    def get_attribute(self, attr: str) -> List[Entity]:
+    def get_attribute(self, attr: str, manager=None) -> List[Entity]:
+        from enre.pyi.visitor import NameInfoVisitor
         current_class_attrs = self.names[attr]
         if current_class_attrs:
             return current_class_attrs
         for cls_ent in self.inherits:
-            inherited_attrs = cls_ent.get_attribute(attr)
+            inherited_attrs = cls_ent.get_attribute(attr, manager)
             if inherited_attrs:
                 return inherited_attrs
+        if manager:
+            self.env.add_scope(self._body_env)
+            ent = NameInfoVisitor.analyze_wrapper(manager, self.typeshed_module_dummy_path, self.env, self.typeshed_children, attr)
+            self.env.pop_scope()
+            if ent:
+                return [ent]
         return []
 
     def add_ref(self, ref: "Ref") -> None:

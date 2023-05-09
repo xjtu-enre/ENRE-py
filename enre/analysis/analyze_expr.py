@@ -6,20 +6,20 @@ from pathlib import Path
 from typing import Sequence, Optional, Iterable
 from typing import Tuple, List, TYPE_CHECKING
 
-from enre.analysis.analyze_typeshed import NameInfoVisitor
 from enre.analysis.analyze_manager import RootDB, ModuleDB, AnalyzeManager
-from enre.analysis.assign_target import dummy_unpack
-from enre.analysis.env import EntEnv, ScopeEnv
+from enre.analysis.assign_target import dummy_unpack, unpack_semantic, assign2target
+from enre.analysis.env import EntEnv, ScopeEnv, SubEnvLookupResult
+from enre.pyi.visitor import NameInfoVisitor
 
 if TYPE_CHECKING:
     from enre.analysis.env import Bindings
 from enre.analysis.value_info import ValueInfo, ConstructorType, InstanceType, ModuleType, AnyType, PackageType, \
     FunctionType, MethodType, UnionType, DictType, TupleType, CallType, ListType, \
-    UnknownVarType, ReferencedAttrType
+    UnknownVarType, ReferencedAttrType, NoneType, SetType, ConstantType
 from enre.cfg.module_tree import SummaryBuilder, StoreAble, FuncConst, StoreAbles, get_named_store_able, \
     ModuleSummary
 from enre.ent.EntKind import RefKind
-from enre.ent.entity import AbstractValue, get_syntactic_head, ClassAttribute
+from enre.ent.entity import AbstractValue, get_syntactic_head, ClassAttribute, Signature, _Nil_Span
 from enre.ent.entity import Entity, UnknownVar, Module, ReferencedAttribute, Location, UnresolvedAttribute, \
     ModuleAlias, Class, LambdaFunction, Span, get_syntactic_span, get_anonymous_ent, NewlyCreated, SetContextValue, \
     Function
@@ -137,40 +137,41 @@ class ExprAnalyzer:
                 # No builtins cache, create builtins cache.
                 # var = NameInfoVisitor.is_builtins_continue(name_expr.id, self.manager, self._current_db)
                 store_ables: List[StoreAble] = []
-                unknown_var_name = name_expr.id
+                typeshed_ent = NameInfoVisitor.analyze_wrapper(self.manager, self._current_db.module_dummy_path,
+                                                               self._env, self._current_db.typeshed_stub_names,
+                                                               name_expr.id)
+                if typeshed_ent:
+                    lookup_res = self._env[name_expr.id]
+                    ent_objs = lookup_res.found_entities
+                    if ent_objs:
+                        for ent, _ in ent_objs:
+                            s = get_named_store_able(ent, name_expr)
+                            if s:
+                                store_ables.append(s)
+                    res_ent = typeshed_ent
+                else:
+                    unknown_var_name = name_expr.id
 
-                # should add this unknown var to module db
-                location = Location.global_name(unknown_var_name)
-                unknown_var = UnknownVar(unknown_var_name, location)
-                self._current_db.add_ent(unknown_var)
-                new_binding: "Bindings" = [(unknown_var.longname.name, [(unknown_var, unknown_var.direct_type())])]
-                self._current_db.top_scope.add_continuous_to_bottom(new_binding)
-                # global_unknown_vars = self.manager.root_db.global_db.unknown_vars
-                # if unknown_var_name in global_unknown_vars:
-                #     unknown_var = global_unknown_vars[unknown_var_name]
-                # else:
-                #     location = Location.global_name(unknown_var_name)
-                #     unknown_var = UnknownVar(unknown_var_name, location)
-                #     global_unknown_vars[unknown_var_name] = unknown_var
-                #     self.manager.root_db.global_db.add_ent(unknown_var)
+                    # should add this unknown var to module db
+                    location = Location.global_name(unknown_var_name)
+                    unknown_var = UnknownVar(unknown_var_name, location)
+                    self._current_db.add_ent(unknown_var)
+                    new_binding: "Bindings" = [(unknown_var.longname.name, [(unknown_var, unknown_var.direct_type())])]
+                    self._current_db.top_scope.add_continuous_to_bottom(new_binding)
 
-                ent_objs = [(unknown_var, unknown_var.direct_type())]
-
-                # lookup_res = self.manager.builtins_env[name_expr.id]
-                # ent_objs = lookup_res.found_entities
-                # if ent_objs:
-                #     for ent, _ in ent_objs:
-                #         s = get_named_store_able(ent, name_expr)
-                #         if s:
-                #             store_ables.append(s)
+                    ent_objs = [(unknown_var, unknown_var.direct_type())]
+                    res_ent = unknown_var
 
                 ctx.add_ref(
-                    self.create_ref_by_ctx(unknown_var, name_expr.lineno, name_expr.col_offset, self._typing_entities,
+                    self.create_ref_by_ctx(res_ent, name_expr.lineno, name_expr.col_offset, self._typing_entities,
                                            self._exp_ctx, name_expr))
                 return store_ables, ent_objs
         else:
             lhs_objs: SetContextValue = []
-            if ent_objs:
+            in_func_ctx = False
+            if isinstance(ctx, Function):
+                in_func_ctx = True
+            if ent_objs and not in_func_ctx:
                 lhs_objs.extend(ent_objs)
             else:
                 lhs_objs.extend([NewlyCreated(get_syntactic_span(name_expr), UnknownVar(name_expr.id))])
@@ -192,9 +193,13 @@ class ExprAnalyzer:
 
         extend_known_possible_attribute(self.manager, attribute, possible_ents, ret, self._exp_ctx, self._current_db,
                                         attr_expr)
+
+        attr_expr_span = get_syntactic_span(attr_expr.value)
+        attr_expr_start_line = attr_expr_span.end_line
+        attr_expr_start_col = attr_expr_span.end_col + 1
         for ent, _ in ret:
             self._env.get_ctx().add_ref(
-                self.create_ref_by_ctx(ent, attr_expr.lineno, attr_expr.col_offset,
+                self.create_ref_by_ctx(ent, attr_expr_start_line, attr_expr_start_col,
                                        self._typing_entities, self._exp_ctx, attr_expr))
         field_accesses = self._builder.load_field(possible_store_ables, attribute, self._exp_ctx, attr_expr)
         return field_accesses, ret
@@ -227,6 +232,7 @@ class ExprAnalyzer:
                 """likes **{"name": "Test", "age": 24} 
                 unpack it to 'name' = 'Test', 'age' = 24
                 """
+
                 @dataclass
                 class FakeKwArg:
                     arg: ast.AST
@@ -271,7 +277,8 @@ class ExprAnalyzer:
         self._env.get_ctx().add_ref(
             self.create_ref_by_ctx(func_ent, lam_expr.lineno, lam_expr.col_offset, self._typing_entities, self._exp_ctx,
                                    lam_expr))
-
+        self._env.get_ctx().add_ref(
+            Ref(RefKind.DefineKind, func_ent, lam_expr.lineno, lam_expr.col_offset, False, None))
         # do not add lambda entity to the current environment
         # env.get_scope().add_continuous([(func_ent, EntType.get_bot())])
         # create the scope environment corresponding to the function
@@ -351,8 +358,6 @@ class ExprAnalyzer:
                 for lhs, rhs in itertools.product(stores, ctx.rhs_store_ables):
                     self._builder.add_move(lhs, rhs)
 
-
-
     def create_ref_by_ctx(self, target_ent: Entity, lineno: int, col_offset: int,
                           typing_entities: Optional[Iterable[Entity]],
                           ctx: ExpressionContext, expr: ast.expr) -> Ref:
@@ -399,17 +404,16 @@ class ExprAnalyzer:
                 value_infos.append(ent_objs[0][1])
             else:
                 value_infos.append(ValueInfo.get_any())
-        # NameInfoVisitor.is_builtins_continue("tuple", self.manager, self._current_db)
-        # lookup_res = self.manager.builtins_env["tuple"]
-        # ent_objs = lookup_res.found_entities
 
-        tuple_value = TupleType(ValueInfo.get_any())
-        # tuple_value = TupleType(ent_objs[0][1])
+        tuple_type = get_builtins_class_info("tuple", self.manager)
+        assert isinstance(tuple_type, ConstructorType)
+        tuple_value = TupleType(tuple_type.class_ent)
         tuple_value.add(value_infos)
+
         return [], [(get_anonymous_ent(), tuple_value)]
 
     def aval_Subscript(self, subscript: ast.Subscript) -> Tuple[StoreAbles, AbstractValue]:
-        # TODO: subscript res
+        # TODO: li = []
 
         # t.paras
         subscript_paras = set()
@@ -431,6 +435,7 @@ class ExprAnalyzer:
             subscript_paras.add(elt_value[0][1])
 
         _, value_values = self.aval(subscript.value)
+        # TODO: special for Generic
 
         if not isinstance(value_values[0][1], AnyType):
             subscript_value = value_values[0][0].direct_type()
@@ -442,9 +447,10 @@ class ExprAnalyzer:
 
     def aval_Constant(self, cons_expr: ast.Constant) -> Tuple[StoreAbles, AbstractValue]:
         value = cons_expr.value
-        store_ables: List[StoreAble] = []
         builtins_type: str
-        if isinstance(value, int):
+        if isinstance(value, bool):
+            builtins_type = "bool"
+        elif isinstance(value, int):
             builtins_type = "int"
         elif isinstance(value, str):
             builtins_type = "str"
@@ -453,19 +459,19 @@ class ExprAnalyzer:
 
         # TODO: find in builtins.py ---> int or str
         # NameInfoVisitor.is_builtins_continue(builtins_type, self.manager, self._current_db)
-        builtins_path = Path("builtins.py")
-        if builtins_path not in self.manager.root_db.tree:
-            return [], [(get_anonymous_ent(), ValueInfo.get_any())]
-        builtins_env = self.manager.root_db.tree[builtins_path].env
-        lookup_res = builtins_env[builtins_type]
-        ent_objs = lookup_res.found_entities
-        if ent_objs:
-            for ent, _ in ent_objs:
-                s = get_named_store_able(ent, cons_expr)
-                if s:
-                    store_ables.append(s)
 
-        return store_ables, ent_objs
+        builtins_name = ast.Name(builtins_type, None)
+        builtins_name.lineno = -1
+        builtins_name.col_offset = -1
+        use_avaler = ExprAnalyzer(self.manager, self._package_db, self._current_db,
+                                  self._typing_entities, UseContext(), self._builder, self._env)
+
+        cons_type = ConstantType(value)
+        store_ables, ent_objs = use_avaler.aval(builtins_name)
+        ent = ent_objs[0][0]
+        builtins_type: ValueInfo = ent.direct_type()
+        builtins_type.paras.append(cons_type)
+        return store_ables, [(ent, builtins_type)]
 
     def aval_List(self, list_expr: ast.List) -> Tuple[StoreAbles, AbstractValue]:
         all_store_ables: List[StoreAble] = []
@@ -483,13 +489,10 @@ class ExprAnalyzer:
                 positional_type = ValueInfo.get_any()
             positional.append(positional_type)
 
-        # NameInfoVisitor.is_builtins_continue("list", self.manager, self._current_db)
-        # lookup_res = self.manager.builtins_env["list"]
-        # ent_objs = lookup_res.found_entities
-        # list_builtins_type = ent_objs[0][1]
-        list_builtins_type = ValueInfo.get_any()
-
-        list_type = ListType(positional, list_builtins_type)
+        list_type = ValueInfo.get_any()
+        list_instance_type = get_builtins_class_info("list", self.manager)
+        if isinstance(list_instance_type, ConstructorType):
+            list_type = ListType(positional, list_instance_type.class_ent)
 
         return all_store_ables, [(get_anonymous_ent(), list_type)]
 
@@ -509,13 +512,12 @@ class ExprAnalyzer:
             if value_abstract_value and isinstance(value_abstract_value[0], Tuple):
                 value_type = UnionType.union(value_type, value_abstract_value[0][1])
 
-        # NameInfoVisitor.is_builtins_continue("dict", self.manager, self._current_db)
-        # lookup_res = self.manager.builtins_env["dict"]
-        # ent_objs = lookup_res.found_entities
-
-        dict_type = DictType(ValueInfo.get_any())
-        # dict_type = DictType(ent_objs[0][1])
-        dict_type.add(key_type, value_type)
+        dict_instance_type = get_builtins_class_info("dict", self.manager)
+        dict_type = ValueInfo.get_any()
+        if isinstance(dict_instance_type, ConstructorType):
+            dict_type = DictType(dict_instance_type.class_ent)
+            # dict_type.class_ent.alias_map['typing.Mapping']
+            dict_type.add(key_type, value_type)
 
         return all_store_ables, [(get_anonymous_ent(), dict_type)]
 
@@ -535,6 +537,22 @@ class ExprAnalyzer:
 
         return all_store_ables, [(get_anonymous_ent(), compare_type)]
 
+    def aval_NamedExpr(self, named_expr: ast.NamedExpr) -> Tuple[StoreAbles, AbstractValue]:
+        from enre.analysis.analyze_stmt import AnalyzeContext
+        target_expr = named_expr.target
+        rvalue_expr = named_expr.value
+        target_lineno = target_expr.lineno
+        target_col_offset = target_expr.col_offset
+        assign2target(target_expr, rvalue_expr, self._env.get_scope().get_builder(),
+                      AnalyzeContext(self._env,
+                                     self.manager,
+                                     self._package_db,
+                                     self._current_db,
+                                     (target_lineno, target_col_offset),
+                                     False))
+        return [], [(get_anonymous_ent(), ValueInfo.get_any())]
+
+
 
 def extend_known_possible_attribute(manager: AnalyzeManager,
                                     attribute: str,
@@ -547,7 +565,7 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
             ent_types = ent_type.types
             ty_res = []
             for ty in ent_types:
-                ents = try_to_extend(attribute, ty)
+                ents = try_to_extend(attribute, ty, manager)
                 if ents:
                     ty_res.append(ty)
             if ty_res:
@@ -558,12 +576,12 @@ def extend_known_possible_attribute(manager: AnalyzeManager,
             extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type, ent, ctx)
 
 
-def try_to_extend(attribute: str, ent_type: "ValueInfo") -> List[Entity]:
+def try_to_extend(attribute: str, ent_type: "ValueInfo", manager) -> List[Entity]:
     ents: List[Entity] = []
     if isinstance(ent_type, InstanceType):
-        ents = ent_type.lookup_attr(attribute)
+        ents = ent_type.lookup_attr(attribute, manager)
     elif isinstance(ent_type, ConstructorType):
-        ents = ent_type.lookup_attr(attribute)
+        ents = ent_type.lookup_attr(attribute, manager)
     elif isinstance(ent_type, ModuleType):
         ents = ent_type.namespace[attribute]
     elif isinstance(ent_type, PackageType):
@@ -580,11 +598,18 @@ def try_to_extend(attribute: str, ent_type: "ValueInfo") -> List[Entity]:
         ...
     elif isinstance(ent_type, TupleType):
         ...
+    elif isinstance(ent_type, SetType):
+        ...
     elif isinstance(ent_type, FunctionType) or isinstance(ent_type, MethodType):
         ...
+    elif isinstance(ent_type, UnknownVarType) or isinstance(ent_type, NoneType):
+        ...
     else:
-        # print(ent_type)
+        print(ent_type.__str__())
+        print(type(ent_type))
+
         log.error(f"Attribute[{ent_type}] receiver entity matching not implemented")
+        print("----------------")
     return ents
 
 
@@ -594,12 +619,14 @@ def extend_by_value_info(manager: AnalyzeManager,
                          current_db: ModuleDB,
                          attr_expr: ast.Attribute, ent_type: "ValueInfo", ent: Entity, ctx: ExpressionContext) -> None:
     if isinstance(ent_type, InstanceType):
-        class_attrs = ent_type.lookup_attr(attribute)
+        class_attrs = ent_type.lookup_attr(attribute, manager)
+        # resolve typeshed builtins alias
+        resolve_builtins_generic(class_attrs, ent_type)
         process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, attr_expr, ctx,
                            manager)
 
     elif isinstance(ent_type, ConstructorType):
-        class_attrs = ent_type.lookup_attr(attribute)
+        class_attrs = ent_type.lookup_attr(attribute, manager)
         process_known_attr(class_attrs, attribute, ret, current_db, ent_type.class_ent, ent_type, attr_expr, ctx,
                            manager)
 
@@ -615,22 +642,18 @@ def extend_by_value_info(manager: AnalyzeManager,
 
     elif isinstance(ent_type, ReferencedAttrType):
         class_attrs = ent_type.lookup_attr(attribute)
-        process_known_attr(class_attrs, attribute, ret, current_db, ent_type.referenced_attr_ent, ent_type, attr_expr, ctx,
+        process_known_attr(class_attrs, attribute, ret, current_db, ent_type.referenced_attr_ent, ent_type, attr_expr,
+                           ctx,
                            manager)
 
     elif isinstance(ent_type, UnknownVarType):
         unknown_var_attrs = ent_type.lookup_attr(attribute)
-        process_known_attr(unknown_var_attrs, attribute, ret, current_db, ent_type.unknown_var_ent, ent_type, attr_expr, ctx,
+        process_known_attr(unknown_var_attrs, attribute, ret, current_db, ent_type.unknown_var_ent, ent_type, attr_expr,
+                           ctx,
                            manager)
-
-    elif isinstance(ent_type, DictType):
-        extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.dict_type, ent, ctx)
 
     elif isinstance(ent_type, TupleType):
         extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.tuple_type, ent, ctx)
-
-    elif isinstance(ent_type, ListType):
-        extend_by_value_info(manager, attribute, ret, current_db, attr_expr, ent_type.list_type, ent, ctx)
 
     elif isinstance(ent_type, AnyType):
 
@@ -648,7 +671,15 @@ def extend_by_value_info(manager: AnalyzeManager,
     elif isinstance(ent_type, UnionType):
         # TODO: unpack union type to access attributes
         ...
+    elif isinstance(ent_type, SetType):
+        # TODO: unpack set type to access attributes
+        ...
+    elif isinstance(ent_type, NoneType) or isinstance(ent_type, UnknownVarType):
+        ...
+    elif isinstance(ent_type, MethodType):
+        ...
     else:
+        print(type(ent_type))
         # isinstance(ent_type, MethodType) or isinstance(ent_type, FunctionType)
         log.error(f"Attribute[{ent_type}] receiver entity matching not implemented")
         ret.append((get_anonymous_ent(), ValueInfo.get_any()))
@@ -663,22 +694,23 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
             temp.append((ent_x, ent_x.direct_type()))
         ret.extend(temp)
     else:
-        # if manager:
-        #     stub_path = Path(container.longname.name + '.py')
-        #     stub_db = manager.root_db.tree[stub_path] if stub_path in manager.root_db.tree else None
-        #     if stub_db:
-        #         env = stub_db._env
-        #         get_stub = stub_db._get_stub
-        #         stub_file = stub_db._stub_file
-        #         bv = NameInfoVisitor(attribute, get_stub, manager, module_db,
-        #                              env, stub_file)
-        #         attr_info = get_stub.get(attribute) if get_stub else None
-        #         ent = bv.generic_analyze(attribute, attr_info)
-        #         ret.append((ent, ent.direct_type()))
-        #         return None
-
         span = get_syntactic_head(attr_expr)
-        if isinstance(receiver_type, InstanceType):  # Class Attribute
+        if isinstance(receiver_type, InstanceType):
+            # TODO: if it is a typeshed Class, we should find in its stub names
+            assert isinstance(container, Class)
+            if container.typeshed_class:
+                typeshed_module_dummy_path = container.typeshed_module_dummy_path
+                typeshed_module_db = manager.root_db.tree[typeshed_module_dummy_path]
+                env: EntEnv = typeshed_module_db.env
+                env.add_scope(container.get_body_env())
+                ent = NameInfoVisitor.analyze_wrapper(manager, typeshed_module_dummy_path, env,
+                                                      container.typeshed_children, attribute)
+                env.pop_scope()
+                if ent:
+                    ret.append((ent, ent.direct_type()))
+                    return
+
+            # Class Attribute
             span.offset(5)  # self len, or need to extend container name length
             location = container.location.append(attribute, span, None)
             class_ent = receiver_type.class_ent
@@ -690,11 +722,26 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
 
             ret.append((class_attr_ent, class_attr_ent.direct_type()))
             module_db.add_ent(class_attr_ent)
-            container.add_ref(Ref(RefKind.DefineKind, class_attr_ent, span.start_line, span.start_col, False, None))
+            if module_db.env:
+                env = module_db.env
+                assert isinstance(env, EntEnv)
+                env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_attr_ent, span.start_line, span.start_col, False, None))
+            else:
+                container.add_ref(Ref(RefKind.DefineKind, class_attr_ent, span.start_line, span.start_col, False, None))
             class_attr_ent.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
         else:
             if isinstance(container, ModuleAlias):
                 container = container.module_ent
+            # TODO: if it is a typeshed module, we should find in its stub names
+
+            if isinstance(container, Module) and container.typeshed_module:
+                typeshed_module_dummy_path = Path(container.longname.name + '.py')
+                typeshed_module_db = manager.root_db.tree[typeshed_module_dummy_path]
+                ent = NameInfoVisitor.analyze_wrapper(manager, typeshed_module_dummy_path, typeshed_module_db.env,
+                                                      typeshed_module_db.typeshed_stub_names, attribute)
+                if ent:
+                    ret.append((ent, ent.direct_type()))
+                    return
 
             # TODO: it's a unknown attribute from module
             # container type is not ValueInfo.get_any() and we should
@@ -707,7 +754,8 @@ def process_known_attr(attr_ents: Sequence[Entity], attribute: str, ret: Abstrac
             # attr.exported = container.exported
 
             module_db.add_ent(referenced_attr)
-            container.add_ref(Ref(RefKind.DefineKind, referenced_attr, attr_expr.lineno, attr_expr.col_offset, False, None))
+            container.add_ref(
+                Ref(RefKind.DefineKind, referenced_attr, attr_expr.lineno, attr_expr.col_offset, False, None))
             referenced_attr.add_ref(Ref(RefKind.ChildOfKind, container, -1, -1, False, None))
 
             ret.append((referenced_attr, referenced_attr.direct_type()))
@@ -738,12 +786,17 @@ def filter_not_setable_entities(ent_objs: AbstractValue) -> AbstractValue:
     return ret
 
 
-def get_builtins_class_info(cls_name, invoke_ctx):
-    # NameInfoVisitor.is_builtins_continue(cls_name, invoke_ctx.manager, invoke_ctx.current_db)
-    # lookup_res = invoke_ctx.manager.builtins_env[cls_name]
-    # ent_objs = lookup_res.found_entities
-    # return ent_objs[0][1]
-    return ValueInfo.get_any()
+def get_builtins_class_info(cls_name, manager):
+    builtins_path = Path("builtins.py")
+    if builtins_path not in manager.root_db.tree:
+        return ValueInfo.get_any()
+    builtins_env: EntEnv = manager.root_db.tree[builtins_path].env
+    lookup_res = builtins_env[cls_name]
+    if lookup_res.must_found:
+        ent_objs = lookup_res.found_entities
+        return ent_objs[0][1]
+    else:
+        return ValueInfo.get_any()
 
 
 def invoke(invoke_ctx: InvokeContext):
@@ -827,15 +880,11 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
     # if callee is a typeshed function, we don't need call it,
     # and we should return it immediately.
     # TODO: typeshed function overload parameter match
-    if callee.typeshed_func:
-        return callee.signatures[0].return_type
 
     # 1. Get function call environment
     body = callee.get_body()
     env, body_env, rel_path = callee.get_body_env()
     builder = body_env.get_builder()
-    analyzer = analyze_stmt.Analyzer(rel_path, invoke_ctx.manager)
-    analyzer.current_db.set_env(env)
     assert isinstance(body_env, ScopeEnv)
 
     # if callee.longname.longname == "ENRE-py.enre.analysis.env.ScopeEnv.__init__":
@@ -844,7 +893,28 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
     #         print(callee)
 
     # 2. Parameters match
-    args_type = bind_parameter(body_env, callee, invoke_ctx, func_type)
+    signature = None
+    if callee.typeshed_func:
+        if len(callee.signatures) > 1:  # overload
+            for sig in callee.signatures:
+                try:
+                    try_res = bind_parameter(body_env, callee, invoke_ctx, func_type, sig, try_mode=True)
+                    if try_res:
+                        signature = sig
+                        break
+                except AssertionError:
+                    ...  # params not match
+        else:
+            signature = callee.signatures[0]
+
+        return resolve_typeshed_return(signature.return_type, body_env, callee, signature)
+    else:
+        signature = callee.callable_signature
+    if not signature:
+        return ValueInfo.get_any()
+
+    args_type = bind_parameter(body_env, callee, invoke_ctx, func_type, signature)
+
     if not args_type:  # wrong case, not to call this function
         return ValueInfo.get_any()
 
@@ -856,6 +926,8 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
 
     env.add_scope(body_env)
     # 3. Invoke
+    analyzer = analyze_stmt.Analyzer(rel_path, invoke_ctx.manager)
+    analyzer.current_db.set_env(env)
     invoke_ctx.manager.func_invoking_set.add(callee)
     analyzer.analyze_top_stmts(body, builder, env)
     if callee in invoke_ctx.manager.func_invoking_set:
@@ -869,10 +941,11 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
     return return_type
 
 
-def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeContext, func_type: ValueInfo) \
+def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeContext,
+                   func_type: ValueInfo, signature, try_mode=False) \
         -> Optional["ListType"]:
     assert isinstance(body_env, ScopeEnv)
-    signature = callee.callable_signature
+    assert isinstance(signature, Signature)
     # if function overload and do not have an implementation
     # we shouldn't call it
     assert signature
@@ -896,7 +969,7 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
     p = args_index
     q = para_index
 
-    """process position only args"""
+    """process positional only args"""
     calling_posonlyargs_length = len(args)
     calling_kwonlyargs_length = len(kwagrs)
     least_posonlyargs_length = signature.function_call_least_posonlyargs_length()
@@ -904,18 +977,35 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
     if calling_posonlyargs_length < least_posonlyargs_length and \
             not calling_kwonlyargs_length >= least_posonlyargs_length - calling_posonlyargs_length + least_kwonlyargs_length:
         # wrong
-        log.warning(f"Calling function [{callee.longname.longname}] wrong, parameters pass less than the least length."
-                    f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
+        if not try_mode:
+            log.warning(
+                f"Calling function [{callee.longname.longname}] wrong, parameters pass less than the least length."
+                f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
         return None
+    if calling_posonlyargs_length + para_index > len(signature.posonlyargs):
+        if not try_mode:
+            log.warning(
+                f"Calling function [{callee.longname.longname}] wrong, parameters more than required length."
+                f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
+        return None
+    # TODO: compare kwonlyargs
     args_info = []
     while p < calling_posonlyargs_length and least_posonlyargs_length > 0:
         if args[p] and isinstance(args[p][0], tuple):
             ent, info = args[p][0]
             args_info.append(info)
             if not isinstance(info, AnyType):
-                name = signature.get_posonlyargs(q).longname.name
+                pos_param = signature.get_posonlyargs(q)
+                name = pos_param.longname.name
                 body_env.reset_binding_value(name, info)  # set current parameters pass value
                 signature.get_posonlyargs(q).add_type(info)  # replenish function parameter type
+
+                # add type to env[alias_name]
+                bindings: Bindings = []
+                for alias_name in pos_param.alias_set:
+                    bindings.append((alias_name, [(get_anonymous_ent(), info)]))
+                if bindings:
+                    body_env.add_continuous(bindings)
 
         p = p + 1
         q = q + 1
@@ -935,20 +1025,30 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
                     if not isinstance(info, AnyType):
                         body_env.reset_binding_value(pos_name, info)  # set current parameters pass value
                         pos_arg.add_type(info)  # replenish function parameter type
+
+                    # add type to env[alias_name]
+                    bindings: Bindings = []
+                    for alias_name in pos_arg.alias_set:
+                        bindings.append((alias_name, [(get_anonymous_ent(), info)]))
+                    if bindings:
+                        body_env.add_continuous(bindings)
+
                 del kwagrs[pos_name]
                 least_posonlyargs_length = least_posonlyargs_length - 1
             else:
                 # wrong
-                log.warning(
-                    f"Calling function [{callee.longname.longname}] wrong, positional parameters pass less than the least length."
-                    f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
+                if not try_mode:
+                    log.warning(
+                        f"Calling function [{callee.longname.longname}] wrong, positional parameters pass less than the least length."
+                        f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
                 return None
             q = q + 1
     if least_posonlyargs_length > 0:
         # wrong
-        log.warning(
-            f"Calling function [{callee.longname.longname}] wrong, positional parameters pass less than the least length."
-            f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
+        if not try_mode:
+            log.warning(
+                f"Calling function [{callee.longname.longname}] wrong, positional parameters pass less than the least length."
+                f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
         return None
     """process keyword only args"""
     assert isinstance(kwagrs, dict)
@@ -969,16 +1069,19 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
                     ...  # uses defining binding
                 else:
                     # wrong
-                    log.warning(
-                        f"Calling Function[{callee.longname.longname}] wrong, not provide Parameter[{kw_name}] value."
-                        f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
+                    if not try_mode:
+                        log.warning(
+                            f"Calling Function[{callee.longname.longname}] wrong, not provide Parameter[{kw_name}] value."
+                            f' Location "{invoke_ctx.current_db.module_ent.absolute_path}:{invoke_ctx.call_expr.lineno}".')
                     return None
 
     """process starstarargargs"""
     if signature.has_starstararg:
 
-        str_value = get_builtins_class_info("str", invoke_ctx)
-        dict_value = DictType(get_builtins_class_info("dict", invoke_ctx))
+        str_value = get_builtins_class_info("str", invoke_ctx.manager)
+        dict_instance_type = get_builtins_class_info("dict", invoke_ctx.manager)
+        assert isinstance(dict_instance_type, ConstructorType)
+        dict_value = DictType(dict_instance_type.class_ent)
         for res_kw_name, res_kw_info in kwagrs.items():
             if res_kw_info and isinstance(res_kw_info[0], tuple):
                 ent, info = res_kw_info[0]
@@ -993,7 +1096,9 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
 
     """process stararg"""
     if signature.has_stararg:
-        tuple_value = TupleType(get_builtins_class_info("tuple", invoke_ctx))
+        tuple_type = get_builtins_class_info("tuple", invoke_ctx.manager)
+        assert isinstance(tuple_type, ConstructorType)
+        tuple_value = TupleType(tuple_type.class_ent)
         args_length = len(args)
         while p < args_length:
             if args[p] and isinstance(args[p][0], tuple):
@@ -1006,7 +1111,9 @@ def bind_parameter(body_env: ScopeEnv, callee: Function, invoke_ctx: InvokeConte
         stararg_ent.add_type(tuple_value)
         body_env.reset_binding_value(name, tuple_value)
 
-    args_type = ListType(args_info, get_builtins_class_info("list", invoke_ctx))
+    list_type = get_builtins_class_info("list", invoke_ctx.manager)
+    assert isinstance(list_type, ConstructorType)
+    args_type = ListType(args_info, list_type.class_ent)
     return args_type
 
 
@@ -1019,3 +1126,54 @@ def resolve_overlays(manager, objs):
         elif isinstance(typ, ConstructorType):
             typ = manager.overlays_dispatcher.handle_instance_or_constructor_type(typ)
         objs[0] = (ent, typ)
+
+
+# TODO: Pack arguments
+def resolve_typeshed_return(return_type: ValueInfo, body_env: ScopeEnv, callee: Function, signature: Signature):
+    if isinstance(return_type, InstanceType):
+        if return_type.class_ent.longname.longname == "typing.TypeVar":
+            tv_name = return_type.paras[0].paras[0]
+            assert isinstance(tv_name, ConstantType)
+            generic_name = tv_name.value
+            # TODO: find in callee seen generic names
+            alias_seen = signature.alias_seen
+            for alias_name in alias_seen:
+                assert isinstance(alias_name, str)
+                alias_name_split = alias_name.split(".")
+                if alias_name_split[-1] == generic_name:
+                    # good match
+                    lookup_res: SubEnvLookupResult = body_env[alias_name]
+                    if lookup_res.must_found:
+                        return lookup_res.found_entities[0][1]
+        return return_type
+    elif isinstance(return_type, ConstructorType):
+        paras_type = []
+        if return_type.class_ent.longname.longname == "typing.Self":
+            return InstanceType(callee.parent_class)
+        new_type = return_type.class_ent.direct_type()  # Union, Optional
+        for t in return_type.paras:
+            paras_type.append(resolve_typeshed_return(t, body_env, callee, signature))
+        new_type.paras = paras_type
+        return new_type
+    else:
+        return return_type
+
+
+def resolve_builtins_generic(class_attrs, ent_type):
+    before = class_attrs
+    class_attrs = class_attrs[0] if len(class_attrs) == 1 else class_attrs
+    if isinstance(class_attrs, Function):
+        class_ent = ent_type.class_ent
+        if class_ent.longname.longname == "builtins.dict":
+            assert isinstance(ent_type, DictType)
+            body_env = class_attrs.get_scope_env()
+            bindings: Bindings = []
+            parent_class: Class = class_attrs.parent_class
+            for alias_name in parent_class.alias_self_set:  # typing.Mapping
+                if alias_name == "typing.Mapping._K":
+                    bindings.append((alias_name, [(get_anonymous_ent(), ent_type.key)]))
+                elif alias_name == "typing.Mapping._V":
+                    bindings.append((alias_name, [(get_anonymous_ent(), ent_type.value)]))
+            body_env.add_continuous(bindings)
+
+    class_attrs = before

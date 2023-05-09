@@ -106,7 +106,9 @@ class DepRepr:
     @classmethod
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         helper_ent_types = [EntKind.Anonymous]  # , EntKind.ReferencedAttr
-        if ent.kind() not in helper_ent_types:
+        helper_ent_names = ["builtins", "typing"]
+        flag = ent.longname._scope[0] not in helper_ent_names
+        if ent.kind() not in helper_ent_types and flag:
             modifiers = cls.get_modifiers(ent)
             dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value,
                                    str(ent.location.file_path).replace("\\", "/"),
@@ -230,8 +232,8 @@ def exist_no_empty(modifiers: Dict[str, Any]) -> bool:
            ('privateProperty' in modifiers and len(modifiers['privateProperty']) > 0) or \
            ('decorators' in modifiers and len(modifiers['decorators']) > 0)
 
-
-no_need_location = ["ReferencedAttribute", "Module", "UnknownModule", "Package", "UnresolvedAttribute", "UnknownVar"]
+# "ReferencedAttribute", "Module", "UnknownModule", "Package", "UnresolvedAttribute", "UnknownVar"
+no_need_location = []
 
 
 def need_location(n: Node) -> bool:

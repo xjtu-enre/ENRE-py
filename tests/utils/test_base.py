@@ -68,3 +68,30 @@ class BaseTest(unittest.TestCase):
         print("--------------info--------------")
         for key, value in dic.items():
             print(str(key) + ": " + str(value))
+
+
+    def assert_type(self, qname):
+        ...
+
+    def assert_dependency(self, src_qname, dest_qname, dep_kind):
+        content = self.temp_json
+        variables = content['variables']
+        cells = content['cells']
+        """Use id as key, variables field as value
+        """
+        v_dic = {}
+        src_id = None
+        dest_id = None
+        for v in variables:
+            v_dic[v["id"]] = v
+            if v["qualifiedName"] == src_qname:
+                src_id = v["id"]
+            elif v["qualifiedName"] == dest_qname:
+                dest_id = v["id"]
+        self.assertTrue(src_id and dest_id, "Can't find src_id or dest_id")
+        for c in cells:
+            src = c["src"]
+            dest = c["dest"]
+            if src == src_id and dest == dest_id:
+                kind = c["values"]["kind"]
+                self.assertEqual(kind, dep_kind, "Dependency not match")

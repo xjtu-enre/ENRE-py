@@ -4,18 +4,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorType, ModuleType, \
-    UseContext, CallContext
+    UseContext, CallContext, resolve_typeshed_return
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.analysis.analyze_method import MethodVisitor
 from enre.analysis.assign_target import dummy_iter_store
 from enre.analysis.env import EntEnv, ScopeEnv, ContinuousSubEnv, BasicSubEnv
-from enre.analysis.value_info import ValueInfo, FunctionType, AnyType, MethodType
+from enre.analysis.value_info import ValueInfo, FunctionType, AnyType, MethodType, UnknownVarType
 from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Function, Module, Location, Parameter, Class, ModuleAlias, \
     Entity, Alias, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
-    Package, PackageAlias, get_syntactic_head, Anonymous, Signature
+    Package, PackageAlias, get_syntactic_head, Anonymous, Signature, _Nil_Span
 from enre.ref.Ref import Ref
 
 from enre.util.logger import Logging
@@ -23,6 +23,7 @@ from enre.util.logger import Logging
 if ty.TYPE_CHECKING:
     from enre.analysis.env import Binding, Bindings
 
+DefaultAsHeadLen = 4
 DefaultSelfHeadLen = 4
 DefaultDefHeadLen = 4
 DefaultClassHeadLen = 6
@@ -51,6 +52,7 @@ class Analyzer:
         self.package_db: "RootDB" = manager.root_db
         self.current_db: "ModuleDB" = manager.root_db[rel_path]
         self.all_summary: ty.List[ModuleSummary] = []
+        self.analyzing_typeshed = False
 
     def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
@@ -98,6 +100,9 @@ class Analyzer:
             new_scope = now_scope.append(name, fun_code_span, None)
             func_ent = Function(new_scope.to_longname(), new_scope)
 
+            # if func_ent.longname.longname == "typing.Mapping.get":
+            #     print("here")
+
             if self.manager.analyzing_typing_builtins:
                 func_ent.typeshed_func = True
 
@@ -106,10 +111,16 @@ class Analyzer:
 
             # add function entity to dependency database
             self.current_db.add_ent(func_ent)
-            self.manager.func_uncalled_set.add(func_ent)
+            if not self.analyzing_typeshed and not self.manager.analyzing_typing_builtins:
+                self.manager.func_uncalled_set.add(func_ent)
+            else:
+                func_ent.typeshed_func = True
             # add reference of current contest to the function entity
             current_ctx.add_ref(Ref(RefKind.DefineKind, func_ent, span.start_line, span.start_col, False, None))
             func_ent.add_ref(Ref(RefKind.ChildOfKind, current_ctx, -1, -1, False, None))
+
+            if isinstance(current_ctx, Class):
+                func_ent.parent_class = current_ctx
 
             exported = False if func_name.startswith("__") and not func_name.endswith("__") \
                                 and not isinstance(current_ctx, Module) else current_ctx.exported
@@ -160,6 +171,9 @@ class Analyzer:
                 if decorator_ent.longname.longname == "typing.overload":
                     # we shouldn't call this overload signature
                     func_ent.signatures[-1].is_overload = True
+                elif decorator_ent.longname.longname == "builtins.property":
+                    func_ent.property = True  # call it directly
+
 
         # set callable signatures
         if not func_ent.signatures[-1].is_overload:
@@ -203,8 +217,12 @@ class Analyzer:
         exported = False if isinstance(env.get_ctx(), Function) else env.get_ctx().exported
         class_ent.exported = exported
 
-        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_stmt.lineno, class_stmt.col_offset, False, None))
+
+        env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_code_span.start_line, class_code_span.start_col, False, None))
         class_ent.add_ref(Ref(RefKind.ChildOfKind, env.get_ctx(), -1, -1, False, None))
+        if self.analyzing_typeshed:
+            class_ent.typeshed_class = True
+            class_ent.typeshed_module_dummy_path = self.current_db.module_dummy_path
 
         bases = []
         bases_storables = []
@@ -223,17 +241,29 @@ class Analyzer:
             signature.append_posonlyargs(parameter_ent)
 
             bases_storables.append(store_ables)
+
             for base_ent, ent_type in avalue:
                 if isinstance(ent_type, ConstructorType):
-                    class_ent.add_ref(Ref(RefKind.InheritKind, ent_type.class_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False, base_expr))
+                    class_ent.add_ref(Ref(RefKind.InheritKind, ent_type.class_ent, base_expr.lineno,
+                                          base_expr.col_offset, False, base_expr))
                     class_ent.add_ref(Ref(RefKind.ChildOfKind, ent_type.class_ent, -1, -1, False, None))
                     for child in ent_type.class_ent.children:
                         if child != class_ent:
                             child.add_ref(Ref(RefKind.ChildOfKind, class_ent, -1, -1, False, None))
+
+                    # TODO: add ParameteredClass alias_map to this class
+                    if ent_type.class_ent.longname.longname == "typing.Generic":
+                        for para in ent_type.paras:
+                            assert isinstance(para, InstanceType)
+
+                            TypeVar_name = para.paras[0].paras[0].value
+                            generic_name = class_ent.location.append(TypeVar_name, _Nil_Span, None).to_longname().longname
+                            class_ent.alias_self_set.add(generic_name)
+                    else:
+                        class_ent.alias_set = class_ent.alias_self_set.union(ent_type.class_ent.alias_set)
                 else:
-                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, class_stmt.lineno,
-                                          class_stmt.col_offset, False, base_expr))
+                    class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, base_expr.lineno,
+                                          base_expr.col_offset, False, base_expr))
                     # todo: handle unknown class
 
         class_ent.signatures.append(signature)
@@ -251,7 +281,9 @@ class Analyzer:
         # todo: bugfix, the environment should be same as the environment of class
         class_ent.set_body_env(body_env)
         env.add_scope(body_env)
-        self.analyze_top_stmts(class_stmt.body, builder, env)
+        class_ent.env = env
+        if not class_ent.typeshed_class:
+            self.analyze_top_stmts(class_stmt.body, builder, env)
         env.pop_scope()
         # env.get_scope().add_hook(class_stmt.body, body_env)
         # we can't use this solution because after class definition, the stmts after class definition should be able to
@@ -373,6 +405,7 @@ class Analyzer:
         for module_alias in import_stmt.names:
             path_ent, bound_ent = self.manager.import_module(self.module, module_alias.name, import_stmt.lineno,
                                                              import_stmt.col_offset, True)
+            # typing.Ty
             bound_name = bound_ent.longname.name
             if module_alias.asname is None:
                 module_binding: Bindings = [(bound_name, [(path_ent, ModuleType(path_ent.names))])]
@@ -384,8 +417,10 @@ class Analyzer:
                 self.current_db.add_ent(alias_ent)
                 alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
                 env.get_scope().add_continuous(alias_binding)
-            env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, import_stmt.lineno,
-                                      import_stmt.col_offset, False, None))
+            module_alias_lineno = module_alias.lineno
+            module_alias_colno = module_alias.col_offset
+            env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, module_alias_lineno,
+                                      module_alias_colno, False, None))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:  # from A import B
         # todo: import from statement
@@ -431,8 +466,10 @@ class Analyzer:
                     self.current_db.add_ent(alias_ent)
                     alias_binding: Bindings = [(module_alias.asname, [(alias_ent, ModuleType(path_ent.names))])]
                     env.get_scope().add_continuous(alias_binding)
-                env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, import_stmt.lineno,
-                                          import_stmt.col_offset, False, None))
+                module_alias_lineno = module_alias.lineno
+                module_alias_colno = module_alias.col_offset
+                env.get_ctx().add_ref(Ref(RefKind.ImportKind, path_ent, module_alias_lineno,
+                                          module_alias_colno, False, None))
             return None
 
         module_identifier = import_stmt.module
@@ -564,11 +601,14 @@ def process_imports(import_stmt: ast.ImportFrom, env: EntEnv, analyzer: Analyzer
         # if not imported_ents and file_ent.is_stub():
         #     imported_ents = get_stub_file_level_ent(self.manager, file_ent, name)
         import_binding: Binding
+        alias_span = get_syntactic_head(alias)
         for e in imported_ents:
             current_ctx.add_ref(
-                Ref(RefKind.ImportKind, e, import_stmt.lineno, import_stmt.col_offset, False, None))
+                Ref(RefKind.ImportKind, e, alias_span.start_line, alias_span.start_col, False, None))
         if as_name is not None:
-            location = env.get_scope().get_location().append(as_name, Span.get_nil(), None)
+            alias_span.offset(len(name))
+            alias_span.head_offset(DefaultAsHeadLen)
+            location = env.get_scope().get_location().append(as_name, alias_span, None)
             alias_ent = Alias(location.to_longname(), location, imported_ents)
             analyzer.current_db.add_ent(alias_ent)
             import_binding = as_name, [(alias_ent, alias_ent.direct_type())]
@@ -588,10 +628,22 @@ def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: 
             # if typing_ent.longname.longname == "AnyStrTests.test_type_parameters.f":
             #     print("123")
             # typing_ent.signature.return_type = abstract_value[0][1]
-            typing_ent.signatures[-1].set_return_type(abstract_value[0][1])
+            signature = typing_ent.signatures[-1]
+            signature.set_return_type(abstract_value[0][1])
+            if typing_ent.property:
+                return_type = resolve_typeshed_return(typing_ent.callable_signature.return_type, typing_ent.get_scope_env(), typing_ent,
+                                                      signature)
+                env.get_scope().reset_binding_value(typing_ent.longname.name, return_type)
+                typing_ent.type = return_type
         elif isinstance(typing_ent, Parameter):
             if isinstance(abstract_value[0], tuple):
-                typing_ent.set_type(abstract_value[0][1])
+                annotation_type = abstract_value[0][1]
+                typing_ent.set_type(annotation_type)
+
+                # TODO: add formal type to Parameter, generic name
+                # get rid of Union, Option
+                typing_ent.formal_type = annotation_type
+                process_alias_map(typing_ent, annotation_type, None, typing_ent.typing_signature)
             else:
                 log.error(f"process_annotation wrong: {abstract_value}")
 
@@ -603,6 +655,8 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     para_constructor = LambdaParameter if isinstance(scope.get_ctx(), LambdaFunction) else Parameter
     default_avaler = ExprAnalyzer(manager, package_db, current_db, None, UseContext(),
                                   env.get_scope().get_builder(), env)
+
+    # TODO: should we add body scope to resolve parameters
 
     assert isinstance(ctx_fun, Function)
     signature = Signature(ident=ctx_fun.longname.name, is_func=True, func_ent=ctx_fun)
@@ -628,10 +682,11 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
             summary.parameter_list.append(a.arg)
             ctx_fun.add_ref(Ref(RefKind.DefineKind, parameter_ent, a.lineno, a.col_offset, a.annotation is not None, None))
             parameter_ent.add_ref(Ref(RefKind.ChildOfKind, ctx_fun, -1, -1, False, None))
+            parameter_ent.parent_func_ent = ctx_fun
         else:
             # override
             ...
-
+        parameter_ent.typing_signature = signature
         process_annotation(parameter_ent, manager, package_db, current_db, a.annotation, env)
         if has_default:
             parameter_ent.has_default = True
@@ -669,6 +724,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
             if first_arg == "self" or first_arg == "cls":
                 if class_ctx is not None:
                     typ = InstanceType(class_ctx)
+                    signature.alias_seen = signature.alias_seen.union(class_ctx.alias_self_set)
                     process_helper(arg, typ, args_binding, "posonlyargs", has_default=True)
                     continue
 
@@ -701,3 +757,34 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     ctx_fun.append_signature(signature)
 
     scope.add_continuous(args_binding)
+
+skip_type = ["typing.Union", "typing.Optional", "typing.Tuple"]
+
+
+def process_alias_map(typing_ent: Parameter, annotation_type: ValueInfo, parent_ent: ty.Optional[Entity], signature: Signature):
+    if isinstance(annotation_type, (InstanceType, ConstructorType)):
+        annotation_type_name = annotation_type.class_ent.longname.longname
+    elif isinstance(annotation_type, UnknownVarType):
+        annotation_type_name = annotation_type.unknown_var_ent.longname.longname
+    else:  # Union, Option
+        return
+    if annotation_type_name == "typing.TypeVar":
+        parent_ent = parent_ent if parent_ent else typing_ent.parent_func_ent
+        generic_name = annotation_type.paras[0].paras[0].value
+        generic_location = parent_ent.location.append(generic_name, _Nil_Span, None)
+
+        alias_name = generic_location.to_longname().longname
+        typing_ent.alias_set.add(alias_name)
+        signature.alias_seen.add(alias_name)
+    elif annotation_type_name in skip_type:
+        for para in annotation_type.paras:
+            process_alias_map(typing_ent, para, parent_ent, signature)
+    else:
+        # append to
+        if isinstance(annotation_type, (InstanceType, ConstructorType)):
+            for para in annotation_type.paras:
+                process_alias_map(typing_ent, para, annotation_type.class_ent, signature)
+        elif isinstance(annotation_type, UnknownVarType):
+            for para in annotation_type.paras:
+                process_alias_map(typing_ent, para, annotation_type.unknown_var_ent, signature)
+

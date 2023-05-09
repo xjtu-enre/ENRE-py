@@ -49,15 +49,16 @@ class OverlaysTyping:
 
     def _handle_typing_List(self, value):
         builtins_list = self.builtins_env["list"].found_entities[0][1]
-        li = ListType(value.paras, builtins_list)
-
-        # print(f"Resolved {value} --> {li}")
+        li = ValueInfo.get_any()
+        if isinstance(builtins_list, ConstructorType):
+            li = ListType(value.paras, builtins_list.class_ent)
 
         return li
 
     def _handle_typing_Set(self, value):
         builtins_set = self.builtins_env["set"].found_entities[0][1]
-        se = SetType(set(value.paras), builtins_set)
+        assert isinstance(builtins_set, ConstructorType)
+        se = SetType(set(value.paras), builtins_set.class_ent)
 
         # print(f"Resolved {value} --> {se}")
 
@@ -65,7 +66,8 @@ class OverlaysTyping:
 
     def _handle_typing_Tuple(self, value):
         builtins_tuple = self.builtins_env["tuple"].found_entities[0][1]
-        tu = TupleType(builtins_tuple)
+        assert isinstance(builtins_tuple, ConstructorType)
+        tu = TupleType(builtins_tuple.class_ent)
         tu.add(value.paras)
 
         # print(f"Resolved {value} --> {tu}")
@@ -73,8 +75,8 @@ class OverlaysTyping:
         return tu
 
     def _handle_typing_Dict(self, value):
-        builtins_dict = self.builtins_env["dict"].found_entities[0][1]
-        dic = DictType(builtins_dict)
+        builtins_dict_ent = self.builtins_env["dict"].found_entities[0][0]
+        dic = DictType(builtins_dict_ent)
         # length of value.paras must be 2
         if len(value.paras) != 2:
             # print("_handle_typing_Dict wrong, length of typing.Dict[paras] must be 2")
@@ -87,11 +89,11 @@ class OverlaysTyping:
         return dic
 
     def _handle_typing_TypedDict(self, value):
-        builtins_dict = self.builtins_env["dict"].found_entities[0][1]
+        builtins_dict_ent = self.builtins_env["dict"].found_entities[0][0]
         """td1 = TypedDict('td1', {'x': int, 'y': int, 'label': str})
         we only resolve this cases right now
         """
-        dic = DictType(builtins_dict)
+        dic = DictType(builtins_dict_ent)
         # length of value.paras must be 2
         if len(value.paras) == 0:  # inherit TypedDict
             # print(f"Resolved {value} --> {dic}")

@@ -43,8 +43,8 @@ class InstanceType(ValueInfo):
         self.class_ent = class_ent
         super().__init__()
 
-    def lookup_attr(self, attr: str) -> List["Entity"]:
-        return self.class_ent.get_attribute(attr)
+    def lookup_attr(self, attr: str, manager) -> List["Entity"]:
+        return self.class_ent.get_attribute(attr, manager)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return UnionType.union(self, rhs)
@@ -125,8 +125,8 @@ class ConstructorType(ValueInfo):
         self.class_ent = class_ent
         super().__init__()
 
-    def lookup_attr(self, attr: str) -> List["Entity"]:
-        return self.class_ent.get_attribute(attr)
+    def lookup_attr(self, attr: str, manager) -> List["Entity"]:
+        return self.class_ent.get_attribute(attr, manager)
 
     def to_class_type(self) -> InstanceType:
         return InstanceType(self.class_ent)
@@ -184,14 +184,13 @@ class PackageType(ValueInfo):
         return "Package"
 
 
-class DictType(ValueInfo):
-    def __init__(self, dict_type: "ValueInfo"):
+class DictType(InstanceType):
+    def __init__(self, dict_class_ent: "Class"):
         self.key: "ValueInfo" = ValueInfo.get_any()
         self.value: "ValueInfo" = ValueInfo.get_any()
-        self.dict_type: "ValueInfo" = dict_type
         self.dict_dict = dict()
         self.str_ing = False
-        super().__init__()
+        super().__init__(dict_class_ent)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return UnionType.union(self, rhs)
@@ -199,9 +198,6 @@ class DictType(ValueInfo):
     def add(self, key: "ValueInfo", value: "ValueInfo"):
         self.key = UnionType.union(self.key, key)
         self.value = UnionType.union(self.value, value)
-
-    def get_dict_type(self):
-        return self.dict_type
 
     def __str__(self):
         if self.str_ing:
@@ -218,12 +214,11 @@ class DictType(ValueInfo):
         return temp
 
 
-class ListType(ValueInfo):
-    def __init__(self, positional: List[ValueInfo], list_type: "ValueInfo"):
-        self.list_type: "ValueInfo" = list_type
+class ListType(InstanceType):
+    def __init__(self, positional: List[ValueInfo], list_class_ent: "Class"):
         self.positional: List[ValueInfo] = positional
         self.str_ing = False
-        super().__init__()
+        super().__init__(list_class_ent)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return UnionType.union(self, rhs)
@@ -267,12 +262,11 @@ class ListType(ValueInfo):
         return temp
 
 
-class SetType(ValueInfo):
-    def __init__(self, set_set: Set["ValueInfo"], set_type: "ValueInfo"):
-        self.set_type = set_type
+class SetType(InstanceType):
+    def __init__(self, set_set: Set["ValueInfo"], set_class_ent: "Class"):
         self.set_set = set_set
         self.str_ing = False
-        super().__init__()
+        super().__init__(set_class_ent)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         if isinstance(rhs, SetType):
@@ -380,12 +374,11 @@ class UnionType(ValueInfo):
         return temp
 
 
-class TupleType(ValueInfo):
-    def __init__(self, tuple_type: "ValueInfo"):
+class TupleType(InstanceType):
+    def __init__(self, tuple_class_ent: "Class"):
         self.positional: List[ValueInfo] = []
-        self.tuple_type: "ValueInfo" = tuple_type
         self.str_ing = False
-        super().__init__()
+        super().__init__(tuple_class_ent)
 
     def join(self, rhs: "ValueInfo") -> "ValueInfo":
         return UnionType.union(self, rhs)
@@ -413,6 +406,18 @@ class TupleType(ValueInfo):
         temp = temp + "]"
         self.str_ing = False
         return temp
+
+
+class ConstantType(ValueInfo):
+    def __init__(self, value: bool | int | str):
+        self.value = value
+        super().__init__()
+
+    def join(self, rhs: "ValueInfo") -> "ValueInfo":
+        pass
+
+    def __str__(self):
+        return str(self.value)
 
 
 class AnyType(ValueInfo):

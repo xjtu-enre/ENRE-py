@@ -4,7 +4,7 @@ import typing as ty
 from pathlib import Path
 
 from enre.analysis.value_info import ValueInfo, UnknownVarType
-from enre.util.common import path_dic, builtins_path
+from enre.util.common import path_dic, builtins_path, typing_path, typeshed_ctx
 
 if ty.TYPE_CHECKING:
     from enre.analysis.env import Bindings
@@ -15,17 +15,13 @@ from enre.ent.EntKind import RefKind
 from enre.ent.entity import Module, UnknownModule, Package, Entity, get_anonymous_ent, Class, Function, Location, \
     _Nil_Span, ClassAttribute, UnknownVar, Signature, Parameter, Variable
 from enre.ref.Ref import Ref
-import enre.typeshed_client as typeshed_client
-from enre.typeshed_client.typeshed.frozen_path import app_path
+
+from enre.pyi.parser import get_stub_names
+from enre.pyi.finder import get_stub_file
 
 from enre.overlays.overlays import OverlaysDispatcher
 
 from enre.util.logger import Logging
-
-typeshed_path = Path(app_path("\stdlib"))
-typeshed_ctx = typeshed_client.get_search_context(typeshed=typeshed_path)
-builtins_stub_names = typeshed_client.get_stub_names("builtins", search_context=typeshed_ctx)
-builtins_stub_file = typeshed_client.get_stub_file("builtins", search_context=typeshed_ctx)
 
 log = Logging().getLogger(__name__)
 
@@ -51,20 +47,22 @@ class ModuleStack:
 
 
 class ModuleDB:
-    def __init__(self, project_root: Path, module_ent: Module, env: EntEnv = None, get_stub=None, stub_file=None):
+    def __init__(self, project_root: Path, module_ent: Module):
         from enre.dep.DepDB import DepDB
         self.project_root = project_root
         self.module_path = module_ent.module_path
+
         self.module_ent = module_ent
         self.dep_db = DepDB()
         self.dep_db.add_ent(self.module_ent)
         self.ent_id_set: ty.Set[int] = set()
         self._tree = self.parse_a_module(self.module_path)
         self.analyzed_set: ty.Set[ast.AST] = set()
-        self.env = env
-        self._get_stub = get_stub
-        self._stub_file = stub_file
+        self.env = None
         self.top_scope = None
+        self.typeshed_stub_file = None
+        self.typeshed_stub_names = None
+        self.module_dummy_path = None
 
     def add_ent(self, ent: "Entity") -> None:
         if ent.id not in self.ent_id_set:
@@ -170,7 +168,6 @@ class AnalyzeManager:
         self.analyzing_typing_builtins = False
         self.overlays_dispatcher = OverlaysDispatcher(self)
 
-
         # --------------- typeshed builtins setup --------------
         # builtins_module = Module(builtins_stub_file, hard_longname=["builtins"])
         # builtins_module_summary = self.create_file_summary(builtins_module)
@@ -214,7 +211,7 @@ class AnalyzeManager:
         self.setup_typing_and_builtins()
 
         self.iter_dir(self.project_root)
-        self.invoke_uncalled_func(self.func_uncalled_set)
+        self.invoke_uncalled_func()
         # self.save_root_db_pickle()
 
         EntityPass(self.root_db)
@@ -228,10 +225,18 @@ class AnalyzeManager:
         self.setup_pytd_module("typing")
         self.setup_pytd_module("builtins")
         self.setup_typing_with_builtins()
+
+        typing_path = path_dic["typing"][0]
+        builtins_path = path_dic["builtins"][0]
+        typing_module_db = self.root_db.tree[typing_path]
+        tns = typing_module_db.dep_db.get_UnknownVar_ent()
+        tms = typing_module_db.get_module_level_bindings()
+        builtins_module_db = self.root_db.tree[builtins_path]
+        bns = builtins_module_db.dep_db.get_UnknownVar_ent()
+        bms = builtins_module_db.get_module_level_bindings()
         self.analyzing_typing_builtins = False
 
     def setup_pytd_module(self, pytd_module_name):
-
         dummy_path = path_dic[pytd_module_name][0]
         pytd_path = path_dic[pytd_module_name][1]
         pytd_module = Module(pytd_path, hard_longname=[pytd_module_name])
@@ -241,9 +246,8 @@ class AnalyzeManager:
         self.root_db.tree[dummy_path] = pytd_module_db
         self.strict_analyze_module(pytd_module_db.module_ent)
 
-        dep_db = pytd_module_db.dep_db
         # rebuild ref, resolve module inner UnknownVar cases
-        resolve_UnknownVar_and_rebuild_ref(dep_db, dep_db)
+        resolve_UnknownVar_and_rebuild_ref(pytd_module_db, pytd_module_db)
 
     def setup_typing_with_builtins(self):
         typing_path = path_dic["typing"][0]
@@ -251,7 +255,7 @@ class AnalyzeManager:
         typing_module_db = self.root_db.tree[typing_path]
         builtins_module_db = self.root_db.tree[builtins_path]
 
-        resolve_UnknownVar_and_rebuild_ref(typing_module_db.dep_db, builtins_module_db.dep_db)
+        resolve_UnknownVar_and_rebuild_ref(typing_module_db, builtins_module_db)
 
     def iter_dir(self, path: Path) -> None:
         from .analyze_stmt import Analyzer
@@ -275,20 +279,25 @@ class AnalyzeManager:
 
                 top_scope = ScopeEnv(module_ent, module_ent.location, SummaryBuilder(module_summary))
                 self.root_db[rel_path].top_scope = top_scope
-                self.add_builtins_binding_to_scope(top_scope)
+                self.add_builtins_bindings_to_scope(top_scope)
 
                 checker.analyze_top_stmts(checker.current_db.tree.body, builder,
                                           EntEnv(top_scope))
                 self.module_stack.pop()
 
-    def add_builtins_binding_to_scope(self, scope: ScopeEnv) -> None:
+    def add_builtins_bindings_to_scope(self, scope: ScopeEnv) -> None:
         builtins_module_db = self.root_db[builtins_path]
         bindings: Bindings = builtins_module_db.get_module_level_bindings()
         scope.add_continuous(bindings)
 
+    def add_typing_bindings_to_scope(self, scope: ScopeEnv) -> None:
+        typing_module_db = self.root_db[typing_path]
+        bindings: Bindings = typing_module_db.get_module_level_bindings()
+        scope.add_continuous(bindings)
+
     def save_root_db_pickle(self):
         import pickle
-        os.chdir(r"C:\Users\yoghurts\Desktop\Research\ENRE\Codes\ENRE-py\feat-invoke\ENRE-py")
+        os.chdir(r"C:\Users\yoghurts\Desktop\Research\ENRE\Codes\ENRE-py\feat-typeshed\ENRE-py")
         with open('root_db_pickle.dat', 'wb+') as f:
             pickle.dump(self.root_db, f)
 
@@ -296,21 +305,22 @@ class AnalyzeManager:
             cache_root_db = pickle.load(f)
 
             assert isinstance(cache_root_db, RootDB)
-            rel_path = Path(r"Exp07_test10_Typename\lib.py")
-            target_name = "foo"
-            ret = []
-            module_ent = cache_root_db[rel_path].module_ent
-            for ref in module_ent.refs():
-                if ref.ref_kind == RefKind.DefineKind:
-                    if ref.target_ent.longname.name == target_name:
-                        ret.append(ref.target_ent)
+            # rel_path = Path(r"Exp07_test10_Typename\lib.py")
+            # target_name = "foo"
+            # ret = []
+            # module_ent = cache_root_db[rel_path].module_ent
+            # for ref in module_ent.refs():
+            #     if ref.ref_kind == RefKind.DefineKind:
+            #         if ref.target_ent.longname.name == target_name:
+            #             ret.append(ref.target_ent)
+            #
+            # print(ret)
 
-            print(ret)
-
-    def invoke_uncalled_func(self, func_uncalled_set):
+    def invoke_uncalled_func(self):
         from enre.analysis.analyze_expr import InvokeContext
         from enre.analysis.analyze_expr import invoke
-        for callee in func_uncalled_set.copy():
+        while self.func_uncalled_set:
+            callee = self.func_uncalled_set.pop()
             possible_callees = [(callee, callee.type)]
             args = []
 
@@ -356,16 +366,27 @@ class AnalyzeManager:
             """Unknown Module Issue:
             """
             unknown_module_name = module_name
-            try_get_stub = typeshed_client.get_stub_names(unknown_module_name, search_context=typeshed_ctx)
-            if try_get_stub:
+            stub_names = get_stub_names(unknown_module_name, search_context=typeshed_ctx)
+            if stub_names:
                 stub_module_name = unknown_module_name
-                stub_file_path = typeshed_client.get_stub_file(unknown_module_name, search_context=typeshed_ctx)
+                stub_file_path = get_stub_file(unknown_module_name, search_context=typeshed_ctx)
                 stub_module = Module(stub_file_path, hard_longname=[stub_module_name], is_stub=True)
+                stub_module.typeshed_module = True
                 stub_module_summary = self.create_file_summary(stub_module)
-                stub_env = EntEnv(
-                    ScopeEnv(ctx_ent=stub_module, location=Location(stub_file_path, _Nil_Span, [stub_module_name]),
-                             builder=SummaryBuilder(stub_module_summary)))
-                stub_module_db = ModuleDB(stub_file_path, stub_module, stub_env, try_get_stub, stub_file_path)
+                top_scope = ScopeEnv(ctx_ent=stub_module,
+                                     location=Location(stub_file_path, _Nil_Span, [stub_module_name]),
+                                     builder=SummaryBuilder(stub_module_summary))
+                # default adding builtins and typing to it
+                self.add_builtins_bindings_to_scope(top_scope)
+                self.add_typing_bindings_to_scope(top_scope)
+                stub_env = EntEnv(top_scope)
+                stub_module_db = ModuleDB(stub_file_path, stub_module)
+                stub_module_db.env = stub_env
+                stub_module_db.typeshed_stub_file = stub_file_path
+                stub_module_db.top_scope = top_scope
+                stub_module_db.typeshed_stub_names = stub_names
+                stub_module_db.module_dummy_path = Path(module_name + '.py')
+
                 stub_path = Path(stub_module_name + '.py')
                 self.root_db.tree[stub_path] = stub_module_db
                 self.module_stack.finished_module_set.add(stub_path)
@@ -379,12 +400,14 @@ class AnalyzeManager:
                 return cached_unknown_module, cached_unknown_module
 
             stub_module_summary = self.create_file_summary(unknown_module_ent)
-            stub_env = EntEnv(
-                ScopeEnv(ctx_ent=unknown_module_ent,
-                         location=Location(unknown_module_path,
-                                           _Nil_Span, [unknown_module_name]),
-                         builder=SummaryBuilder(stub_module_summary)))
-            stub_module_db = ModuleDB(unknown_module_path, unknown_module_ent, stub_env)
+            top_scope = ScopeEnv(ctx_ent=unknown_module_ent,
+                                 location=Location(unknown_module_path,
+                                                   _Nil_Span, [unknown_module_name]),
+                                 builder=SummaryBuilder(stub_module_summary))
+            unknown_module_env = EntEnv(top_scope)
+            stub_module_db = ModuleDB(unknown_module_path, unknown_module_ent)
+            stub_module_db.top_scope = top_scope
+            stub_module_db.env = unknown_module_env
 
             self.root_db.tree[unknown_module_path] = stub_module_db
             self.module_stack.finished_module_set.add(unknown_module_path)
@@ -476,10 +499,12 @@ def resolve_import(from_module: Module, rel_path: Path, project_root: Path) -> t
 from enre.dep.DepDB import DepDB
 
 
-def resolve_UnknownVar_and_rebuild_ref(dep_db_target: DepDB, dep_db_source: DepDB):
+def resolve_UnknownVar_and_rebuild_ref(target_db: ModuleDB, source_db: ModuleDB):
     # 1. resolve module inner UnknownVar cases
     # 2. rebuild ref
     # 3. rebuild bindings
+    dep_db_target = target_db.dep_db
+    dep_db_source = source_db.dep_db
     unknownvar_ents = dep_db_target.get_UnknownVar_ent()
     define_ents = dep_db_source.get_Define_ent()
 
@@ -490,7 +515,13 @@ def resolve_UnknownVar_and_rebuild_ref(dep_db_target: DepDB, dep_db_source: DepD
             rebuild_ref(dep_db_target, unknownvar_ent, define_ent)
             rebuild_type(dep_db_target, unknownvar_ent, define_ent)
             dep_db_target.remove(unknownvar_ent)
-            # TODO: remove all Unknown Var bindings
+            # reset all Unknown Var bindings
+            target_db.env.get_scope().reset_binding_value(unknownvar_name, define_ent.direct_type(), new_ent=define_ent)
+            # lookup_res = target_db.env[unknownvar_name]
+            # if lookup_res.must_found:
+            #     print(f"Resolve to {lookup_res.found_entities[0][0]}({type(lookup_res.found_entities[0][0])})  {lookup_res.found_entities[0][1]}({type(lookup_res.found_entities[0][1])})")
+        # else:
+        #     print(f"UnResolve name {unknownvar_name}")
 
 
 def rebuild_ref(dep_db_target, unknownvar_ent, define_ent):
@@ -505,7 +536,6 @@ def rebuild_ref(dep_db_target, unknownvar_ent, define_ent):
 
 
 def rebuild_type(dep_db_target, unknownvar_ent: UnknownVar, define_ent: Entity):
-
     for ent in dep_db_target.ents:
         if isinstance(ent, Class):
             if ent.bases:
@@ -540,10 +570,3 @@ def resolve_unknown_var_type(ent_type, unknown_var_type: UnknownVarType, define_
 
     return_type.paras = resolved_paras
     return return_type
-
-
-
-
-
-
-
