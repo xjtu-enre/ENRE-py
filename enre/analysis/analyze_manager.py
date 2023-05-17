@@ -339,6 +339,7 @@ class AnalyzeManager:
                 parameters["args"] = args
                 parameters["kwargs"] = kwargs
                 invoke_ctx = InvokeContext(possible_callees, parameters, self, callee.current_db, None)
+                # invoke_ctx.manager.func_invoking_set.add(callee)
                 invoke(invoke_ctx)
                 # print(f"-------ends-from------{callee.longname.longname}-------------")
 

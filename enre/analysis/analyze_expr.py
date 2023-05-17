@@ -976,6 +976,10 @@ def invoke_invoke(invoke_ctx: InvokeContext, func_type: MethodType | FunctionTyp
     else:
         signature = callee.callable_signature
     if not signature:
+        if callee in invoke_ctx.manager.func_invoking_set:
+            invoke_ctx.manager.func_invoking_set.remove(callee)
+        if callee in invoke_ctx.manager.func_uncalled_dic:
+            invoke_ctx.manager.func_uncalled_dic.pop(callee)
         return ValueInfo.get_any()
 
     args_type = bind_parameter(body_env, callee, invoke_ctx, func_type, signature)
