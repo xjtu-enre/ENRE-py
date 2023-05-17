@@ -38,7 +38,7 @@ class SubEnv(ABC):
         self.depth = depth
 
     def join(self, sub_env: "SubEnv") -> "ParallelSubEnv":
-        return ParallelSubEnv(self, sub_env)
+        ...
 
     @abstractmethod
     def __getitem__(self, name: str) -> SubEnvLookupResult:
@@ -59,6 +59,7 @@ class BasicSubEnv(SubEnv):
         if pairs is None:
             pairs = []
         self._bindings_list = [pairs]
+        self.TYPE_CHECKING = False
 
     def __getitem__(self, name: str) -> SubEnvLookupResult:
         for bindings in reversed(self._bindings_list):
@@ -93,6 +94,9 @@ class BasicSubEnv(SubEnv):
                     if [(n, binds)] in self._bindings_list:
                         # print(f"delete{(n, binds)}")
                         self._bindings_list.remove([(n, binds)])
+        for bindings in reversed(self._bindings_list):
+            if len(bindings) == 0:
+                self._bindings_list.remove(bindings)
         return old_binding
 
     def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
@@ -101,70 +105,6 @@ class BasicSubEnv(SubEnv):
 
     def get_bindings_list(self):
         return self._bindings_list
-
-
-class ParallelSubEnv(SubEnv):
-    def __init__(self, b1: SubEnv, b2: SubEnv) -> None:
-        super().__init__(max(b1.depth, b2.depth) + 1)
-        self._branch1_sub_env = b1
-        self._branch2_sub_env = b2
-
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        look_up_res1 = self._branch1_sub_env[name]
-        look_up_res2 = self._branch2_sub_env[name]
-        is_must_found = look_up_res1.must_found or look_up_res2.must_found
-        found_entities = look_up_res1.found_entities + look_up_res2.found_entities
-        return SubEnvLookupResult(found_entities, is_must_found)
-
-    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
-        look_up_res1 = self._branch1_sub_env[name]
-        if look_up_res1.must_found:
-            return self._branch1_sub_env.reset_bindings(name, value, new_ent)
-        look_up_res2 = self._branch2_sub_env[name]
-        if look_up_res2.must_found:
-            return self._branch2_sub_env.reset_bindings(name, value, new_ent)
-        return None
-
-    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
-        new_sub_env = BasicSubEnv(pairs)
-        return ContinuousSubEnv(self, new_sub_env)
-
-
-class ContinuousSubEnv(SubEnv):
-    def __init__(self, forward: SubEnv, backward: SubEnv) -> None:
-        """
-        Find identifier in backward environment. If we can't find the name, then find it in forward environment
-        """
-        super().__init__(1 + max(forward.depth, backward.depth))
-        self._forward = forward
-        self._backward = backward
-        self.calling = False
-
-    def __getitem__(self, name: str) -> SubEnvLookupResult:
-        if self.calling:
-            return SubEnvLookupResult.get_dummy_res()
-        self.calling = True
-        backward_lookup_res = self._backward[name]
-
-        if backward_lookup_res.must_found:
-            self.calling = False
-            return backward_lookup_res
-        else:
-            forward_lookup_res = self._forward[name]
-            found_entities = backward_lookup_res.found_entities + forward_lookup_res.found_entities
-            self.calling = False
-            return SubEnvLookupResult(found_entities, forward_lookup_res.must_found)
-
-    def reset_bindings(self, name: str, value: ValueInfo, new_ent: Entity = None):
-        backward_lookup_res = self._backward[name]
-        if backward_lookup_res.must_found:
-            return self._backward.reset_bindings(name, value, new_ent)
-        else:
-            return self._forward.reset_bindings(name, value, new_ent)
-
-    def create_continuous_bindings(self, pairs: "Bindings") -> "SubEnv":
-        self._backward = self._backward.create_continuous_bindings(pairs)
-        return self
 
 
 class Hook:
@@ -202,6 +142,9 @@ class ScopeEnv:
     def pop_sub_env(self) -> SubEnv:
         return self._sub_envs.pop()
 
+    def get_sub_env(self) -> SubEnv:
+        return self._sub_envs[-1]
+
     def __len__(self) -> int:
         return len(self._sub_envs)
 
@@ -224,6 +167,7 @@ class ScopeEnv:
 
     def reset_binding_value(self, name: str, value: ValueInfo, new_ent: Entity = None) -> Optional["Bindings"]:
         ori_bindings: "Bindings"
+        # print(f"---------------env ctx name: {self.get_ctx().longname.longname}-----------------------------")
         for sub_env in reversed(self._sub_envs):
             lookup_result = sub_env[name]
             if lookup_result.must_found:  # reset binding value
@@ -234,6 +178,9 @@ class ScopeEnv:
 
     def add_continuous(self, pairs: "Bindings") -> None:
         before = len(self)
+        if len(self._sub_envs) == 0:
+            print("len(self._sub_envs) == 0")
+            return
         top_sub_env = self.pop_sub_env()
         non_duplicate = []
         for p in pairs:
@@ -252,8 +199,17 @@ class ScopeEnv:
                 non_duplicate.append(p)
         bottom_sub_env.create_continuous_bindings(non_duplicate)
 
+    def get_scope_env(self):
+        env: ScopeEnv = None
+        for sub_env in self._sub_envs:
+            if not env:
+                env = ScopeEnv(self._ctx_ent, self._location, self._builder, self._class_ctx)
+            else:
+                env.add_sub_env(sub_env)
+        return env
 
-# ScopeEnvLookupResult: TypeAlias = List[Tuple[Entity, ValueInfo, Scop-eEnv]]
+# ScopeEnvLookupResult: TypeAlias = List[Tuple[Entity, ValueInfo, ScopeEnv]]
+
 
 class EntEnv:
 

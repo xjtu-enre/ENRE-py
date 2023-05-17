@@ -40,6 +40,9 @@ class BuildVisibility:
                     # todo: 目前对于内部类的继承通过_refs分析，完成之后注释掉这个for，取消注释下面for循环的第一个if
                     for ref in ent._refs:
                         if ref.ref_kind == RefKind.InheritKind:
+                            if not ref.target_ent:
+                                print(ref)
+                                continue
                             if ref.target_ent.longname.name == 'ABC':
                                 abstract_info.inherit = "ABC"
                                 flag = True

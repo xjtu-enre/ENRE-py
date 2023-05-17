@@ -12,6 +12,8 @@ class Union(object):  # _SpecialForm
 class nothing:  # dummy
     ...
 
+class abstractmethod:  # dummy abc.abstractmethod
+    ...
 
 AnyStr = TypeVar('AnyStr', str, bytes)
 

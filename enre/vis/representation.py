@@ -5,11 +5,9 @@ from typing import List, TypedDict, Any, TypeAlias, Dict
 
 from enre.analysis.analyze_manager import RootDB
 from enre.analysis.analyze_method import FunctionKind
-from enre.analysis.value_info import ValueInfo
 from enre.ent.EntKind import EntKind
 from enre.ent.entity import Entity, Class, Function
 
-from queue import PriorityQueue
 
 EdgeTy = TypedDict("EdgeTy", {"src": int,
                               "src_name": str,
@@ -38,6 +36,7 @@ class Modifiers(Enum):
 @dataclass
 class Node:
     id: int
+    hash_id: str
     longname: str
     ent_kind: str
     file_path: str
@@ -54,9 +53,11 @@ class Node:
 
 @dataclass
 class Edge:
-    src: int
+    src_id: int
+    src: str
     src_name: str
-    dest: int
+    dest_id: int
+    dest: str
     dest_name: str
     kind: str
     lineno: int
@@ -70,13 +71,11 @@ JsonDict: TypeAlias = Dict[str, Any]
 
 class DepRepr:
     def __init__(self) -> None:
-        # self._node_list: List[Node] = []
-        self._node_list = PriorityQueue()
+        self._node_list: List[Node] = []
         self._edge_list: List[Edge] = []
 
     def add_node(self, n: Node) -> None:
-        # self._node_list.append(n)
-        self._node_list.put((n.id, n))
+        self._node_list.append(n)
 
     def add_edge(self, e: Edge) -> None:
         self._edge_list.append(e)
@@ -84,9 +83,6 @@ class DepRepr:
     def to_json(self) -> DepTy:
         ret: DepTy = {"Entities": [], "Dependencies": []}
         for n in self._node_list:
-        # i = 0
-        # while i < self._node_list.qsize():
-        #     n = self._node_list.get()[1]
             ret["Entities"].append({"id": n.id, "longname": n.longname, "ent_kind": n.ent_kind,
                                     "ent_type": n.ent_type,
                                     "file_path": n.file_path,
@@ -106,22 +102,24 @@ class DepRepr:
     @classmethod
     def write_ent_repr(cls, ent: Entity, dep_repr: "DepRepr") -> None:
         helper_ent_types = [EntKind.Anonymous]  # , EntKind.ReferencedAttr
-        helper_ent_names = ["builtins", "typing"]
-        flag = ent.longname._scope[0] not in helper_ent_names
-        if ent.kind() not in helper_ent_types and flag:
+
+        if ent.kind() not in helper_ent_types and ent.show_in_json:
             modifiers = cls.get_modifiers(ent)
-            dep_repr.add_node(Node(ent.id, ent.longname.longname, ent.kind().value,
+            dep_repr.add_node(Node(ent.id, ent.hashid, ent.longname.longname, ent.kind().value,
                                    str(ent.location.file_path).replace("\\", "/"),
                                    ent.location.code_span.start_line,
                                    ent.location.code_span.end_line, ent.location.code_span.start_col,
                                    ent.location.code_span.end_col, modifiers,
                                    cls.get_types(ent), cls.get_return_types(ent), cls.get_signatures(ent), ent.exported))
+            if not ent.show_ref:
+                return
             for ref in ent.refs():
                 if ref.target_ent.kind() not in helper_ent_types:
                     resolved_targets = [t.id for t in ref.resolved_targets]
-                    dep_repr._edge_list.append(Edge(src=ent.id,
+                    dep_repr._edge_list.append(Edge(src_id=ent.id, src=ent.hashid,
                                                     src_name=ent.longname.longname,
-                                                    dest=ref.target_ent.id,
+                                                    dest_id=ref.target_ent.id,
+                                                    dest=ref.target_ent.hashid,
                                                     dest_name=ref.target_ent.longname.longname,
                                                     kind=ref.ref_kind.value,
                                                     lineno=ref.lineno,
@@ -131,11 +129,8 @@ class DepRepr:
 
     def to_json_1(self) -> JsonDict:
         ret: JsonDict = {"variables": [], "cells": []}
-        i = 0
-        while i < self._node_list.qsize():
-            n = self._node_list.get()[1]
-        # for n in self._node_list:
-            variable = {"id": n.id, "qualifiedName": n.longname, "category": n.ent_kind}
+        for n in self._node_list:
+            variable = {"id": n.hash_id, "qualifiedName": n.longname, "category": n.ent_kind}  # n.id, "hash_id":
             if need_location(n):
                 variable["location"] = {"startLine": n.start_line, "endLine": n.end_line,
                                         "startColumn": n.start_col, "endColumn": n.end_col}
@@ -154,7 +149,10 @@ class DepRepr:
             location = {"startLine": e.lineno, "startCol": e.col_offset}
             if e.resolved_targets:
                 values["resolved"] = e.resolved_targets
-            ret["cells"].append({"src": e.src,
+            ret["cells"].append({
+                                 # "src_id": e.src_id,
+                                 "src": e.src,
+                                 # "dest_id": e.dest_id,
                                  "dest": e.dest,
                                  "values": values,
                                  "location": location})

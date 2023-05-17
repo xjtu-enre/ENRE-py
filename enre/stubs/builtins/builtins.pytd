@@ -21,6 +21,9 @@ _V = TypeVar('_V')
 _K2 = TypeVar('_K2')
 _V2 = TypeVar('_V2')
 
+class __name__:
+    ...
+
 class _Summable(Protocol):
   def __add__(self, __y: _T) -> _T: ...
 _SummableT = TypeVar('_SummableT', bound=_Summable)
@@ -188,6 +191,9 @@ def zip(seq1, seq2, seq3, *seqs: Iterable, strict: bool = ...) -> Iterator[tuple
 NotImplemented: _NotImplementedType
 Ellipsis: ellipsis
 
+class dummy_property:
+    ...
+
 class object():
     __slots__ = []  # if used as base class
     __bases__: Tuple[Any, ...]
@@ -197,6 +203,7 @@ class object():
     __name__: str
     __subclasses__: Any
     __subclasshook__: Any
+
     # InterpreterClass will contain this, too:
     __module__: str
     def __init__(self) -> NoneType: ...
@@ -223,6 +230,8 @@ class object():
     def __new__extra_args(cls: Type[_T], *args, **kwargs) -> _T: ...
     @classmethod
     def __init_subclass__(cls) -> None: ...
+    @dummy_property
+    def __class__(self: _T) -> _T: ...
 
 
 # old style class. classobj is in fact a subclass of object in Python.

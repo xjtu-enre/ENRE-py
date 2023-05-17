@@ -95,3 +95,16 @@ class BaseTest(unittest.TestCase):
             if src == src_id and dest == dest_id:
                 kind = c["values"]["kind"]
                 self.assertEqual(kind, dep_kind, "Dependency not match")
+
+    def assert_type(self, src_qname, typ):
+        content = self.temp_json
+        variables = content['variables']
+        src_id = None
+        for v in variables:
+            if v["qualifiedName"] == src_qname:
+                src_id = v["id"]
+                src_typ = v["type"]
+                self.assertEqual(src_typ, typ, "Type not match")
+        self.assertTrue(src_id, "Can't find src_id")
+
+

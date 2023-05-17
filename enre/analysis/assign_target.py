@@ -75,11 +75,11 @@ def build_target(tar_expr: ast.expr) -> Target:
     return PatternBuilder().visit(tar_expr)
 
 
-def dummy_unpack(_: AbstractValue) -> MemberDistiller:
-    def wrapper(_: int) -> AbstractValue:
+def dummy_unpack(r_value, index):
+    if index >= len(r_value):
         return [(get_anonymous_ent(), ValueInfo.get_any())]
 
-    return wrapper
+    return [(get_anonymous_ent(), r_value[index])]
 
 
 def dummy_iter(_: AbstractValue) -> AbstractValue:
@@ -148,6 +148,7 @@ def newly_define_semantic(newly_created: NewlyCreated,
 
             ctx.env.get_ctx().add_ref(Ref(RefKind.DefineKind, new_var, target_lineno, target_col_offset, False, None))
             ctx.env.get_ctx().add_ref(Ref(RefKind.SetKind, new_var, target_lineno, target_col_offset, False, None))
+            new_var.add_ref(Ref(RefKind.ChildOfKind, ctx_ent, -1, -1, False, None))
 
             ctx.env.get_scope()
 
@@ -213,10 +214,17 @@ def abstract_assign(lvalue: SetContextValue, rvalue: AbstractValue, assigned_exp
                     ctx: "AnalyzeContext") -> (StoreAbles, List[AbstractValue]):
     new_bindings: "Bindings" = []
     ents: "AbstractValue" = []
+    if len(lvalue) != 1:
+        print("abstract_assign len(lvalue) != 1")
+
+    # default len(lvalue) == 1
+    target = lvalue[0]
+    union_type = ValueInfo.get_any()
     for _, value_type in rvalue:
-        for target in lvalue:
-            ent = assign_semantic(target, value_type, new_bindings, ctx)
-            ents.append((ent, ent.direct_type()))
+        union_type = union_type.join(value_type)
+    ent = assign_semantic(target, union_type, new_bindings, ctx)
+    ents.append((ent, ent.direct_type()))
+
     new_bindings = flatten_bindings(new_bindings)
     lhs_store_ables = []
     for n, target_ents in new_bindings:

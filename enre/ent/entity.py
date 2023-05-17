@@ -1,5 +1,6 @@
 import ast
 import typing
+import hashlib
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import dataclass
@@ -22,7 +23,10 @@ _EntityID = 0
 class EntLongname:
     @property
     def longname(self) -> str:
-        return '.'.join(self._scope)
+        try:
+            return '.'.join(self._scope)
+        except TypeError as e:
+            print(e)
 
     @property
     def name(self) -> str:
@@ -35,16 +39,16 @@ class EntLongname:
     def __init__(self, scope: List[str]):
         self._scope = scope
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, EntLongname) and len(other._scope) == len(self._scope):
-            for lhs, rhs in zip(self._scope, other._scope):
-                if lhs != rhs:
-                    return False
-            return True
-        return False
-
-    def __hash__(self) -> int:
-        return hash(self.longname)
+    # def __eq__(self, other: object) -> bool:
+    #     if isinstance(other, EntLongname) and len(other._scope) == len(self._scope):
+    #         for lhs, rhs in zip(self._scope, other._scope):
+    #             if lhs != rhs:
+    #                 return False
+    #         return True
+    #     return False
+    #
+    # def __hash__(self) -> int:
+    #     return hash(self.longname)
 
     def __str__(self):
         return self.longname
@@ -72,8 +76,8 @@ class Span:
         self.start_col = self.end_col
         self.end_col += offset
 
-    def __hash__(self) -> int:
-        return hash((self.start_line, self.end_line, self.start_col, self.end_col))
+    # def __hash__(self) -> int:
+    #     return hash((self.start_line, self.end_line, self.start_col, self.end_col))
 
 
 def get_syntactic_span(tree: ast.AST) -> Span:
@@ -115,16 +119,16 @@ class Location:
         self._span = code_span
         self._file_path = file_path
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Location) and len(other._scope) == len(self._scope):
-            for lhs, rhs in zip(self._scope, other._scope):
-                if lhs != rhs:
-                    return False
-            return True
-        return False
-
-    def __hash__(self) -> int:
-        return hash((".".join(self._scope), self._file_path, self._span))
+    # def __eq__(self, other: object) -> bool:
+    #     if isinstance(other, Location) and len(other._scope) == len(self._scope):
+    #         for lhs, rhs in zip(self._scope, other._scope):
+    #             if lhs != rhs:
+    #                 return False
+    #         return True
+    #     return False
+    #
+    # def __hash__(self) -> int:
+    #     return hash((".".join(self._scope), self._file_path, self._span))
 
     def __str__(self):
         return self._file_path.__str__() + " " + self._span.__str__()
@@ -162,6 +166,10 @@ class Entity(ABC):
         self.exported = False
         self.type: "ValueInfo" = ValueInfo.get_any()
         self.children = set()
+        self.hashid = hashlib.md5(longname.longname.encode('utf-8')).hexdigest()
+        self.show_in_json = True
+        self.show_ref = True
+        # self.type_stack = list()
 
     def refs(self) -> List["Ref"]:
         return self._refs
@@ -187,16 +195,16 @@ class Entity(ABC):
     def __str__(self):
         return self.longname.longname
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, self.__class__):
-            return other.longname == self.longname and other.location == self.location
-        return False
+    # def __eq__(self, other: object) -> bool:
+    #     if isinstance(other, self.__class__):
+    #         return other.longname == self.longname and other.location == self.location
+    #     return False
+    #
+    # def __hash__(self) -> int:
+    #     return hash((self.longname, self.location))
 
     def direct_type(self) -> "ValueInfo":
         return self.type
-
-    def __hash__(self) -> int:
-        return hash((self.longname, self.location))
 
     def add_type(self, target: "ValueInfo") -> None:
         self.type = UnionType.union(self.type, target)
@@ -261,6 +269,7 @@ class Signature:
     return_type: Optional["ValueInfo"]
     is_func: bool  # function is true, class is false
     is_overload: bool
+    is_lambda: bool
     has_stararg: bool
     has_starstararg: bool
 
@@ -280,6 +289,7 @@ class Signature:
         self.starstararg = None
         self.return_type = ValueInfo.get_any()
         self.is_func = is_func
+        self.is_lambda = False
         self.is_overload = False
         self.func_ent = func_ent
         self.has_stararg = False
@@ -328,7 +338,10 @@ class Signature:
 
     def __str__(self):
         res = "def " if self.is_func else "class "
-        res += self.identifier
+        if self.is_lambda:
+            res += "lambda"
+        else:
+            res += self.identifier
         if self.posonlyargs or self.kwonlyargs or self.is_func:
             res += "("
         for index, arg in enumerate(self.posonlyargs):
@@ -420,6 +433,9 @@ class Function(Entity):
     def get_scope_env(self):
         return self._scope_env
 
+    def set_scope_env(self, scope_env):
+        self._scope_env = scope_env
+
     def set_body(self, body):
         self._body = body
 
@@ -435,13 +451,13 @@ class Function(Entity):
     def direct_type(self) -> "ValueInfo":
         return self.type
 
-    def set_mapping(self, from_type: "ListType", to_type: "UnionType" = ValueInfo.get_any()):
+    def set_mapping(self, from_type: str, to_type: "UnionType" = ValueInfo.get_any()):
         self._arrows[from_type] = to_type
 
-    def get_mapping(self, from_type: "ListType"):
+    def get_mapping(self, from_type: str):
         return self._arrows.get(from_type)
 
-    def has_mapping(self, from_type: "ListType"):
+    def has_mapping(self, from_type: str):
         return from_type in self._arrows
 
     def append_signature(self, signature: Signature):
@@ -453,7 +469,7 @@ class LambdaFunction(Function):
         super(LambdaFunction, self).__init__(longname, location)
 
     def kind(self) -> EntKind:
-        return EntKind.AnonymousFunction
+        return EntKind.LambdaFunction
 
 
 class Package(Entity, NameSpaceEntity):

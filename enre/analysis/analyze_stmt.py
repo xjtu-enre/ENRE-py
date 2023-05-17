@@ -8,20 +8,22 @@ from enre.analysis.analyze_expr import ExprAnalyzer, InstanceType, ConstructorTy
 from enre.analysis.analyze_manager import AnalyzeManager, RootDB, ModuleDB
 from enre.analysis.analyze_method import MethodVisitor
 from enre.analysis.assign_target import dummy_iter_store
-from enre.analysis.env import EntEnv, ScopeEnv, ContinuousSubEnv, BasicSubEnv
+from enre.analysis.env import EntEnv, ScopeEnv, BasicSubEnv
 from enre.analysis.value_info import ValueInfo, FunctionType, AnyType, MethodType, UnknownVarType
 from enre.cfg.module_tree import SummaryBuilder, ModuleSummary, FunctionSummary
 from enre.ent.EntKind import RefKind
 from enre.ent.ent_finder import get_file_level_ent
 from enre.ent.entity import Function, Module, Location, Parameter, Class, ModuleAlias, \
     Entity, Alias, LambdaFunction, LambdaParameter, Span, get_syntactic_span, \
-    Package, PackageAlias, get_syntactic_head, Anonymous, Signature, _Nil_Span
+    Package, PackageAlias, get_syntactic_head, Anonymous, Signature, _Nil_Span, Variable, get_anonymous_ent
 from enre.ref.Ref import Ref
+
 
 from enre.util.logger import Logging
 
 if ty.TYPE_CHECKING:
     from enre.analysis.env import Binding, Bindings
+    from enre.pyi.parser import ImportedName
 
 DefaultAsHeadLen = 4
 DefaultSelfHeadLen = 4
@@ -53,6 +55,7 @@ class Analyzer:
         self.current_db: "ModuleDB" = manager.root_db[rel_path]
         self.all_summary: ty.List[ModuleSummary] = []
         self.analyzing_typeshed = False
+        self.object_ent = None
 
     def analyze(self, stmt: ast.AST, env: EntEnv) -> None:
         """Visit a node."""
@@ -100,7 +103,7 @@ class Analyzer:
             new_scope = now_scope.append(name, fun_code_span, None)
             func_ent = Function(new_scope.to_longname(), new_scope)
 
-            # if func_ent.longname.longname == "typing.Mapping.get":
+            # if func_ent.longname.longname == 'ENRE-py.enre.analysis.analyze_manager.ModuleDB.parse_a_module':
             #     print("here")
 
             if self.manager.analyzing_typing_builtins:
@@ -112,7 +115,8 @@ class Analyzer:
             # add function entity to dependency database
             self.current_db.add_ent(func_ent)
             if not self.analyzing_typeshed and not self.manager.analyzing_typing_builtins:
-                self.manager.func_uncalled_set.add(func_ent)
+                # self.manager.func_uncalled_set.add(func_ent)
+                self.manager.func_uncalled_dic[func_ent] = True
             else:
                 func_ent.typeshed_func = True
             # add reference of current contest to the function entity
@@ -148,8 +152,8 @@ class Analyzer:
                 process_override(func_name, func_ent, current_ctx, span)
 
             # add parameters to the scope environment
-            hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
-            hook_scope.add_hook(body, body_env)
+            # hook_scope = env.get_scope(1) if in_class_env else env.get_scope()
+            # hook_scope.add_hook(body, body_env)
             func_ent.set_body_env(env.get_env(), body_env, self.current_db.module_path)
         else:  # overload to function
             current_ctx.add_ref(Ref(RefKind.OverloadKind, func_ent, span.start_line, span.start_col, False, None))
@@ -171,8 +175,11 @@ class Analyzer:
                 if decorator_ent.longname.longname == "typing.overload":
                     # we shouldn't call this overload signature
                     func_ent.signatures[-1].is_overload = True
-                elif decorator_ent.longname.longname == "builtins.property":
+                elif decorator_ent.longname.longname == "builtins.property" \
+                        or decorator_ent.longname.longname == "builtins.dummy_property":
                     func_ent.property = True  # call it directly
+                elif decorator_ent.longname.longname == "builtins.staticmethod":
+                    func_ent.set_direct_type(FunctionType(func_ent))
 
 
         # set callable signatures
@@ -212,11 +219,14 @@ class Analyzer:
         class_code_span.offset(DefaultClassHeadLen)
         new_scope = now_location.append(class_stmt.name, class_code_span, None)
         class_ent = Class(new_scope.to_longname(), new_scope)
+
+        # if class_ent.longname.longname == "ast.Tuple":
+        #     print("dict")
+
         class_name = class_stmt.name
         self.current_db.add_ent(class_ent)
         exported = False if isinstance(env.get_ctx(), Function) else env.get_ctx().exported
         class_ent.exported = exported
-
 
         env.get_ctx().add_ref(Ref(RefKind.DefineKind, class_ent, class_code_span.start_line, class_code_span.start_col, False, None))
         class_ent.add_ref(Ref(RefKind.ChildOfKind, env.get_ctx(), -1, -1, False, None))
@@ -228,6 +238,12 @@ class Analyzer:
         bases_storables = []
         bases_index = 0
         signature = Signature(class_name, is_func=False)
+
+        # default inherits from object
+        if not self.manager.analyzing_typing_builtins:
+            # print("")
+            class_ent.add_ref(Ref(RefKind.InheritKind, self.manager.object_ent, -1, -1, False, None))
+
         for base_expr in class_stmt.bases:
             store_ables, avalue = avaler.aval(base_expr)
             name = f"({bases_index})"
@@ -254,13 +270,14 @@ class Analyzer:
                     # TODO: add ParameteredClass alias_map to this class
                     if ent_type.class_ent.longname.longname == "typing.Generic":
                         for para in ent_type.paras:
-                            assert isinstance(para, InstanceType)
-
+                            if not isinstance(para, InstanceType):
+                                continue
                             TypeVar_name = para.paras[0].paras[0].value
                             generic_name = class_ent.location.append(TypeVar_name, _Nil_Span, None).to_longname().longname
                             class_ent.alias_self_set.add(generic_name)
+                            class_ent.alias_set = class_ent.alias_set.union(class_ent.alias_self_set)
                     else:
-                        class_ent.alias_set = class_ent.alias_self_set.union(ent_type.class_ent.alias_set)
+                        class_ent.alias_set = class_ent.alias_set.union(ent_type.class_ent.alias_set)
                 else:
                     class_ent.add_ref(Ref(RefKind.InheritKind, base_ent, base_expr.lineno,
                                           base_expr.col_offset, False, base_expr))
@@ -290,36 +307,48 @@ class Analyzer:
         # know the class's attribute
 
     def analyze_If(self, if_stmt: ast.If, env: EntEnv) -> None:
-        in_len = len(env.get_scope())
+
         avaler = self.get_default_avaler(env)
+        _, test_value = avaler.aval(if_stmt.test)
 
-        avaler.aval(if_stmt.test)
-        before = len(env.get_scope())
+        # if not self.manager.analyzing_typing_builtins:
+        #     print("123")
 
-        env.add_sub_env(BasicSubEnv())
+        sub_env = env.get_scope().get_sub_env()
+
+        # if typing.TYPE_CHECKING
+        if test_value and test_value[0]:
+            test_value = test_value[0][0]
+            # print(test_value, type(test_value))
+            if isinstance(test_value, Variable) and test_value.longname.longname == "typing.TYPE_CHECKING":
+                sub_env.TYPE_CHECKING = True
+                for stmt in if_stmt.body:
+                    self.current_db.late_annotation_stmts.add(stmt)
+                # return
+
+        # env.add_sub_env(basic_sub_env)
         self.analyze_stmts(if_stmt.body, env)
-        body_env = env.pop_sub_env()
+        # body_env = env.pop_sub_env()
+        sub_env.TYPE_CHECKING = False
 
-        after = len(env.get_scope())
-        assert before == after
         # for stmt in if_stmt.orelse:
         #     env.add_sub_env(BasicSubEnv())
         #     self.analyze(stmt, env)
         #     branch_env = env.pop_sub_env()
         #     body_env = ParallelSubEnv(body_env, branch_env)
         for stmt in if_stmt.orelse:
-            env.add_sub_env(body_env)
+            # env.add_sub_env(body_env)
             self.analyze(stmt, env)
-            body_env = env.pop_sub_env()
-        forward_env = env.pop_sub_env()
-        env.add_sub_env(ContinuousSubEnv(forward_env, body_env))
-        out_len = len(env.get_scope())
-        # print(f"in length: {in_len} out length: {out_len}")
-        assert (in_len == out_len)
+            # body_env = env.pop_sub_env()
+        # if isinstance(sub_env, ContinuousSubEnv):
+        #     forward_env = env.pop_sub_env()
+        #     env.add_sub_env(ContinuousSubEnv(forward_env, body_env))
+
 
     def analyze_For(self, for_stmt: ast.For, env: EntEnv) -> None:
         from enre.analysis.assign_target import unpack_semantic, dummy_iter
-        iterable_store, iterable = self.get_default_avaler(env).aval(for_stmt.iter)
+        use_avaler = self.get_default_avaler(env)
+        iterable_store, iterable = use_avaler.aval(for_stmt.iter)
         iter_value = dummy_iter(iterable)
         iter_store = dummy_iter_store(iterable_store, env.get_scope().get_builder(), for_stmt.iter)
         target_expr = for_stmt.target
@@ -331,19 +360,9 @@ class Analyzer:
                         AnalyzeContext(env, self.manager, self.package_db, self.current_db,
                                        (target_lineno, target_col_offset), True))
 
-        # self._avaler.aval(for_stmt.target, env)
-        # self._avaler.aval(for_stmt.iter, env)
-        # todo: verify it's two re evaluation
-        env.add_sub_env(BasicSubEnv())
         self.analyze_stmts(for_stmt.body, env)
-        sub_env = env.pop_sub_env()
-        # optional_sub_env = OptionalSubEnv(sub_env)
-        # continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), optional_sub_env)
-        continuous_sub_env = ContinuousSubEnv(env.pop_sub_env(), sub_env)
-        env.add_sub_env(continuous_sub_env)
-        # todo: loop the for statement until stabilized
 
-        # todo: For.orelse need to visit
+        self.analyze_stmts(for_stmt.orelse, env)
 
     def analyze_Assign(self, assign_stmt: ast.Assign, env: EntEnv) -> None:
         target_exprs: ty.List[ast.expr] = assign_stmt.targets
@@ -386,6 +405,16 @@ class Analyzer:
             lhs_ents.update(sub_lhs_ents)
 
         if annotation is not None:
+            if not self.manager.analyzing_typing_builtins:
+                if isinstance(annotation, ast.Name):
+                    name = annotation.id
+                    if name in self.current_db.late_annotation_set:
+                        # print(name)
+                        return
+                elif isinstance(annotation, ast.Constant):
+                    name = annotation.value
+                    if name in self.current_db.late_annotation_set:
+                        return
             annotation_avaler = ExprAnalyzer(self.manager, self.package_db, self.current_db, lhs_ents,
                                              UseContext(), env.get_scope().get_builder(), env)
             annotation_store_ables, annotation_values = annotation_avaler.aval(annotation)
@@ -396,6 +425,11 @@ class Analyzer:
                     # print(lhs_ent.get_type_list())
 
     def analyze_Import(self, import_stmt: ast.Import, env: EntEnv) -> None:  # import xxx
+        sub_env = env.get_scope().get_sub_env()
+        if isinstance(sub_env, BasicSubEnv) and sub_env.TYPE_CHECKING:
+            self.current_db.late_annotation_stmts.add(import_stmt)
+            return
+
         def create_proper_alias(file_ent: ty.Union[Module, Package], location: Location) -> Entity:
             if isinstance(file_ent, Module):
                 return ModuleAlias(file_ent, location)
@@ -423,6 +457,19 @@ class Analyzer:
                                       module_alias_colno, False, None))
 
     def analyze_ImportFrom(self, import_stmt: ast.ImportFrom, env: EntEnv) -> None:  # from A import B
+        # late annotation
+        sub_env = env.get_scope().get_sub_env()
+        if isinstance(sub_env, BasicSubEnv) and sub_env.TYPE_CHECKING:
+            self.current_db.late_annotation_stmts.add(import_stmt)
+            for alias in import_stmt.names:
+                name = alias.name
+                as_name = alias.asname
+                if as_name:
+                    self.current_db.late_annotation_set.add(as_name)
+                else:
+                    self.current_db.late_annotation_set.add(name)
+            return
+
         # todo: import from statement
         if import_stmt.level == 1:
             def create_proper_alias(file_ent: ty.Union[Module, Package], location: Location) -> Entity:
@@ -499,12 +546,9 @@ class Analyzer:
 
     def analyze_Try(self, try_stmt: ast.Try, env: EntEnv) -> None:
         from enre.analysis.error_handler import handler_except_alias
-        env.add_sub_env(BasicSubEnv())
         self.analyze_stmts(try_stmt.body, env)
-        try_body_env = env.pop_sub_env()
 
         for handler in try_stmt.handlers:
-            env.add_sub_env(try_body_env)
             err_constructor = handler.type
 
             if err_constructor is not None:
@@ -515,18 +559,10 @@ class Analyzer:
                                                     (target_lineno, target_col_offset), False))
 
             self.analyze_stmts(handler.body, env)
-            env.pop_sub_env()
 
-        env.add_sub_env(try_body_env)
         self.analyze_stmts(try_stmt.orelse, env)
-        env.pop_sub_env()
 
-        env.add_sub_env(try_body_env)
         self.analyze_stmts(try_stmt.finalbody, env)
-        env.pop_sub_env()
-
-        forward_env = env.pop_sub_env()
-        env.add_sub_env(ContinuousSubEnv(forward_env, try_body_env))
 
     def analyze_Raise(self, raise_expr: ast.Raise, env: EntEnv) -> None:
         use_avaler = self.get_default_avaler(env)
@@ -562,6 +598,43 @@ class Analyzer:
                     func.calling_stack[-1].set_return_type(ValueInfo.get_any())
                     func.callable_signature.set_return_type(ValueInfo.get_any())
 
+    def analyze_ImportedName(self, imported_name_stmt: "ImportedName", env: EntEnv) -> None:
+        # It's a dummy class to typeshed import
+        if not imported_name_stmt.name:
+            return
+        cls = ast.ClassDef()
+        cls.name = imported_name_stmt.name
+
+        cls.lineno, cls.col_offset, cls.end_col_offset, cls.end_lineno = -1, -7, -1, -1  # -7 is to offset dummy class length
+        cls.bases = []
+        cls.body = []
+        cls.decorator_list = []
+        self.analyze_ClassDef(cls, env)
+
+    def analyze_Match(self, match_stmt: ast.Match, env: EntEnv) -> None:
+        use_avaler = self.get_default_avaler(env)
+        use_avaler.aval(match_stmt.subject)
+        for case in match_stmt.cases:  # match_case
+            # case.guard
+            # case.pattern
+            # case.body
+            case_pattern = case.pattern
+            if isinstance(case_pattern, ast.MatchAs) and case_pattern.name:
+                dummy_name_expr = self.get_dummy_ast_Name_Expr(case_pattern.name, case_pattern)
+                target_exprs = [dummy_name_expr]
+                pattern_pattern = case_pattern.pattern
+                rvalue_expr = None
+                if pattern_pattern:
+                    if isinstance(pattern_pattern, ast.MatchClass):
+                        rvalue_expr = pattern_pattern.cls
+                    elif isinstance(pattern_pattern, ast.MatchValue):
+                        rvalue_expr = pattern_pattern.value
+                    self.process_assign_helper(rvalue_expr, target_exprs, env, None)
+            elif isinstance(case_pattern, ast.MatchValue):
+                use_avaler.aval(case_pattern.value)
+
+            self.analyze_stmts(case.body, env)
+
     def analyze_stmts(self, stmts: ty.List[ast.stmt], env: EntEnv) -> None:
         for stmt in stmts:
             self.analyze(stmt, env)
@@ -572,6 +645,12 @@ class Analyzer:
     def get_default_avaler(self, env: EntEnv) -> ExprAnalyzer:
         return ExprAnalyzer(self.manager, self.package_db, self.current_db, None, UseContext(),
                             env.get_scope().get_builder(), env)
+
+    def get_dummy_ast_Name(self, name):
+        return ast.Name(lineno=-1, col_offset=-1, end_lineno=-1, end_col_offset=-1, id=name, ctx=ast.Load())
+
+    def get_dummy_ast_Name_Expr(self, name, expr: ast.AST):
+        return ast.Name(lineno=expr.lineno, col_offset=expr.col_offset, end_lineno=expr.end_lineno, end_col_offset=expr.col_offset, id=name, ctx=ast.Load())
 
 
 def process_override(func_name, func_ent, current_ctx, span):
@@ -619,22 +698,40 @@ def process_imports(import_stmt: ast.ImportFrom, env: EntEnv, analyzer: Analyzer
 
 
 def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: RootDB, current_db: ModuleDB,
-                       annotation: ty.Optional[ast.expr], env: EntEnv) -> None:
+                       annotation: ty.Optional[ast.expr], env: EntEnv):
     if annotation is not None:
+        # late_annotation
+
+        if not manager.analyzing_typing_builtins:
+            if isinstance(annotation, ast.Name):
+                name = annotation.id
+
+                if name in current_db.late_annotation_set:
+                    # print(name)
+                    return [], [(get_anonymous_ent(), ValueInfo.get_any())]
+            elif isinstance(annotation, ast.Constant):
+                name = annotation.value
+                return [], [(get_anonymous_ent(), ValueInfo.get_any())]
         avaler = ExprAnalyzer(manager, package_db, current_db, [typing_ent],
                               UseContext(), env.get_scope().get_builder(), env)
         store_ables, abstract_value = avaler.aval(annotation)
+        # if abstract_value and abstract_value[0]:
+        #     typing_value = abstract_value[0][1]
+        #     if isinstance(typing_value, (ConstructorType, InstanceType)):
+        #         # late annotation
+        #         if typing_value.class_ent.longname.longname == "builtins.str":
+        #             abstract_value = [(get_anonymous_ent(), ValueInfo.get_any())]
         if isinstance(typing_ent, Function):
             # if typing_ent.longname.longname == "AnyStrTests.test_type_parameters.f":
             #     print("123")
             # typing_ent.signature.return_type = abstract_value[0][1]
             signature = typing_ent.signatures[-1]
             signature.set_return_type(abstract_value[0][1])
-            if typing_ent.property:
-                return_type = resolve_typeshed_return(typing_ent.callable_signature.return_type, typing_ent.get_scope_env(), typing_ent,
-                                                      signature)
-                env.get_scope().reset_binding_value(typing_ent.longname.name, return_type)
-                typing_ent.type = return_type
+            # if typing_ent.property:
+            #     return_type = resolve_typeshed_return(typing_ent.callable_signature.return_type, typing_ent.get_scope_env(), typing_ent,
+            #                                           signature)
+            #     env.get_scope().reset_binding_value(typing_ent.longname.name, return_type)
+            #     typing_ent.type = return_type
         elif isinstance(typing_ent, Parameter):
             if isinstance(abstract_value[0], tuple):
                 annotation_type = abstract_value[0][1]
@@ -646,6 +743,8 @@ def process_annotation(typing_ent: Entity, manager: AnalyzeManager, package_db: 
                 process_alias_map(typing_ent, annotation_type, None, typing_ent.typing_signature)
             else:
                 log.error(f"process_annotation wrong: {abstract_value}")
+
+        return store_ables, abstract_value
 
 
 def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manager: AnalyzeManager, package_db: RootDB,
@@ -659,7 +758,10 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
     # TODO: should we add body scope to resolve parameters
 
     assert isinstance(ctx_fun, Function)
+
     signature = Signature(ident=ctx_fun.longname.name, is_func=True, func_ent=ctx_fun)
+    if isinstance(scope.get_ctx(), LambdaFunction):
+        signature.is_lambda = True
 
     def process_helper(a: ast.arg, ent_type: ValueInfo, bindings: "Bindings", arg_kind: str, has_default: bool) -> None:
         para_code_span = get_syntactic_span(a)
@@ -724,7 +826,7 @@ def process_parameters(args: ast.arguments, scope: ScopeEnv, env: EntEnv, manage
             if first_arg == "self" or first_arg == "cls":
                 if class_ctx is not None:
                     typ = InstanceType(class_ctx)
-                    signature.alias_seen = signature.alias_seen.union(class_ctx.alias_self_set)
+                    signature.alias_seen = signature.alias_seen.union(class_ctx.alias_set)
                     process_helper(arg, typ, args_binding, "posonlyargs", has_default=True)
                     continue
 

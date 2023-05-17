@@ -38,6 +38,7 @@ def get_stub_or_unknown_file_level_ent(manager, m: Entity, name: str) -> List[En
     if not ret:  # typing.TYPE_CHECKING
         location = m.location.append(name, _Nil_Span, None)
         referenced_attr = ReferencedAttribute(location.to_longname(), location)
+        # print(referenced_attr.longname.longname)
         module_db.add_ent(referenced_attr)
         m.add_ref(Ref(RefKind.DefineKind, referenced_attr, -1, -1, False, None))
         bindings = [(name, [(referenced_attr, referenced_attr.direct_type())])]

@@ -8,6 +8,7 @@ class DepDB:
     def __init__(self) -> None:
         self.ents: ty.List[Entity] = []
         self.referenced_attrs = dict()
+        self.unknown_vars = dict()
 
     def add_ent(self, ent: Entity) -> None:
         self.ents.append(ent)

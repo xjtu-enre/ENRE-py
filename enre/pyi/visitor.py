@@ -27,6 +27,7 @@ class NameInfoVisitor:
         analyzer.analyzing_typeshed = True
         analyzer.current_db.set_env(env)
         if ent_name in stub_names:
+
             name_info = stub_names[ent_name]
             assert isinstance(name_info, NameInfo)
             ast_trees = []
@@ -35,6 +36,7 @@ class NameInfoVisitor:
             else:
                 ast_trees.append(name_info.ast)
             for ast_tree in ast_trees:
+                # print(ent_name, ast_tree)
                 analyzer.analyze(ast_tree, env)
             lookup_res: SubEnvLookupResult = env[ent_name]
             if lookup_res.must_found:

@@ -33,7 +33,7 @@ def main() -> None:
             "analyzed files": len(manager.root_db.tree),
             "analysing time": end - start})
         print(time_in_json)
-        # print(f"analysing time: {end - start}s")
+        print(f"analysing time: {end - start}s")
 
 
 def enre_wrapper(root_path: Path, compatible_format: bool, need_cfg: bool) -> AnalyzeManager:
